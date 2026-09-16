@@ -1,0 +1,404 @@
+Project TripMate_v1 {
+  database_type: 'PostgreSQL'
+  Note: 'ERD v1 2026-09-13. SQL is authoritative for CHECK, partial indexes, defaults and deferrability. See TRIPMATE_ERD_V1.md for service invariants.'
+}
+
+Table app_users {
+  Note: 'Tài khoản, hồ sơ, mã QR công khai và avatar hiện tại.'
+  id uuid [pk, not null]
+  email varchar(254) [not null, unique]
+  password_hash text [not null]
+  display_name varchar(100) [not null]
+  friend_code varchar(32) [not null, unique]
+  avatar_media_id uuid
+  status varchar(16) [not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table user_devices {
+  Note: 'Một lần cài đặt Android; binding_version thay đổi khi đổi tài khoản hoặc token.'
+  id uuid [pk, not null]
+  installation_id uuid [not null, unique]
+  user_id uuid
+  binding_version bigint [not null]
+  fcm_token text [unique]
+  push_enabled boolean [not null]
+  last_seen_at timestamptz [not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table refresh_tokens {
+  Note: 'Hash refresh token, rotation, family và thu hồi phiên.'
+  id uuid [pk, not null]
+  user_id uuid [not null]
+  device_id uuid [not null]
+  family_id uuid [not null]
+  parent_token_id uuid [unique]
+  token_hash char(64) [not null, unique]
+  expires_at timestamptz [not null]
+  consumed_at timestamptz
+  revoked_at timestamptz
+  created_at timestamptz [not null]
+}
+
+Table interests {
+  Note: 'Danh mục sở thích của ứng dụng.'
+  code varchar(32) [pk, not null]
+  label varchar(80) [not null]
+}
+
+Table user_interests {
+  Note: 'Quan hệ nhiều-nhiều giữa tài khoản và sở thích.'
+  user_id uuid [not null]
+  interest_code varchar(32) [not null]
+  indexes {
+    (user_id, interest_code) [pk]
+  }
+}
+
+Table friend_requests {
+  Note: 'Lịch sử lời mời kết bạn. Partial unique index chống hai lời mời PENDING hai chiều.'
+  id uuid [pk, not null]
+  sender_id uuid [not null]
+  recipient_id uuid [not null]
+  status varchar(16) [not null]
+  created_at timestamptz [not null]
+  resolved_at timestamptz
+}
+
+Table friendships {
+  Note: 'Cặp bạn bè hiện tại: user_low_id < user_high_id.'
+  user_low_id uuid [not null]
+  user_high_id uuid [not null]
+  created_at timestamptz [not null]
+  indexes {
+    (user_low_id, user_high_id) [pk]
+  }
+}
+
+Table cities {
+  Note: 'Danh mục điểm đến do ứng dụng quản lý; v1 chỉ Việt Nam.'
+  code varchar(32) [pk, not null]
+  name varchar(100) [not null]
+  country_code char(2) [not null]
+  timezone varchar(64) [not null]
+  enabled boolean [not null]
+}
+
+Table trips {
+  Note: 'Một thành phố, 1–5 ngày, ngân sách dự kiến toàn nhóm; owner_id là nguồn xác định owner.'
+  id uuid [pk, not null]
+  owner_id uuid [not null]
+  city_code varchar(32) [not null]
+  title varchar(160) [not null]
+  description text
+  start_date date [not null]
+  end_date date [not null]
+  budget_vnd bigint
+  version bigint [not null]
+  last_chat_seq bigint [not null]
+  deleted_at timestamptz
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table trip_members {
+  Note: 'Membership giữ lại khi LEFT/REMOVED. Tối đa 10 ACTIVE, gồm owner, qua transaction.'
+  trip_id uuid [not null]
+  user_id uuid [not null]
+  status varchar(16) [not null]
+  membership_version bigint [not null]
+  chat_push_enabled boolean [not null]
+  itinerary_push_enabled boolean [not null]
+  joined_at timestamptz [not null]
+  ended_at timestamptz
+  updated_at timestamptz [not null]
+  indexes {
+    (trip_id, user_id) [pk]
+  }
+}
+
+Table trip_invitations {
+  Note: 'Owner mời người bạn cụ thể; không chiếm chỗ trước khi chấp nhận.'
+  id uuid [pk, not null]
+  trip_id uuid [not null]
+  inviter_id uuid [not null]
+  invitee_id uuid [not null]
+  status varchar(16) [not null]
+  expires_at timestamptz [not null]
+  resolved_at timestamptz
+  created_at timestamptz [not null]
+}
+
+Table trip_join_codes {
+  Note: 'Digest mã tham gia. Tối đa một mã chưa thu hồi mỗi trip; kiểm tra expires_at.'
+  id uuid [pk, not null]
+  trip_id uuid [not null]
+  code_digest char(64) [not null, unique]
+  expires_at timestamptz [not null]
+  revoked_at timestamptz
+  created_by uuid [not null]
+  created_at timestamptz [not null]
+}
+
+Table places {
+  Note: 'Chỉ lưu định danh Google Place lâu dài; không sao chép tên, ảnh, rating từ provider.'
+  id uuid [pk, not null]
+  provider varchar(16) [not null]
+  provider_place_id text [not null]
+  created_at timestamptz [not null]
+  indexes {
+    (provider, provider_place_id) [unique]
+  }
+}
+
+Table trip_saved_places {
+  Note: 'Danh sách địa điểm chung của một chuyến đi và ghi chú của thành viên.'
+  trip_id uuid [not null]
+  place_id uuid [not null]
+  added_by uuid [not null]
+  note text
+  created_at timestamptz [not null]
+  indexes {
+    (trip_id, place_id) [pk]
+  }
+}
+
+Table itineraries {
+  Note: 'Lịch hiện hành của chuyến, một version cho toàn lịch.'
+  trip_id uuid [pk, not null]
+  version bigint [not null]
+  updated_by uuid [not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table itinerary_days {
+  Note: 'Ngày tương đối 1–5; ngày thực = trips.start_date + day_number - 1.'
+  id uuid [pk, not null]
+  trip_id uuid [not null]
+  day_number smallint [not null]
+  transport_mode varchar(16) [not null]
+  note text
+  indexes {
+    (trip_id, day_number) [unique]
+  }
+}
+
+Table itinerary_items {
+  Note: 'Điểm ghé hoặc ghi chú, thứ tự và giờ địa phương. SQL có deferred unique position.'
+  id uuid [pk, not null]
+  day_id uuid [not null]
+  place_id uuid
+  kind varchar(16) [not null]
+  custom_title varchar(160)
+  position integer [not null]
+  start_time time [not null]
+  end_time time [not null]
+  note text
+  estimated_cost_vnd bigint
+  cost_source varchar(16) [not null]
+  origin varchar(16) [not null]
+  created_by uuid [not null]
+  updated_by uuid [not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  indexes {
+    (day_id, position) [unique]
+  }
+}
+
+Table ai_itinerary_drafts {
+  Note: 'Bản nháp AI cách ly; JSON có schema_version; kiểm tra hai version khi áp dụng.'
+  id uuid [pk, not null]
+  trip_id uuid [not null]
+  requested_by uuid [not null]
+  client_request_id uuid [not null]
+  base_itinerary_version bigint [not null]
+  base_trip_version bigint [not null]
+  status varchar(16) [not null]
+  preferences jsonb [not null]
+  candidate_place_ids jsonb [not null]
+  result jsonb
+  provider varchar(32) [not null]
+  model varchar(120) [not null]
+  error_code varchar(64)
+  expires_at timestamptz [not null]
+  applied_at timestamptz
+  applied_by uuid
+  applied_itinerary_version bigint
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  indexes {
+    (trip_id, requested_by, client_request_id) [unique]
+  }
+}
+
+Table media_assets {
+  Note: 'Metadata R2, scope, trạng thái, dự trữ dung lượng và tombstone khi xóa.'
+  id uuid [pk, not null]
+  uploader_id uuid [not null]
+  trip_id uuid
+  purpose varchar(16) [not null]
+  status varchar(16) [not null]
+  object_key text [not null, unique]
+  thumbnail_key text [unique]
+  original_filename varchar(255) [not null]
+  mime_type varchar(64) [not null]
+  size_bytes bigint [not null]
+  thumbnail_size_bytes bigint [not null]
+  reserved_bytes bigint [not null]
+  sha256 char(64)
+  width integer
+  height integer
+  attached_at timestamptz
+  orphan_expires_at timestamptz [not null]
+  deleted_at timestamptz
+  deleted_by uuid
+  purged_at timestamptz
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  indexes {
+    (id, uploader_id) [unique]
+    (id, trip_id, uploader_id) [unique]
+  }
+}
+
+Table chat_messages {
+  Note: 'Một phòng chat mỗi trip; seq có thứ tự commit, client_message_id chống retry trùng.'
+  id uuid [pk, not null]
+  trip_id uuid [not null]
+  sender_id uuid [not null]
+  seq bigint [not null]
+  client_message_id uuid [not null]
+  request_hash char(64) [not null]
+  kind varchar(16) [not null]
+  body text
+  media_id uuid [unique]
+  created_at timestamptz [not null]
+  indexes {
+    (trip_id, seq) [unique]
+    (trip_id, sender_id, client_message_id) [unique]
+  }
+}
+
+Table notifications {
+  Note: 'Inbox bền vững theo người nhận, độc lập với việc FCM thành công.'
+  id uuid [pk, not null]
+  event_key varchar(160) [not null]
+  recipient_id uuid [not null]
+  actor_id uuid [not null]
+  type varchar(32) [not null]
+  trip_id uuid
+  friend_request_id uuid
+  trip_invitation_id uuid
+  chat_message_id uuid
+  itinerary_version bigint
+  title varchar(160) [not null]
+  body varchar(300) [not null]
+  read_at timestamptz
+  created_at timestamptz [not null]
+  indexes {
+    (event_key, recipient_id) [unique]
+    (id, recipient_id) [unique]
+  }
+}
+
+Table outbox_events {
+  Note: 'Sự kiện commit cùng nghiệp vụ; lease, claim token, retry; payload chứa ID.'
+  id uuid [pk, not null]
+  dedup_key varchar(200) [not null, unique]
+  event_type varchar(48) [not null]
+  aggregate_id uuid [not null]
+  payload jsonb [not null]
+  status varchar(16) [not null]
+  attempts integer [not null]
+  available_at timestamptz [not null]
+  locked_by varchar(100)
+  claim_token uuid
+  locked_until timestamptz
+  last_error_code varchar(80)
+  completed_at timestamptz
+  created_at timestamptz [not null]
+}
+
+Table push_deliveries {
+  Note: 'Một lần giao cho notification + thiết bị + binding; retry theo thiết bị.'
+  id uuid [pk, not null]
+  notification_id uuid [not null]
+  recipient_id uuid [not null]
+  device_id uuid [not null]
+  device_binding_version bigint [not null]
+  trip_membership_version bigint
+  status varchar(16) [not null]
+  attempts integer [not null]
+  available_at timestamptz [not null]
+  locked_by varchar(100)
+  claim_token uuid
+  locked_until timestamptz
+  last_error_code varchar(80)
+  fcm_message_id text
+  sent_at timestamptz
+  created_at timestamptz [not null]
+  indexes {
+    (notification_id, device_id, device_binding_version) [unique]
+  }
+}
+
+Ref: media_assets.(id, uploader_id) - app_users.(avatar_media_id, id)
+Ref: user_devices.user_id > app_users.id
+Ref: refresh_tokens.user_id > app_users.id
+Ref: refresh_tokens.device_id > user_devices.id
+Ref: refresh_tokens.id - refresh_tokens.parent_token_id
+Ref: user_interests.user_id > app_users.id
+Ref: user_interests.interest_code > interests.code
+Ref: friend_requests.sender_id > app_users.id
+Ref: friend_requests.recipient_id > app_users.id
+Ref: friendships.user_low_id > app_users.id
+Ref: friendships.user_high_id > app_users.id
+Ref: trips.owner_id > app_users.id
+Ref: trips.city_code > cities.code
+Ref: trip_members.(trip_id, user_id) - trips.(id, owner_id)
+Ref: trip_members.trip_id > trips.id
+Ref: trip_members.user_id > app_users.id
+Ref: trip_invitations.trip_id > trips.id
+Ref: trip_invitations.inviter_id > app_users.id
+Ref: trip_invitations.invitee_id > app_users.id
+Ref: trip_join_codes.trip_id > trips.id
+Ref: trip_join_codes.created_by > app_users.id
+Ref: trip_saved_places.trip_id > trips.id
+Ref: trip_saved_places.place_id > places.id
+Ref: trip_saved_places.added_by > app_users.id
+Ref: trip_saved_places.(trip_id, added_by) > trip_members.(trip_id, user_id)
+Ref: trips.id - itineraries.trip_id
+Ref: itineraries.updated_by > app_users.id
+Ref: trip_members.(trip_id, user_id) - itineraries.(trip_id, updated_by)
+Ref: itinerary_days.trip_id > itineraries.trip_id
+Ref: itinerary_items.day_id > itinerary_days.id [delete: cascade]
+Ref: itinerary_items.place_id > places.id
+Ref: itinerary_items.created_by > app_users.id
+Ref: itinerary_items.updated_by > app_users.id
+Ref: ai_itinerary_drafts.trip_id > itineraries.trip_id
+Ref: ai_itinerary_drafts.requested_by > app_users.id
+Ref: ai_itinerary_drafts.applied_by > app_users.id
+Ref: ai_itinerary_drafts.(trip_id, requested_by) > trip_members.(trip_id, user_id)
+Ref: media_assets.uploader_id > app_users.id
+Ref: media_assets.trip_id > trips.id
+Ref: media_assets.deleted_by > app_users.id
+Ref: media_assets.(trip_id, uploader_id) > trip_members.(trip_id, user_id)
+Ref: chat_messages.trip_id > trips.id
+Ref: chat_messages.sender_id > app_users.id
+Ref: chat_messages.(trip_id, sender_id) > trip_members.(trip_id, user_id)
+Ref: media_assets.(id, trip_id, uploader_id) - chat_messages.(media_id, trip_id, sender_id)
+Ref: notifications.recipient_id > app_users.id
+Ref: notifications.actor_id > app_users.id
+Ref: notifications.trip_id > trips.id
+Ref: notifications.friend_request_id > friend_requests.id
+Ref: notifications.trip_invitation_id > trip_invitations.id
+Ref: notifications.chat_message_id > chat_messages.id
+Ref: push_deliveries.notification_id > notifications.id
+Ref: push_deliveries.recipient_id > app_users.id
+Ref: push_deliveries.device_id > user_devices.id
+Ref: push_deliveries.(notification_id, recipient_id) > notifications.(id, recipient_id)
