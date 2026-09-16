@@ -1,0 +1,23 @@
+name: tripmate-erd-local
+services:
+  postgres:
+    image: postgres:17
+    ports:
+      - "127.0.0.1:5433:5432"
+    environment:
+      POSTGRES_DB: tripmate_erd
+      POSTGRES_USER: tripmate
+      POSTGRES_PASSWORD: ${TRIPMATE_DB_PASSWORD:?Set TRIPMATE_DB_PASSWORD in .env.erd.local}
+      TZ: UTC
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./tripmate_v1.sql:/docker-entrypoint-initdb.d/001_tripmate_v1.sql:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "tripmate", "-d", "tripmate_erd"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+volumes:
+  pgdata:
+    name: tripmate_erd_v1_local_pgdata
