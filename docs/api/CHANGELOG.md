@@ -1,0 +1,14 @@
+# Contract changelog
+
+## 1.0.0 — 2026-09-17
+
+Baseline triển khai đầu tiên; không có API runtime trước đó để migration.
+
+- 66 REST operations theo kế hoạch TripMate v1 và ERD 23 bảng.
+- Quy định JSON camelCase, bigint string, envelope, errors, cursor/seq, auth và phân quyền.
+- Sửa toàn bộ lịch nguyên tử với expectedVersion; trip dùng expectedTripVersion riêng.
+- AI draft/apply, media/chat chống trùng, location TTL; STOMP nhận sự kiện và FCM ID payload.
+- Thêm examples, HTTP mock độc lập backend, validator và CI.
+- Các quyết định bổ sung/giới hạn v1 ghi tại TEAM_RULES; chưa có bằng chứng test backend/mobile.
+
+Thay đổi contract tiếp theo phải ghi phiên bản, thay đổi wire/behavior, ảnh hưởng FE/BE, cách migration và bằng chứng kiểm tra. Không ghi tên người đã phê duyệt nếu chưa có review thực tế.

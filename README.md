@@ -4,7 +4,7 @@
 
 ## Trạng thái dự án
 
-Repo đang ở giai đoạn **kế hoạch và thiết kế database v1**. Đã có schema PostgreSQL tham chiếu, sơ đồ DBML, bộ kiểm tra ràng buộc và cấu hình database local. Backend và mobile chưa được triển khai; chưa có API hay APK để chạy.
+Repo đang ở giai đoạn **kế hoạch và thiết kế database v1**. Đã có schema PostgreSQL tham chiếu, sơ đồ DBML, bộ kiểm tra ràng buộc và cấu hình database local. Đã có [API contract v1 và mock local](docs/api/README.md) để hai phía phát triển song song. Backend và mobile chưa được triển khai; chưa có API nghiệp vụ thật hay APK để chạy.
 
 Phạm vi v1: một thành phố Việt Nam mỗi chuyến, 1–5 ngày, tối đa 10 thành viên tính cả owner. Mục tiêu bàn giao: 15/12/2026.
 
@@ -14,7 +14,9 @@ Phạm vi v1: một thành phố Việt Nam mỗi chuyến, 1–5 ngày, tối �
 2. [Lý do chọn công nghệ và các đánh đổi](docs/TECHNOLOGY_DECISIONS.md).
 3. [Thiết kế ERD và quy tắc nghiệp vụ/transaction](TRIPMATE_ERD_V1.md).
 4. [Từ điển dữ liệu: từng cột, quan hệ và index của 23 bảng](docs/database/DATA_DICTIONARY.md).
-5. [Dựng PostgreSQL local và xem ERD bằng DBeaver](docs/database/DBEAVER_LOCAL.md).
+5. [API contract JSON, mock local và cách tích hợp](docs/api/README.md).
+6. [Quy tắc backend/frontend bắt buộc tuân thủ](docs/api/TEAM_RULES.md).
+7. [Dựng PostgreSQL local và xem ERD bằng DBeaver](docs/database/DBEAVER_LOCAL.md).
 
 ## Công nghệ dự kiến
 
@@ -37,6 +39,11 @@ TRIPMATE_PLAN.md                 Kế hoạch dự án
 TRIPMATE_ERD_V1.md               Thiết kế và transaction nghiệp vụ
 docs/
   TECHNOLOGY_DECISIONS.md        Lý do chọn công nghệ
+  api/
+    openapi.json               Contract REST + payload realtime/push
+    TEAM_RULES.md              Quy tắc phối hợp backend/frontend
+    README.md                  Chạy mock và kiểm tra contract
+    mock-server.mjs            HTTP mock độc lập backend
   database/
     DATA_DICTIONARY.md           Giải thích schema cho thành viên nhóm
     tripmate_v1.sql              Nguồn chuẩn về cấu trúc và ràng buộc vật lý
@@ -72,4 +79,4 @@ Xem [hướng dẫn đầy đủ và cách chạy bộ kiểm tra](docs/database
 
 ## Công việc tiếp theo
 
-Chốt API contract, dựng Spring Boot/Flyway và Expo, rồi hoàn thành luồng mobile gọi API mẫu. Tiêu chí nghiệm thu và phân công nằm trong [kế hoạch tuần 1](TRIPMATE_PLAN.md).
+Triển khai theo [API contract v1](docs/api/openapi.json), dựng Spring Boot/Flyway và Expo, rồi tích hợp từng module. Frontend có thể chạy ngay `node docs/api/mock-server.mjs` từ gốc repo và dùng `http://localhost:4010/api/v1` trong lúc backend phát triển. Tiêu chí nghiệm thu và phân công nằm trong [kế hoạch tuần 1](TRIPMATE_PLAN.md).
