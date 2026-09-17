@@ -33,17 +33,32 @@ Mock trả dữ liệu mẫu, không lưu thay đổi sau mutation và không c�
 
 ## Chạy màn hình hiện tại trên Android emulator
 
+### Yêu cầu
+
+- Node.js 22 trở lên
+- Android Studio với Android SDK, Android SDK Platform Tools và một Android Emulator
+- JDK đi kèm Android Studio (có thể chọn trong **Settings → Build Tools → Gradle → Gradle JDK**)
+
+### Cài dependency
+
 ```powershell
 cd frontend
 npm install
-npx expo start
 ```
 
-Mở Android Emulator trong Android Studio trước, sau đó nhấn `a` trong cửa sổ Expo hoặc chạy `npm run android`. Màn hình hiện tại là UI mẫu; các nút đăng nhập/Google hiển thị thông báo chờ API thật.
+### Chạy bằng Expo
+
+```powershell
+npm start
+```
+
+Mở Android Emulator trước, sau đó nhấn `a` trong cửa sổ Expo. Cách này sẽ tự khởi động Metro và cài app debug nếu thiết bị đã kết nối.
 
 ## Build và chạy bằng nút Run của Android Studio
 
-Thư mục native đã được sinh tại `frontend/android`. Trong Android Studio chọn **Open**, mở đúng thư mục này (không mở thư mục repo gốc), chờ Gradle Sync hoàn tất, chọn một emulator đang chạy rồi nhấn **Run ▶**. Android Studio sẽ cài APK debug và mở màn hình TripMate.
+Thư mục native đã được commit tại `frontend/android`. Trong Android Studio chọn **Open**, mở đúng thư mục này (không mở thư mục repo gốc), chờ Gradle Sync hoàn tất, chọn một emulator đang chạy rồi nhấn **Run ▶**. Android Studio sẽ cài APK debug và mở màn hình TripMate.
+
+Ở lần mở đầu, Android Studio có thể hỏi tải Android SDK hoặc Gradle component; chấp nhận cài đặt và chờ hoàn tất. Nếu build còn giữ output cũ, chọn **Build → Clean Project**, sau đó **Build → Rebuild Project**.
 
 Sau khi sửa `App.tsx`, chạy lại bundler từ thư mục `frontend`:
 
@@ -52,5 +67,7 @@ npm start
 ```
 
 Nếu thay đổi thư viện native hoặc `app.json`, chạy `npx expo prebuild --platform android` lại trước khi bấm Run.
+
+Màn hình hiện tại là UI mẫu; các nút đăng nhập/Google hiển thị thông báo chờ API thật.
 
 Không commit node_modules, token, keystore hoặc API secret của backend. Khi tạo ứng dụng, thêm .gitignore và file cấu hình mẫu tương ứng.
