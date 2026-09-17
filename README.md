@@ -54,7 +54,7 @@ docs/
     DBEAVER_LOCAL.md             Hướng dẫn dựng và kiểm tra database
 ```
 
-`backend/` và `frontend/` là các thư mục dự kiến; Git sẽ theo dõi khi có file ứng dụng.
+[backend/](backend/README.md) và [frontend/](frontend/README.md) đã được Git theo dõi bằng README hướng dẫn riêng; ứng dụng Spring Boot và Expo chưa được khởi tạo.
 
 ## Chạy database local
 
