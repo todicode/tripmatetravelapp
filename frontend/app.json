@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "TripMate",
+    "slug": "tripmate",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "android": {
+      "package": "com.tripmate.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#2F80ED"
+      }
+    },
+    "plugins": [
+      "expo-asset"
+    ]
+  }
+}

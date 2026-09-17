@@ -1,6 +1,6 @@
 # TripMate Frontend
 
-Thư mục triển khai ứng dụng Android TripMate. Hiện mới có README để giữ cấu trúc trên Git; chưa có project Expo, package.json hay ứng dụng để chạy.
+Thư mục triển khai ứng dụng Android TripMate. Màn hình đăng nhập mẫu đã được dựng bằng Expo/React Native trong `App.tsx`.
 
 Stack theo kế hoạch: React Native, TypeScript, Expo development build, Expo Router, TanStack Query và Zustand.
 
@@ -30,5 +30,27 @@ Mock trả dữ liệu mẫu, không lưu thay đổi sau mutation và không c�
 2. Thêm cấu hình base URL theo môi trường để chuyển mock/local/staging.
 3. Tạo API adapter theo contract, thống nhất loading/empty/error/retry và xử lý version conflict.
 4. Tích hợp từng module khi backend sẵn sàng; không tự chuyển về mock khi API thật lỗi.
+
+## Chạy màn hình hiện tại trên Android emulator
+
+```powershell
+cd frontend
+npm install
+npx expo start
+```
+
+Mở Android Emulator trong Android Studio trước, sau đó nhấn `a` trong cửa sổ Expo hoặc chạy `npm run android`. Màn hình hiện tại là UI mẫu; các nút đăng nhập/Google hiển thị thông báo chờ API thật.
+
+## Build và chạy bằng nút Run của Android Studio
+
+Thư mục native đã được sinh tại `frontend/android`. Trong Android Studio chọn **Open**, mở đúng thư mục này (không mở thư mục repo gốc), chờ Gradle Sync hoàn tất, chọn một emulator đang chạy rồi nhấn **Run ▶**. Android Studio sẽ cài APK debug và mở màn hình TripMate.
+
+Sau khi sửa `App.tsx`, chạy lại bundler từ thư mục `frontend`:
+
+```powershell
+npm start
+```
+
+Nếu thay đổi thư viện native hoặc `app.json`, chạy `npx expo prebuild --platform android` lại trước khi bấm Run.
 
 Không commit node_modules, token, keystore hoặc API secret của backend. Khi tạo ứng dụng, thêm .gitignore và file cấu hình mẫu tương ứng.

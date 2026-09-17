@@ -1,0 +1,14 @@
+# Android Studio / IntelliJ
+.idea/
+**/.idea/
+*.iml
+
+# Android build output
+**/build/
+**/.gradle/
+**/local.properties
+
+# JavaScript dependencies and Expo output
+**/node_modules/
+**/.expo/
+**/dist/
