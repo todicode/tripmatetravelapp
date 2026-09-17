@@ -1,4 +1,4 @@
-# TripMate Frontend
+    # TripMate Frontend
 
 Thư mục triển khai ứng dụng Android TripMate. Màn hình đăng nhập mẫu đã được dựng bằng Expo/React Native trong `App.tsx`.
 
@@ -37,22 +37,31 @@ Mock trả dữ liệu mẫu, không lưu thay đổi sau mutation và không c�
 
 - Node.js 22 trở lên
 - Android Studio với Android SDK, Android SDK Platform Tools và một Android Emulator
-- JDK đi kèm Android Studio (có thể chọn trong **Settings → Build Tools → Gradle → Gradle JDK**)
+- JDK 17 (chọn cùng JDK trong **Settings → Build Tools → Gradle → Gradle JDK** nếu dùng Android Studio)
 
 ### Cài dependency
 
 ```powershell
 cd frontend
-npm install
+npm.cmd ci
 ```
 
 ### Chạy bằng Expo
 
 ```powershell
-npm start
+adb devices
+npm.cmd run android
 ```
 
-Mở Android Emulator trước, sau đó nhấn `a` trong cửa sổ Expo. Cách này sẽ tự khởi động Metro và cài app debug nếu thiết bị đã kết nối.
+Mở Android Emulator trước và kiểm tra `adb devices` hiển thị trạng thái `device`. `npm.cmd run android` build APK debug, cài lên emulator và khởi động Metro. Giữ terminal chạy trong khi dùng app. Dùng đuôi `.cmd` để tránh lỗi PowerShell chặn `npm.ps1`/`npx.ps1`.
+
+`npm.cmd run android` tự chọn JDK 17 trong `.expo/toolchains` và chỉ đặt `JAVA_HOME`/`PATH` cho tiến trình build frontend. Không cần đặt lại biến khi mở terminal mới; Java mặc định của hệ thống và backend không bị thay đổi. Trên máy hiện tại JDK 17 đã nằm trong thư mục này (không commit).
+
+Máy khác có thể giải nén JDK 17 vào `.expo/toolchains/<thư-mục-jdk>`, hoặc cấu hình biến `ANDROID_JAVA_HOME` trỏ tới JDK 17 riêng cho Android. Nếu không có JDK trong thư mục dự án, script thử `JAVA_HOME` hiện tại và chỉ chấp nhận JDK 17. Nếu đặt `ANDROID_JAVA_HOME`, script chỉ dùng đường dẫn đó. Các tham số Expo vẫn truyền được, ví dụ `npm.cmd run android -- --no-bundler`.
+
+JDK 25 đi kèm Android Studio trên máy này gây lỗi Prefab/CMake `A restricted method in java.lang.System has been called`. Khi chạy bằng nút Run của Android Studio, vẫn cần chọn JDK 17 trong cấu hình Gradle JDK của IDE; script npm không thay đổi cấu hình IDE.
+
+`npm.cmd start` chỉ khởi động Metro; nhấn `a` trong chế độ Expo Go không build APK native. Sau khi đã cài APK debug, có thể dùng `npm.cmd start -- --lan`, chạy `adb reverse tcp:8081 tcp:8081` rồi mở TripMate trên emulator.
 
 ## Build và chạy bằng nút Run của Android Studio
 
@@ -63,10 +72,10 @@ Thư mục native đã được commit tại `frontend/android`. Trong Android S
 Sau khi sửa `App.tsx`, chạy lại bundler từ thư mục `frontend`:
 
 ```powershell
-npm start
+npm.cmd start -- --lan
 ```
 
-Nếu thay đổi thư viện native hoặc `app.json`, chạy `npx expo prebuild --platform android` lại trước khi bấm Run.
+Nếu thay đổi thư viện native hoặc `app.json`, chạy `npx.cmd expo prebuild --platform android` lại trước khi bấm Run. Expo SDK 57 tạo lại thư mục native mặc định; lưu các thay đổi native thủ công trước khi chạy. Đồng bộ dependency bằng `npx.cmd expo install --fix` khi nâng Expo SDK.
 
 Màn hình hiện tại là UI mẫu; các nút đăng nhập/Google hiển thị thông báo chờ API thật.
 
