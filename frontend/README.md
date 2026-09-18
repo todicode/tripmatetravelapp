@@ -1,5 +1,7 @@
     # TripMate Frontend
 
+Quy tắc triển khai bắt buộc: [MVVM, đặt tên và chất lượng code](../docs/CODING_STANDARDS.md).
+
 Thư mục triển khai ứng dụng Android TripMate. Màn hình đăng nhập mẫu đã được dựng bằng Expo/React Native trong `App.tsx`.
 
 Stack theo kế hoạch: React Native, TypeScript, Expo development build, Expo Router, TanStack Query và Zustand.

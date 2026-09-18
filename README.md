@@ -1,5 +1,7 @@
 # TripMate
 
+Quy tắc triển khai bắt buộc: [MVVM frontend, Modular Monolith backend và coding standards](docs/CODING_STANDARDS.md).
+
 Ứng dụng Android hỗ trợ nhóm bạn lập kế hoạch du lịch: quản lý chuyến đi, lịch trình thủ công và bản nháp AI, địa điểm/bản đồ, kết bạn qua QR, chat ảnh/PDF, thông báo và chia sẻ vị trí khi chủ động bật.
 
 ## Trạng thái dự án

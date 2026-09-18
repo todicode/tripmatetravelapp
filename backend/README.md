@@ -1,5 +1,7 @@
 # TripMate Backend
 
+Quy tắc triển khai bắt buộc: [Modular Monolith, đặt tên và chất lượng code](../docs/CODING_STANDARDS.md).
+
 Thư mục triển khai backend TripMate. Hiện mới có README để giữ cấu trúc trên Git; chưa có ứng dụng Spring Boot, pom.xml hay Maven Wrapper để chạy.
 
 Stack theo kế hoạch: Java 26, Spring Boot 4.1, Maven, Spring Security, JPA, Flyway và PostgreSQL 17. Redis, WebSocket/STOMP và các dịch vụ bên ngoài được bổ sung theo module.
