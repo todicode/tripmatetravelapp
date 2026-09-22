@@ -11,6 +11,7 @@ import com.tripmate.identity.infrastructure.RefreshTokenRepository;
 import com.tripmate.identity.infrastructure.UserRepository;
 import com.tripmate.identity.security.JwtTokenService;
 import com.tripmate.identity.web.AuthRequests.GoogleAuthRequest;
+import com.tripmate.identity.web.AuthRequests.LoginRequest;
 import com.tripmate.identity.web.AuthRequests.RegisterRequest;
 import com.tripmate.identity.web.AuthRequests.RefreshRequest;
 import com.tripmate.identity.web.AuthRequests.VerifyRegistrationRequest;
@@ -141,6 +142,28 @@ class IdentityServiceTest {
         assertNotNull(pending.getUsedAt());
         verify(userRepository).save(any(UserEntity.class));
         verify(refreshTokenRepository).save(any());
+    }
+
+
+    @Test
+    void loginBindsInstallationAndReturnsSession() {
+        UUID installationId = UUID.randomUUID();
+        UserEntity user = new UserEntity(UUID.randomUUID(), "an@example.test", "bcrypt-hash",
+                "Nguyen An", "+84901234567", "TM-LOGIN", Instant.now());
+        DeviceEntity device = new DeviceEntity(UUID.randomUUID(), installationId);
+        when(userRepository.findByEmail("an@example.test")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("secret-password", "bcrypt-hash")).thenReturn(true);
+        when(deviceRepository.findByInstallationId(installationId)).thenReturn(Optional.of(device));
+        when(deviceRepository.save(any(DeviceEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(jwtTokenService.issue(any(UserEntity.class), any(DeviceEntity.class))).thenReturn("access-token");
+        when(jwtTokenService.accessTokenTtlSeconds()).thenReturn(900L);
+
+        SessionResponse response = service.login(new LoginRequest(
+                "an@example.test", "secret-password", installationId));
+
+        assertEquals("access-token", response.accessToken());
+        assertEquals(user.getId(), response.user().id());
+        verify(deviceRepository).save(device);
     }
 
     private PendingRegistrationEntity pending(UUID id, String otp, Instant expiresAt) {

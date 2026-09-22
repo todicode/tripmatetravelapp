@@ -58,6 +58,13 @@ public class AuthController {
                 .body(new ApiResponse<>(identityService.resendOtp(request), requestId(httpRequest)));
     }
 
+    @PostMapping("/login")
+    public ResponseEntity<ApiResponse<SessionResponse>> login(
+            @Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
+        return ResponseEntity.ok().header("Cache-Control", NO_STORE)
+                .body(new ApiResponse<>(identityService.login(request), requestId(httpRequest)));
+    }
+
     private UUID requestId(HttpServletRequest request) {
         Object requestId = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
         return requestId instanceof UUID uuid ? uuid : UUID.randomUUID();

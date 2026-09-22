@@ -184,6 +184,19 @@ public class IdentityService {
     }
 
     @Transactional
+    public SessionResponse login(LoginRequest request) {
+        String email = normalizeEmail(request.email());
+        UserEntity user = userRepository.findByEmail(email)
+                .orElseThrow(() -> invalidCredentials());
+        if (user.getStatus() != UserStatus.ACTIVE || user.getEmailVerifiedAt() == null
+                || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            throw invalidCredentials();
+        }
+        DeviceEntity device = bindDevice(request.installationId(), user);
+        return issueSession(user, device, null, null);
+    }
+
+    @Transactional
     public void cleanupExpiredRegistrations() {
         pendingRegistrationRepository.deleteByOtpExpiresAtBefore(Instant.now().minus(Duration.ofHours(24)));
     }
