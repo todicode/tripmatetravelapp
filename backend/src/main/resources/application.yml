@@ -1,0 +1,56 @@
+spring:
+  application:
+    name: tripmate-backend
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5433/tripmate_erd}
+    username: ${DATABASE_USERNAME:tripmate}
+    password: ${DATABASE_PASSWORD:}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  mail:
+    host: ${MAIL_HOST:smtp.resend.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:resend}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+server:
+  port: ${SERVER_PORT:8080}
+
+tripmate:
+  security:
+    jwt-secret: ${JWT_SECRET:change-me-in-local-environment-to-a-long-random-secret}
+    access-token-ttl: ${ACCESS_TOKEN_TTL:15m}
+    refresh-token-ttl: ${REFRESH_TOKEN_TTL:30d}
+    auth-rate-limit-window: ${AUTH_RATE_LIMIT_WINDOW:1m}
+    auth-rate-limit-per-window: ${AUTH_RATE_LIMIT_PER_WINDOW:10}
+    otp-rate-limit-per-window: ${OTP_RATE_LIMIT_PER_WINDOW:5}
+  email:
+    mode: ${EMAIL_MODE:log}
+    from: ${MAIL_FROM:no-reply@tripmate.local}
+    verification-ttl: ${EMAIL_VERIFICATION_TTL:10m}
+    resend-cooldown: ${EMAIL_RESEND_COOLDOWN:60s}
+    max-attempts: ${EMAIL_VERIFICATION_MAX_ATTEMPTS:5}
+  google:
+    web-client-id: ${GOOGLE_WEB_CLIENT_ID:}
+
+logging:
+  level:
+    com.tripmate: INFO

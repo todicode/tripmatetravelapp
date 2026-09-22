@@ -1,0 +1,9 @@
+spring:
+  config:
+    activate:
+      on-profile: local
+
+tripmate:
+  email:
+    mode: ${EMAIL_MODE:log}
+
