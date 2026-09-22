@@ -249,6 +249,20 @@ public class IdentityService {
     }
 
     @Transactional
+    public void logout() {
+        AuthenticatedUser authenticatedUser = authenticatedUser();
+        DeviceEntity device = deviceRepository.findByIdForUpdate(authenticatedUser.deviceId())
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "DEVICE_NOT_FOUND", "Không tìm thấy thiết bị."));
+        if (device.getUser() == null || !device.getUser().getId().equals(authenticatedUser.userId())) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Phiên đăng nhập không hợp lệ.");
+        }
+        refreshTokenRepository.findActiveByUserAndDevice(authenticatedUser.userId(), authenticatedUser.deviceId())
+                .forEach(RefreshTokenEntity::revoke);
+        device.unbind();
+        deviceRepository.save(device);
+    }
+
+    @Transactional
     public void cleanupExpiredRegistrations() {
         pendingRegistrationRepository.deleteByOtpExpiresAtBefore(Instant.now().minus(Duration.ofHours(24)));
     }

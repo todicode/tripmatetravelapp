@@ -79,6 +79,14 @@ public class AuthController {
                 .body(new ApiResponse<>(identityService.refresh(request), requestId(httpRequest)));
     }
 
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(HttpServletRequest httpRequest) {
+        identityService.logout();
+        return ResponseEntity.noContent().header("Cache-Control", NO_STORE)
+                .header(RequestIdFilter.REQUEST_ID_HEADER,
+                requestId(httpRequest).toString()).build();
+    }
+
     private UUID requestId(HttpServletRequest request) {
         Object requestId = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
         return requestId instanceof UUID uuid ? uuid : UUID.randomUUID();

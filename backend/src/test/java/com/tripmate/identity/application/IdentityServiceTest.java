@@ -9,6 +9,7 @@ import com.tripmate.identity.infrastructure.DeviceRepository;
 import com.tripmate.identity.infrastructure.PendingRegistrationRepository;
 import com.tripmate.identity.infrastructure.RefreshTokenRepository;
 import com.tripmate.identity.infrastructure.UserRepository;
+import com.tripmate.identity.security.AuthenticatedUser;
 import com.tripmate.identity.security.JwtTokenService;
 import com.tripmate.identity.web.AuthRequests.GoogleAuthRequest;
 import com.tripmate.identity.web.AuthRequests.LoginRequest;
@@ -26,17 +27,22 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -218,6 +224,35 @@ class IdentityServiceTest {
 
         assertEquals("access-token", response.accessToken());
         assertEquals(user.getId(), response.user().id());
+        verify(deviceRepository).save(device);
+    }
+
+
+    @Test
+    void logoutRevokesDeviceTokensAndUnbindsDevice() {
+        UUID userId = UUID.randomUUID();
+        UUID deviceId = UUID.randomUUID();
+        UserEntity user = new UserEntity(userId, "an@example.test", "bcrypt-hash",
+                "Nguyen An", "+84901234567", "TM-LOGOUT", Instant.now());
+        DeviceEntity device = new DeviceEntity(deviceId, UUID.randomUUID());
+        device.bind(user);
+        RefreshTokenEntity token = new RefreshTokenEntity(UUID.randomUUID(), user, device,
+                UUID.randomUUID(), null, sha256("refresh-token"), Instant.now().plus(Duration.ofDays(1)));
+        when(deviceRepository.findByIdForUpdate(deviceId)).thenReturn(Optional.of(device));
+        when(refreshTokenRepository.findActiveByUserAndDevice(userId, deviceId))
+                .thenReturn(List.of(token));
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+                new AuthenticatedUser(userId, deviceId, device.getBindingVersion()),
+                null, AuthorityUtils.NO_AUTHORITIES));
+
+        try {
+            service.logout();
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        assertNull(device.getUser());
+        assertNotNull(token.getRevokedAt());
         verify(deviceRepository).save(device);
     }
 
