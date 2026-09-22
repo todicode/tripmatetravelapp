@@ -1,0 +1,164 @@
+package com.tripmate.identity.application;
+
+import com.tripmate.identity.domain.DeviceEntity;
+import com.tripmate.identity.domain.PendingRegistrationEntity;
+import com.tripmate.identity.domain.RefreshTokenEntity;
+import com.tripmate.identity.domain.UserEntity;
+import com.tripmate.identity.infrastructure.AuthIdentityRepository;
+import com.tripmate.identity.infrastructure.DeviceRepository;
+import com.tripmate.identity.infrastructure.PendingRegistrationRepository;
+import com.tripmate.identity.infrastructure.RefreshTokenRepository;
+import com.tripmate.identity.infrastructure.UserRepository;
+import com.tripmate.identity.security.JwtTokenService;
+import com.tripmate.identity.web.AuthRequests.GoogleAuthRequest;
+import com.tripmate.identity.web.AuthRequests.RegisterRequest;
+import com.tripmate.identity.web.AuthRequests.RefreshRequest;
+import com.tripmate.identity.web.AuthRequests.VerifyRegistrationRequest;
+import com.tripmate.identity.web.AuthResponses.RegistrationChallengeResponse;
+import com.tripmate.identity.web.AuthResponses.SessionResponse;
+import com.tripmate.shared.web.ApiException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class IdentityServiceTest {
+
+    @Mock
+    private UserRepository userRepository;
+    @Mock
+    private DeviceRepository deviceRepository;
+    @Mock
+    private RefreshTokenRepository refreshTokenRepository;
+    @Mock
+    private PendingRegistrationRepository pendingRegistrationRepository;
+    @Mock
+    private AuthIdentityRepository authIdentityRepository;
+    @Mock
+    private PasswordEncoder passwordEncoder;
+    @Mock
+    private JwtTokenService jwtTokenService;
+    @Mock
+    private GoogleIdentityVerifier googleIdentityVerifier;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
+    private IdentityService service;
+
+    @BeforeEach
+    void setUp() {
+        service = new IdentityService(userRepository, deviceRepository, refreshTokenRepository,
+                pendingRegistrationRepository, authIdentityRepository, passwordEncoder, jwtTokenService,
+                googleIdentityVerifier, eventPublisher, Duration.ofMinutes(10), Duration.ofSeconds(60),
+                Duration.ofDays(30), 5);
+    }
+
+    @Test
+    void startRegistrationStoresPasswordHashAndPublishesOtpWithoutReturningCode() {
+        UUID installationId = UUID.randomUUID();
+        when(userRepository.existsByEmail("an@example.test")).thenReturn(false);
+        when(pendingRegistrationRepository.findByEmailAndUsedAtIsNull("an@example.test"))
+                .thenReturn(Optional.empty());
+        when(passwordEncoder.encode("secret-password")).thenReturn("bcrypt-hash");
+
+        RegistrationChallengeResponse response = service.startRegistration(new RegisterRequest(
+                " An@Example.Test ", "secret-password", installationId, " Nguyen An ", "+84901234567"));
+
+        assertNotNull(response.verificationId());
+        assertTrue(response.expiresAt().isAfter(Instant.now()));
+        assertTrue(response.resendAvailableAt().isBefore(response.expiresAt()));
+        ArgumentCaptor<PendingRegistrationEntity> pendingCaptor = ArgumentCaptor.forClass(PendingRegistrationEntity.class);
+        verify(pendingRegistrationRepository).save(pendingCaptor.capture());
+        assertEquals("an@example.test", pendingCaptor.getValue().getEmail());
+        assertEquals("bcrypt-hash", pendingCaptor.getValue().getPasswordHash());
+        ArgumentCaptor<OtpEmailRequested> eventCaptor = ArgumentCaptor.forClass(OtpEmailRequested.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        assertEquals(response.verificationId(), eventCaptor.getValue().verificationId());
+        assertEquals(response.expiresAt(), eventCaptor.getValue().expiresAt());
+        assertTrue(eventCaptor.getValue().otp().matches("\\d{6}"));
+    }
+
+    @Test
+    void invalidOtpIncrementsAttemptsAndDoesNotCreateUser() {
+        UUID verificationId = UUID.randomUUID();
+        PendingRegistrationEntity pending = pending(verificationId, "123456", Instant.now().plus(Duration.ofMinutes(5)));
+        when(pendingRegistrationRepository.findByIdForUpdate(verificationId)).thenReturn(Optional.of(pending));
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> service.verifyRegistration(new VerifyRegistrationRequest(verificationId, "000000")));
+
+        assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, exception.getStatus());
+        assertEquals("OTP_INVALID", exception.getCode());
+        assertEquals(1, pending.getAttempts());
+        verify(pendingRegistrationRepository).save(pending);
+        verify(userRepository, never()).save(any(UserEntity.class));
+    }
+
+    @Test
+    void correctOtpCreatesUserDeviceAndSession() {
+        UUID verificationId = UUID.randomUUID();
+        UUID installationId = UUID.randomUUID();
+        PendingRegistrationEntity pending = new PendingRegistrationEntity(verificationId, "an@example.test",
+                "bcrypt-hash", "Nguyen An", "+84901234567", installationId, sha256("123456"),
+                Instant.now().plus(Duration.ofMinutes(5)), Instant.now().minusSeconds(1));
+        when(pendingRegistrationRepository.findByIdForUpdate(verificationId)).thenReturn(Optional.of(pending));
+        when(userRepository.existsByEmail("an@example.test")).thenReturn(false);
+        when(userRepository.existsByFriendCode(anyString())).thenReturn(false);
+        when(deviceRepository.findByInstallationId(installationId)).thenReturn(Optional.empty());
+        when(deviceRepository.save(any(DeviceEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(jwtTokenService.issue(any(UserEntity.class), any(DeviceEntity.class))).thenReturn("access-token");
+        when(jwtTokenService.accessTokenTtlSeconds()).thenReturn(900L);
+
+        SessionResponse response = service.verifyRegistration(
+                new VerifyRegistrationRequest(verificationId, "123456"));
+
+        assertEquals("access-token", response.accessToken());
+        assertEquals("+84901234567", response.user().phone());
+        assertEquals(verificationId, pending.getId());
+        assertNotNull(pending.getUsedAt());
+        verify(userRepository).save(any(UserEntity.class));
+        verify(refreshTokenRepository).save(any());
+    }
+
+    private PendingRegistrationEntity pending(UUID id, String otp, Instant expiresAt) {
+        return new PendingRegistrationEntity(id, "an@example.test", "bcrypt-hash", "Nguyen An",
+                "+84901234567", UUID.randomUUID(), sha256(otp), expiresAt, Instant.now().minusSeconds(1));
+    }
+
+    private static String sha256(String value) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(value.getBytes(StandardCharsets.UTF_8));
+            StringBuilder result = new StringBuilder(64);
+            for (byte item : digest) {
+                result.append(String.format("%02x", item));
+            }
+            return result.toString();
+        } catch (Exception exception) {
+            throw new AssertionError(exception);
+        }
+    }
+}
