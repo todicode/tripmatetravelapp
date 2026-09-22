@@ -65,6 +65,13 @@ public class AuthController {
                 .body(new ApiResponse<>(identityService.login(request), requestId(httpRequest)));
     }
 
+    @PostMapping("/google")
+    public ResponseEntity<ApiResponse<SessionResponse>> google(
+            @Valid @RequestBody GoogleAuthRequest request, HttpServletRequest httpRequest) {
+        return ResponseEntity.ok().header("Cache-Control", NO_STORE)
+                .body(new ApiResponse<>(identityService.authenticateWithGoogle(request), requestId(httpRequest)));
+    }
+
     private UUID requestId(HttpServletRequest request) {
         Object requestId = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
         return requestId instanceof UUID uuid ? uuid : UUID.randomUUID();

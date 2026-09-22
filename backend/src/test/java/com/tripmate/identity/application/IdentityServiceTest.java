@@ -146,6 +146,23 @@ class IdentityServiceTest {
 
 
     @Test
+    void googleIdentityDoesNotAutoLinkExistingManualEmail() {
+        when(googleIdentityVerifier.verify("google-id-token"))
+                .thenReturn(new GoogleIdentityVerifier.GoogleProfile(
+                        "google-subject", "an@example.test", true, "Nguyen An"));
+        when(authIdentityRepository.findByProviderAndProviderSubject("GOOGLE", "google-subject"))
+                .thenReturn(Optional.empty());
+        when(userRepository.existsByEmail("an@example.test")).thenReturn(true);
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> service.authenticateWithGoogle(new GoogleAuthRequest("google-id-token", UUID.randomUUID())));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+        assertEquals("AUTH_METHOD_CONFLICT", exception.getCode());
+        verify(authIdentityRepository, never()).save(any());
+    }
+
+    @Test
     void loginBindsInstallationAndReturnsSession() {
         UUID installationId = UUID.randomUUID();
         UserEntity user = new UserEntity(UUID.randomUUID(), "an@example.test", "bcrypt-hash",

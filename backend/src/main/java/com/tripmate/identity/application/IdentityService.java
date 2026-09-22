@@ -197,6 +197,34 @@ public class IdentityService {
     }
 
     @Transactional
+    public SessionResponse authenticateWithGoogle(GoogleAuthRequest request) {
+        GoogleIdentityVerifier.GoogleProfile profile = googleIdentityVerifier.verify(request.idToken());
+        String email = normalizeEmail(profile.email());
+        AuthIdentityEntity identity = authIdentityRepository
+                .findByProviderAndProviderSubject(GOOGLE_PROVIDER, profile.subject()).orElse(null);
+        UserEntity user;
+        if (identity != null) {
+            user = identity.getUser();
+            if (user.getStatus() != UserStatus.ACTIVE) {
+                throw new ApiException(HttpStatus.FORBIDDEN, "ACCOUNT_DISABLED", "Tài khoản đã bị khóa.");
+            }
+        } else {
+            if (userRepository.existsByEmail(email)) {
+                throw new ApiException(HttpStatus.CONFLICT, "AUTH_METHOD_CONFLICT",
+                        "Email này đã có tài khoản thủ công. Hãy đăng nhập bằng email và mật khẩu.");
+            }
+            String unusablePassword = passwordEncoder.encode(randomSecret());
+            user = new UserEntity(UUID.randomUUID(), email, unusablePassword, profile.displayName(),
+                    null, generateFriendCode(), Instant.now());
+            userRepository.save(user);
+            authIdentityRepository.save(new AuthIdentityEntity(UUID.randomUUID(), user, GOOGLE_PROVIDER,
+                    profile.subject(), email));
+        }
+        DeviceEntity device = bindDevice(request.installationId(), user);
+        return issueSession(user, device, null, null);
+    }
+
+    @Transactional
     public void cleanupExpiredRegistrations() {
         pendingRegistrationRepository.deleteByOtpExpiresAtBefore(Instant.now().minus(Duration.ofHours(24)));
     }
