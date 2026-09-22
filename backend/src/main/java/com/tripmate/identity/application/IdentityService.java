@@ -262,6 +262,14 @@ public class IdentityService {
         deviceRepository.save(device);
     }
 
+    @Transactional(readOnly = true)
+    public ProfileResponse getCurrentProfile() {
+        AuthenticatedUser authenticatedUser = authenticatedUser();
+        UserEntity user = userRepository.findById(authenticatedUser.userId())
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "Không tìm thấy tài khoản."));
+        return toProfile(user);
+    }
+
     @Transactional
     public void cleanupExpiredRegistrations() {
         pendingRegistrationRepository.deleteByOtpExpiresAtBefore(Instant.now().minus(Duration.ofHours(24)));

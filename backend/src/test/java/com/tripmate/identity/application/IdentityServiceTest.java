@@ -16,6 +16,7 @@ import com.tripmate.identity.web.AuthRequests.LoginRequest;
 import com.tripmate.identity.web.AuthRequests.RegisterRequest;
 import com.tripmate.identity.web.AuthRequests.RefreshRequest;
 import com.tripmate.identity.web.AuthRequests.VerifyRegistrationRequest;
+import com.tripmate.identity.web.AuthResponses.ProfileResponse;
 import com.tripmate.identity.web.AuthResponses.RegistrationChallengeResponse;
 import com.tripmate.identity.web.AuthResponses.SessionResponse;
 import com.tripmate.shared.web.ApiException;
@@ -254,6 +255,27 @@ class IdentityServiceTest {
         assertNull(device.getUser());
         assertNotNull(token.getRevokedAt());
         verify(deviceRepository).save(device);
+    }
+
+
+    @Test
+    void currentProfileReturnsPublicUserFields() {
+        UUID userId = UUID.randomUUID();
+        UserEntity user = new UserEntity(userId, "an@example.test", "bcrypt-hash",
+                "Nguyen An", "+84901234567", "TM-PROFILE", Instant.now());
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+                new AuthenticatedUser(userId, UUID.randomUUID(), 1L),
+                null, AuthorityUtils.NO_AUTHORITIES));
+
+        try {
+            ProfileResponse response = service.getCurrentProfile();
+            assertEquals(userId, response.id());
+            assertEquals("an@example.test", response.email());
+            assertEquals("+84901234567", response.phone());
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 
     private PendingRegistrationEntity pending(UUID id, String otp, Instant expiresAt) {
