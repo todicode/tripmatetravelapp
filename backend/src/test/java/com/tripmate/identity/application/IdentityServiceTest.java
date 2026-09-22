@@ -163,6 +163,44 @@ class IdentityServiceTest {
     }
 
     @Test
+    void refreshTokenReuseRevokesItsWholeFamily() {
+        UserEntity user = new UserEntity(UUID.randomUUID(), "an@example.test", "hash", "Nguyen An",
+                "+84901234567", "TM-TEST", Instant.now());
+        DeviceEntity device = new DeviceEntity(UUID.randomUUID(), UUID.randomUUID());
+        RefreshTokenEntity reused = new RefreshTokenEntity(UUID.randomUUID(), user, device, UUID.randomUUID(),
+                null, sha256("refresh-token"), Instant.now().plus(Duration.ofDays(1)));
+        reused.consume();
+        when(refreshTokenRepository.findByTokenHashForUpdate(anyString())).thenReturn(Optional.of(reused));
+        when(refreshTokenRepository.findFamilyForUpdate(reused.getFamilyId())).thenReturn(java.util.List.of(reused));
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> service.refresh(new RefreshRequest("refresh-token")));
+
+        assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatus());
+        assertEquals("REFRESH_TOKEN_REUSE", exception.getCode());
+        assertNotNull(reused.getRevokedAt());
+    }
+
+    @Test
+    void refreshTokenFromPreviousUserIsRejectedAfterDeviceRebind() {
+        UserEntity previousUser = new UserEntity(UUID.randomUUID(), "old@example.test", "hash", "Old",
+                "+84901234567", "TM-OLD", Instant.now());
+        UserEntity currentUser = new UserEntity(UUID.randomUUID(), "new@example.test", "hash", "New",
+                "+84907654321", "TM-NEW", Instant.now());
+        DeviceEntity device = new DeviceEntity(UUID.randomUUID(), UUID.randomUUID());
+        device.bind(currentUser);
+        RefreshTokenEntity oldToken = new RefreshTokenEntity(UUID.randomUUID(), previousUser, device,
+                UUID.randomUUID(), null, sha256("old-refresh"), Instant.now().plus(Duration.ofDays(1)));
+        when(refreshTokenRepository.findByTokenHashForUpdate(anyString())).thenReturn(Optional.of(oldToken));
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> service.refresh(new RefreshRequest("old-refresh")));
+
+        assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatus());
+        assertEquals("INVALID_REFRESH_TOKEN", exception.getCode());
+    }
+
+    @Test
     void loginBindsInstallationAndReturnsSession() {
         UUID installationId = UUID.randomUUID();
         UserEntity user = new UserEntity(UUID.randomUUID(), "an@example.test", "bcrypt-hash",

@@ -224,6 +224,30 @@ public class IdentityService {
         return issueSession(user, device, null, null);
     }
 
+    @Transactional(noRollbackFor = ApiException.class)
+    public SessionResponse refresh(RefreshRequest request) {
+        String tokenHash = hash(request.refreshToken());
+        RefreshTokenEntity current = refreshTokenRepository.findByTokenHashForUpdate(tokenHash)
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN",
+                        "Refresh token không hợp lệ."));
+        Instant now = Instant.now();
+        if (current.getConsumedAt() != null) {
+            revokeFamily(current.getFamilyId());
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "REFRESH_TOKEN_REUSE",
+                    "Refresh token đã được sử dụng lại; phiên đã bị thu hồi.");
+        }
+        if (current.getRevokedAt() != null || current.getExpiresAt().isBefore(now)
+                || current.getDevice().getUser() == null
+                || !current.getDevice().getUser().getId().equals(current.getUser().getId())
+                || current.getUser().getStatus() != UserStatus.ACTIVE) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN",
+                    "Refresh token không còn hợp lệ.");
+        }
+        current.consume();
+        refreshTokenRepository.save(current);
+        return issueSession(current.getUser(), current.getDevice(), current.getFamilyId(), current);
+    }
+
     @Transactional
     public void cleanupExpiredRegistrations() {
         pendingRegistrationRepository.deleteByOtpExpiresAtBefore(Instant.now().minus(Duration.ofHours(24)));
