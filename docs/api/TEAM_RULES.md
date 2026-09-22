@@ -162,6 +162,13 @@ Ví dụ xung đột:
 5. Khi một module sẵn sàng, chuyển base URL của module/môi trường sang backend và chạy ca chấp nhận chung. Không âm thầm quay lại mock khi backend lỗi.
 6. Tiến độ nên dùng bảng PR/issue: planned → implementing → contract-tested → integrated, ghi commit contract tham chiếu và bằng chứng. Mock trả 200 không phải trạng thái backend hoàn thành.
 
+### Auth registration v1.1 decisions
+
+- Manual registration creates a temporary challenge and sends an email OTP. `app_users` and a TripMate session are created only after a correct, unexpired, single-use OTP.
+- The request includes a required `phone` for manual registration. Profile responses may contain `phone: null` for Google-created users until profile completion exists.
+- Google authentication accepts only a Google ID token and `installationId`. The backend verifies the token before issuing TripMate access and refresh tokens.
+- A Google identity is not auto-linked to an existing manual account by matching email. v1 returns `AUTH_METHOD_CONFLICT` and the user must use the existing manual sign-in flow.
+
 ### Version và tương thích
 
 - Patch (1.0.x): sửa mô tả/ví dụ không đổi hành vi.

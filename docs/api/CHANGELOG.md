@@ -1,5 +1,12 @@
 # Contract changelog
 
+## 1.1.0 - 2026-09-22
+
+- Added manual registration challenge, email OTP verification, and resend operations.
+- Added Google ID token authentication with backend verification and TripMate session issuance.
+- Added the optional phone field to profile responses and the required phone field to manual registration.
+- Added request/response examples and operation-specific authentication error codes.
+
 ## 1.0.0 — 2026-09-17
 
 Baseline triển khai đầu tiên; không có API runtime trước đó để migration.

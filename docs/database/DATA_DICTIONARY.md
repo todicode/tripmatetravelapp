@@ -88,6 +88,7 @@ Tài khoản, hồ sơ và điểm bắt đầu của quan hệ người dùng.
 | `email` | `varchar(254)` | Không NULL; UNIQUE | Email đăng nhập. Phải trim + lowercase; SQL yêu cầu dài hơn 3 ký tự và duy nhất, chưa kiểm tra đầy đủ cú pháp email. |
 | `password_hash` | `text` | Không NULL | Kết quả password encoder; không lưu mật khẩu gốc và không dùng SHA-256 thuần để băm mật khẩu. |
 | `display_name` | `varchar(100)` | Không NULL | Tên hiển thị trên hồ sơ, QR và chat; không được rỗng sau trim. |
+| `phone` | `varchar(32)` | Allows NULL | Phone number collected by manual registration; normalized by the API and optional for Google-created users until profile completion is implemented. |
 | `friend_code` | `varchar(32)` | Không NULL; UNIQUE | Mã kết bạn công khai để tạo QR/nhập tay. Backend sinh ngẫu nhiên; không phải token đăng nhập. |
 | `avatar_media_id` | `uuid` | Cho phép NULL | Tệp avatar hiện tại; NULL là chưa có. FK ghép với id buộc tệp thuộc chính tài khoản. |
 | `status` | `varchar(16)` | Không NULL; mặc định `'ACTIVE'` | ACTIVE hoặc DISABLED. Đây là trạng thái tài khoản; backend phải kiểm tra khi xác thực. |
