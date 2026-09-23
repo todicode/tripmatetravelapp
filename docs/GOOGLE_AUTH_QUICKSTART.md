@@ -1,6 +1,6 @@
 # Chạy và test Google Auth trên Android Emulator
 
-Áp dụng cho Windows sau khi clone repo. Backend dùng JDK 26 và PostgreSQL riêng `tripmate_auth`; Android dùng JDK 17. Hai nút Google dùng backend thật ở port `8080`. Đăng nhập/đăng ký bằng email và OTP vẫn gọi Mock API ở port `4010`.
+Áp dụng cho Windows sau khi clone repo. Backend dùng JDK 26 và PostgreSQL riêng `tripmate_auth`; Android dùng JDK 17. Google, đăng nhập/đăng ký bằng email và OTP đều dùng backend thật ở port `8080`.
 
 ## 1. Chuẩn bị một lần
 
@@ -100,6 +100,7 @@ npm.cmd run android
 3. Bấm lại bằng cùng Google account: backend đăng nhập vào tài khoản đã tạo.
 4. Chuyển sang Đăng ký, bấm **Đăng ký với Google**: nút này dùng cùng endpoint `/auth/google` và cũng đăng nhập được tài khoản Google đó.
 5. Nếu email từng được đăng ký bằng mật khẩu nhưng chưa liên kết Google, backend hiện trả `409 AUTH_METHOD_CONFLICT`. Đây là chính sách hiện tại.
+6. Để test email OTP, nhập một email nhận có thể kiểm tra trong màn hình Đăng ký. Mã trong email có hiệu lực 3 phút; kiểm tra cả thư rác. Nút Quay lại huỷ yêu cầu OTP; nếu đóng app đột ngột, đăng ký lại cùng email sẽ thay yêu cầu cũ. Khởi động lại backend sau khi cập nhật code để áp dụng thời hạn và mẫu email mới.
 
 Google Auth phụ thuộc vào mạng của emulator để mở tài khoản và lấy ID token. Backend cần mạng để xác minh token với Google. Việc build thành công không tự xác nhận rằng tài khoản test và cấu hình OAuth trên Google Cloud đã đúng; chỉ thao tác chọn tài khoản trên emulator mới kiểm tra được phần đó. Terminal chạy `run-backend.ps1` hiển thị log khởi động/lỗi backend; terminal `npm.cmd run android` hiển thị log Metro. Backend hiện chưa in từng request/response Google ra terminal.
 
@@ -116,4 +117,4 @@ Google Auth phụ thuộc vào mạng của emulator để mở tài khoản và
 - `JDK 26 not found` hoặc `Backend requires JDK 26`: truyền đường dẫn thư mục JDK 26 thực tế bằng `-JavaHome`; đường dẫn phải chứa `bin/java.exe`.
 - `JDK 17 not found`: đặt `ANDROID_JAVA_HOME` tới thư mục JDK 17 thực tế rồi chạy lại `npm.cmd run android`.
 
-Không cần chạy Mock API để test hai nút Google. Muốn test thêm email/password và OTP, mở PowerShell thứ ba tại thư mục gốc repo và chạy `node docs/api/mock-server.mjs`.
+Không cần chạy Mock API để test màn hình auth. Nếu chưa cấu hình SMTP, backend mặc định dùng `EMAIL_MODE=log`: mã OTP ngẫu nhiên xuất hiện trong terminal backend. Để nhận OTP qua Gmail, tạo Gmail App Password rồi chạy `./scripts/setup-gmail-smtp.ps1 -Email 'your-address@gmail.com'` một lần trong PowerShell tại thư mục gốc repo. Script lưu thông tin vào `personal/gmail-smtp.env` được Git ignore; các lần chạy `./scripts/run-backend.ps1` sau sẽ tự bật Gmail SMTP. Không gửi App Password qua chat hay commit file local. Khi muốn đổi App Password, chạy lại lệnh setup với `-Replace`. Sau đó đăng ký bằng một địa chỉ email có thể nhận thư trên emulator; mã không cố định là `123456`.

@@ -1,5 +1,12 @@
 # Contract changelog
 
+## 1.2.0 - 2026-09-23
+
+- Added `POST /auth/register/cancel` to discard an unfinished registration (idempotent 204).
+- Starting registration again with the same email replaces an unfinished challenge; the previous OTP becomes invalid.
+- Reduced email OTP expiry from 10 minutes to 3 minutes. Frontend and backend must use the returned `expiresAt` for timing; no database schema migration is needed.
+- Verified with backend auth tests, the SMTP email template test, frontend typecheck, and mock contract tests.
+
 ## 1.1.0 - 2026-09-22
 
 - Added manual registration challenge, email OTP verification, and resend operations.

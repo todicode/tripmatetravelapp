@@ -1,6 +1,6 @@
 # TripMate Auth API Notes
 
-> Ghi chú tích hợp authentication/profile cho frontend. Cập nhật theo các commit mới nhất ngày 22/09/2026.
+> Ghi chú tích hợp authentication/profile cho frontend. Cập nhật ngày 23/09/2026.
 
 ## Trạng thái hiện tại
 
@@ -8,9 +8,9 @@
 - Base URL backend thật: `http://localhost:8080/api/v1`.
 - Mock API: `http://localhost:4010/api/v1`.
 - Android Emulator: dùng `http://10.0.2.2:8080/api/v1` cho backend thật hoặc port `4010` cho mock.
-- Frontend đã tích hợp Mock API cho login, register, verify OTP, resend OTP và Google auth.
-- Mock session hiện chỉ dùng để hiển thị kết quả test; access/refresh token chưa được lưu vào secure storage.
-- Backend thật và database chưa được tích hợp vào frontend.
+- Frontend hiện gọi backend thật cho login, register, verify OTP, resend OTP và Google auth; Mock API chỉ còn để kiểm tra contract riêng.
+- Session trả về hiện chỉ dùng để hiển thị kết quả test; access/refresh token chưa được lưu vào secure storage.
+- Backend thật và database đã được tích hợp vào frontend qua URL cấu hình trong `frontend/.env.local`.
 
 ## API endpoints
 
@@ -19,6 +19,7 @@
 | `POST` | `/auth/register` | Không | Bắt đầu đăng ký, gửi OTP email |
 | `POST` | `/auth/register/verify` | Không | Xác minh OTP, tạo tài khoản và session |
 | `POST` | `/auth/register/resend` | Không | Gửi lại OTP |
+| `POST` | `/auth/register/cancel` | Không | Huỷ yêu cầu đăng ký chưa xác minh |
 | `POST` | `/auth/login` | Không | Đăng nhập email/mật khẩu |
 | `POST` | `/auth/google` | Không | Đăng nhập/đăng ký bằng Google ID token |
 | `POST` | `/auth/refresh` | Không | Đổi refresh token lấy session mới |
@@ -58,7 +59,7 @@ Trả `202`:
 {
   "data": {
     "verificationId": "uuid",
-    "expiresAt": "2026-09-17T03:10:00Z",
+    "expiresAt": "2026-09-17T03:03:00Z",
     "resendAvailableAt": "2026-09-17T03:01:00Z"
   },
   "requestId": "uuid"
@@ -80,7 +81,7 @@ Backend chưa tạo `app_users` hoặc session ở bước này. Mật khẩu v�
 
 OTP đúng, chưa hết hạn và chưa được dùng sẽ trả `201` cùng `SessionResponse`. OTP sai trả `422 OTP_INVALID`; hết hạn hoặc đã dùng trả `410`; vượt số lần thử trả `429 OTP_ATTEMPTS_EXCEEDED`.
 
-Với mock API hiện tại, OTP mặc định để test là `123456`. Nhập mã 6 chữ số khác sẽ trả `422 OTP_INVALID`.
+Với backend thật, OTP được tạo ngẫu nhiên và gửi bằng Gmail SMTP nếu đã chạy `scripts/setup-gmail-smtp.ps1`, hoặc in trong log backend khi `EMAIL_MODE=log`. Mã `123456` chỉ áp dụng cho Mock API độc lập.
 
 Mock sẽ giữ tạm `displayName`, `email` và `phone` từ request đăng ký để trả lại trong `SessionResponse` sau khi verify thành công. Password vẫn xuất hiện trong request log để test local, nhưng không nằm trong object `user` response theo contract API.
 
@@ -99,10 +100,12 @@ Chỉ được resend sau cooldown. Nếu gửi quá sớm, xử lý `429 OTP_RE
 Thông số mặc định:
 
 - OTP 6 chữ số.
-- Hết hạn sau 10 phút.
+- Hết hạn sau 3 phút.
 - Cooldown resend 60 giây.
 - Tối đa 5 lần nhập sai.
 - OTP đúng chỉ dùng được một lần.
+
+Nút Quay lại ở màn hình OTP gọi `/auth/register/cancel` để xoá yêu cầu tạm. Nếu app bị đóng đột ngột, lần đăng ký lại cùng email sẽ thay yêu cầu cũ và mã cũ hết hiệu lực; tác vụ nền xoá yêu cầu đã hết hạn. Không thể bảo đảm gọi API đúng lúc hệ điều hành cưỡng bức đóng app.
 
 ## 2. Đăng nhập email/mật khẩu
 
@@ -225,9 +228,9 @@ Contract OpenAPI có khai báo thêm `PATCH /users/me`, nhưng backend hiện m�
 - `backend/src/main/java/com/tripmate/identity/web/AuthController.java`
 - `backend/src/main/java/com/tripmate/identity/application/IdentityService.java`
 
-## Chạy mock auth cho frontend
+## Chạy Mock API độc lập (tham khảo luồng cũ)
 
-Mock API là server local, không dùng database. Mở hai terminal từ thư mục gốc repo.
+Mock API là server local, không dùng database. App hiện không còn gọi mock; các bước dưới đây chỉ để thử contract độc lập. Mở hai terminal từ thư mục gốc repo.
 
 ### Terminal 1: khởi động mock server
 

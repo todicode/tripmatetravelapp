@@ -42,6 +42,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -80,7 +81,7 @@ class IdentityServiceTest {
     void setUp() {
         service = new IdentityService(userRepository, deviceRepository, refreshTokenRepository,
                 pendingRegistrationRepository, authIdentityRepository, passwordEncoder, jwtTokenService,
-                googleIdentityVerifier, eventPublisher, Duration.ofMinutes(10), Duration.ofSeconds(60),
+                googleIdentityVerifier, eventPublisher, Duration.ofMinutes(3), Duration.ofSeconds(60),
                 Duration.ofDays(30), 5);
     }
 
@@ -97,6 +98,7 @@ class IdentityServiceTest {
 
         assertNotNull(response.verificationId());
         assertTrue(response.expiresAt().isAfter(Instant.now()));
+        assertTrue(response.expiresAt().isBefore(Instant.now().plus(Duration.ofMinutes(3)).plusSeconds(5)));
         assertTrue(response.resendAvailableAt().isBefore(response.expiresAt()));
         ArgumentCaptor<PendingRegistrationEntity> pendingCaptor = ArgumentCaptor.forClass(PendingRegistrationEntity.class);
         verify(pendingRegistrationRepository).save(pendingCaptor.capture());
@@ -107,6 +109,67 @@ class IdentityServiceTest {
         assertEquals(response.verificationId(), eventCaptor.getValue().verificationId());
         assertEquals(response.expiresAt(), eventCaptor.getValue().expiresAt());
         assertTrue(eventCaptor.getValue().otp().matches("\\d{6}"));
+    }
+
+    @Test
+    void restartingRegistrationReplacesUnfinishedChallenge() {
+        PendingRegistrationEntity existing = pending(UUID.randomUUID(), "123456",
+                Instant.now().plus(Duration.ofMinutes(2)));
+        when(pendingRegistrationRepository.findByEmailAndUsedAtIsNull("an@example.test"))
+                .thenReturn(Optional.of(existing));
+        when(passwordEncoder.encode("new-password")).thenReturn("new-hash");
+
+        RegistrationChallengeResponse response = service.startRegistration(new RegisterRequest(
+                "an@example.test", "new-password", UUID.randomUUID(), "New Name", "+84901234567"));
+
+        verify(pendingRegistrationRepository).delete(existing);
+        verify(pendingRegistrationRepository).flush();
+        assertNotEquals(existing.getId(), response.verificationId());
+        verify(pendingRegistrationRepository).save(any(PendingRegistrationEntity.class));
+    }
+
+    @Test
+    void cancelRegistrationDeletesOnlyUnfinishedChallenge() {
+        UUID verificationId = UUID.randomUUID();
+        PendingRegistrationEntity pending = pending(verificationId, "123456",
+                Instant.now().plus(Duration.ofMinutes(2)));
+        when(pendingRegistrationRepository.findByIdForUpdate(verificationId)).thenReturn(Optional.of(pending));
+
+        service.cancelRegistration(verificationId);
+
+        verify(pendingRegistrationRepository).delete(pending);
+    }
+
+    @Test
+    void cancelRegistrationDoesNotDeleteCompletedChallenge() {
+        UUID verificationId = UUID.randomUUID();
+        PendingRegistrationEntity pending = pending(verificationId, "123456",
+                Instant.now().plus(Duration.ofMinutes(2)));
+        pending.markUsed();
+        when(pendingRegistrationRepository.findByIdForUpdate(verificationId)).thenReturn(Optional.of(pending));
+
+        service.cancelRegistration(verificationId);
+
+        verify(pendingRegistrationRepository, never()).delete(any(PendingRegistrationEntity.class));
+    }
+
+    @Test
+    void cancelRegistrationIsIdempotentForMissingChallenge() {
+        UUID verificationId = UUID.randomUUID();
+        when(pendingRegistrationRepository.findByIdForUpdate(verificationId)).thenReturn(Optional.empty());
+
+        service.cancelRegistration(verificationId);
+
+        verify(pendingRegistrationRepository, never()).delete(any(PendingRegistrationEntity.class));
+    }
+
+    @Test
+    void cleanupRemovesChallengesAsSoonAsTheyExpire() {
+        service.cleanupExpiredRegistrations();
+
+        ArgumentCaptor<Instant> cutoff = ArgumentCaptor.forClass(Instant.class);
+        verify(pendingRegistrationRepository).deleteByOtpExpiresAtBefore(cutoff.capture());
+        assertTrue(cutoff.getValue().isAfter(Instant.now().minusSeconds(5)));
     }
 
     @Test

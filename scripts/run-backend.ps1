@@ -12,6 +12,7 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $backendRoot = Join-Path $repoRoot 'backend'
 $databaseEnvFile = Join-Path $repoRoot 'docs/database/.env.erd.local'
 $frontendEnvFile = Join-Path $repoRoot 'frontend/.env.local'
+$gmailEnvFile = Join-Path $repoRoot 'personal/gmail-smtp.env'
 $defaultJavaHome = 'C:\Program Files\Eclipse Adoptium\jdk-26.0.2.1+1'
 $javaHome = if ($JavaHome) { $JavaHome } elseif ($env:BACKEND_JAVA_HOME) {
     $env:BACKEND_JAVA_HOME
@@ -44,8 +45,8 @@ if (-not $javaExecutable -or -not (Test-Path -LiteralPath $javaExecutable)) {
     throw 'JDK 26 not found. Pass -JavaHome <JDK 26 path> or set BACKEND_JAVA_HOME.'
 }
 
-$javaVersion = & $javaExecutable -version 2>&1 | Out-String
-if ($LASTEXITCODE -ne 0 -or $javaVersion -notmatch 'version "26(?:\.|"|\+)') {
+$javaVersion = & $javaExecutable --version | Out-String
+if ($LASTEXITCODE -ne 0 -or $javaVersion -notmatch '(?m)^(?:openjdk|java) 26(?:\.|\s|\+|$)') {
     throw "Backend requires JDK 26. Selected: $javaHome"
 }
 
@@ -63,6 +64,16 @@ $env:DATABASE_URL = 'jdbc:postgresql://127.0.0.1:55432/tripmate_auth'
 $env:DATABASE_USERNAME = 'tripmate'
 $env:DATABASE_PASSWORD = $dbPassword
 $env:GOOGLE_WEB_CLIENT_ID = $googleWebClientId
+if (Test-Path -LiteralPath $gmailEnvFile) {
+    $gmailAddress = Read-EnvValue $gmailEnvFile 'MAIL_USERNAME'
+    $env:MAIL_PASSWORD = Read-EnvValue $gmailEnvFile 'MAIL_PASSWORD'
+    $env:EMAIL_MODE = 'smtp'
+    $env:MAIL_HOST = 'smtp.gmail.com'
+    $env:MAIL_PORT = '587'
+    $env:MAIL_USERNAME = $gmailAddress
+    $env:MAIL_FROM = $gmailAddress
+    Write-Host "Gmail SMTP enabled for $gmailAddress" -ForegroundColor Cyan
+}
 
 Write-Host "Using JDK: $javaHome" -ForegroundColor Cyan
 Write-Host 'Starting local PostgreSQL...' -ForegroundColor Cyan

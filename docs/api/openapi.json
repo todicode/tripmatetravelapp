@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "TripMate API Contract",
-    "version": "1.1.0",
-    "description": "Contract-first TripMate API for the Spring backend and mobile React Native client. Version 1.1.0 adds email OTP verification before manual registration creates a session, Google ID token authentication verified by the backend, and the phone field in user profiles. This JSON is the canonical wire format; examples use fixture data. Rules: docs/api/TEAM_RULES.md. Realtime: x-realtime. Bigint values are sent as strings."
+    "version": "1.2.0",
+    "description": "Contract-first TripMate API for the Spring backend and mobile React Native client. Version 1.2.0 adds cancellation of unfinished registration, allows replacing a pending challenge, and sets email OTP expiry to three minutes. This JSON is the canonical wire format; examples use fixture data. Rules: docs/api/TEAM_RULES.md. Realtime: x-realtime. Bigint values are sent as strings."
   },
   "servers": [
     {
@@ -260,7 +260,7 @@
         ],
         "operationId": "startRegistration",
         "summary": "Start manual registration and send email OTP",
-        "description": "Email is trimmed and lowercased; password is never trimmed or changed. The backend stores a temporary challenge, sends OTP through EmailSender, and creates app_users only after a correct OTP. installationId is generated once by mobile for each installation.",
+        "description": "Email is trimmed and lowercased; password is never trimmed or changed. A new registration replaces any unfinished challenge for the same email. The OTP expires after 3 minutes; app_users is created only after verification. installationId is generated once by mobile for each installation.",
         "x-permission": "PUBLIC",
         "responses": {
           "202": {
@@ -284,7 +284,7 @@
                     "value": {
                       "data": {
                         "verificationId": "00000000-0000-4000-8000-000000000101",
-                        "expiresAt": "2026-09-17T03:10:00Z",
+                        "expiresAt": "2026-09-17T03:03:00Z",
                         "resendAvailableAt": "2026-09-17T03:01:00Z"
                       },
                       "requestId": "00000000-0000-4000-8000-000000000090"
@@ -337,7 +337,6 @@
         },
         "x-error-codes": [
           "EMAIL_ALREADY_REGISTERED",
-          "REGISTRATION_PENDING",
           "VALIDATION_ERROR",
           "OTP_DELIVERY_FAILED",
           "RATE_LIMITED"
@@ -7100,7 +7099,7 @@
                     "value": {
                       "data": {
                         "verificationId": "00000000-0000-4000-8000-000000000101",
-                        "expiresAt": "2026-09-17T03:10:00Z",
+                        "expiresAt": "2026-09-17T03:03:00Z",
                         "resendAvailableAt": "2026-09-17T03:01:00Z"
                       },
                       "requestId": "00000000-0000-4000-8000-000000000090"
@@ -7146,6 +7145,35 @@
                     "verificationId": "00000000-0000-4000-8000-000000000101"
                   }
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/register/cancel": {
+      "post": {
+        "tags": ["Auth"],
+        "operationId": "cancelRegistration",
+        "summary": "Discard an unfinished email registration",
+        "description": "Deletes the pending registration identified by verificationId. Repeated calls and unknown IDs are safe no-ops. A verified account is never deleted.",
+        "x-permission": "PUBLIC",
+        "x-error-codes": ["VALIDATION_ERROR", "RATE_LIMITED"],
+        "responses": {
+          "204": { "description": "Pending registration discarded or already absent" },
+          "400": { "$ref": "#/components/responses/Error400" },
+          "415": { "$ref": "#/components/responses/Error415" },
+          "422": { "$ref": "#/components/responses/Error422" },
+          "429": { "$ref": "#/components/responses/Error429" }
+        },
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CancelRegistrationRequest" },
+              "examples": {
+                "default": { "value": { "verificationId": "00000000-0000-4000-8000-000000000101" } }
               }
             }
           }
@@ -11911,7 +11939,7 @@
           "expiresAt": {
             "type": "string",
             "format": "date-time",
-            "example": "2026-09-17T03:10:00Z"
+            "example": "2026-09-17T03:03:00Z"
           },
           "resendAvailableAt": {
             "type": "string",
@@ -11926,7 +11954,7 @@
         ],
         "example": {
           "verificationId": "00000000-0000-4000-8000-000000000101",
-          "expiresAt": "2026-09-17T03:10:00Z",
+          "expiresAt": "2026-09-17T03:03:00Z",
           "resendAvailableAt": "2026-09-17T03:01:00Z"
         }
       },
@@ -11950,7 +11978,7 @@
         "example": {
           "data": {
             "verificationId": "00000000-0000-4000-8000-000000000101",
-            "expiresAt": "2026-09-17T03:10:00Z",
+            "expiresAt": "2026-09-17T03:03:00Z",
             "resendAvailableAt": "2026-09-17T03:01:00Z"
           },
           "requestId": "00000000-0000-4000-8000-000000000090"
@@ -11999,6 +12027,15 @@
         "example": {
           "verificationId": "00000000-0000-4000-8000-000000000101"
         }
+      },
+      "CancelRegistrationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "verificationId": { "type": "string", "format": "uuid" }
+        },
+        "required": ["verificationId"],
+        "example": { "verificationId": "00000000-0000-4000-8000-000000000101" }
       },
       "GoogleAuthRequest": {
         "type": "object",

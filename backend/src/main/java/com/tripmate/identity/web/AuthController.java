@@ -1,6 +1,7 @@
 package com.tripmate.identity.web;
 
 import com.tripmate.identity.application.IdentityService;
+import com.tripmate.identity.web.AuthRequests.CancelRegistrationRequest;
 import com.tripmate.identity.web.AuthRequests.GoogleAuthRequest;
 import com.tripmate.identity.web.AuthRequests.LoginRequest;
 import com.tripmate.identity.web.AuthRequests.RefreshRequest;
@@ -56,6 +57,14 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .header("Cache-Control", NO_STORE)
                 .body(new ApiResponse<>(identityService.resendOtp(request), requestId(httpRequest)));
+    }
+
+    @PostMapping("/register/cancel")
+    public ResponseEntity<Void> cancelRegistration(
+            @Valid @RequestBody CancelRegistrationRequest request, HttpServletRequest httpRequest) {
+        identityService.cancelRegistration(request.verificationId());
+        return ResponseEntity.noContent().header("Cache-Control", NO_STORE)
+                .header(RequestIdFilter.REQUEST_ID_HEADER, requestId(httpRequest).toString()).build();
     }
 
     @PostMapping("/login")

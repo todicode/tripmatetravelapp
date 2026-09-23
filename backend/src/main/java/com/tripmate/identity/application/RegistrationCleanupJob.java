@@ -12,7 +12,7 @@ public class RegistrationCleanupJob {
         this.identityService = identityService;
     }
 
-    @Scheduled(fixedDelayString = "${tripmate.email.cleanup-delay:3600000}")
+    @Scheduled(fixedDelayString = "${tripmate.email.cleanup-delay:60000}")
     public void cleanup() {
         identityService.cleanupExpiredRegistrations();
     }

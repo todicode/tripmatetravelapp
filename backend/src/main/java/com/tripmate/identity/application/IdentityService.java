@@ -100,14 +100,9 @@ public class IdentityService {
         Instant now = Instant.now();
         PendingRegistrationEntity existing = pendingRegistrationRepository
                 .findByEmailAndUsedAtIsNull(email).orElse(null);
-        if (existing != null && existing.getOtpExpiresAt().isAfter(now)) {
-            throw new ApiException(HttpStatus.CONFLICT, "REGISTRATION_PENDING",
-                    "Email này đang chờ xác minh OTP.", List.of(),
-                    Map.of("verificationId", existing.getId().toString()));
-        }
         if (existing != null) {
-            existing.markUsed();
-            pendingRegistrationRepository.save(existing);
+            pendingRegistrationRepository.delete(existing);
+            pendingRegistrationRepository.flush();
         }
 
         String otp = generateOtp();
@@ -181,6 +176,13 @@ public class IdentityService {
         pendingRegistrationRepository.save(pending);
         eventPublisher.publishEvent(new OtpEmailRequested(pending.getId(), pending.getEmail(), otp, expiresAt));
         return new RegistrationChallengeResponse(pending.getId(), expiresAt, pending.getResendAvailableAt());
+    }
+
+    @Transactional
+    public void cancelRegistration(UUID verificationId) {
+        pendingRegistrationRepository.findByIdForUpdate(verificationId)
+                .filter(pending -> pending.getUsedAt() == null)
+                .ifPresent(pendingRegistrationRepository::delete);
     }
 
     @Transactional
@@ -272,7 +274,7 @@ public class IdentityService {
 
     @Transactional
     public void cleanupExpiredRegistrations() {
-        pendingRegistrationRepository.deleteByOtpExpiresAtBefore(Instant.now().minus(Duration.ofHours(24)));
+        pendingRegistrationRepository.deleteByOtpExpiresAtBefore(Instant.now());
     }
 
     private SessionResponse issueSession(UserEntity user, DeviceEntity device, UUID familyId,

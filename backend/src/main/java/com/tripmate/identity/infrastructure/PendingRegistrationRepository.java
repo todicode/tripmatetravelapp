@@ -13,6 +13,7 @@ import java.util.UUID;
 
 public interface PendingRegistrationRepository extends JpaRepository<PendingRegistrationEntity, UUID> {
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<PendingRegistrationEntity> findByEmailAndUsedAtIsNull(String email);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

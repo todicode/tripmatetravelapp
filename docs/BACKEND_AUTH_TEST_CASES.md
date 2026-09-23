@@ -37,7 +37,7 @@ $env:DATABASE_PASSWORD = "testpass"
 $env:JWT_SECRET = "local-test-secret-with-at-least-32-characters"
 $env:EMAIL_MODE = "log"
 $env:GOOGLE_WEB_CLIENT_ID = ""
-$env:EMAIL_VERIFICATION_TTL = "10m"
+$env:EMAIL_VERIFICATION_TTL = "3m"
 $env:EMAIL_RESEND_COOLDOWN = "5s"
 $env:AUTH_RATE_LIMIT_PER_WINDOW = "100"
 $env:OTP_RATE_LIMIT_PER_WINDOW = "100"
@@ -220,10 +220,10 @@ Invoke-WebRequest "$base/auth/logout" -Method Post -Headers @{ Authorization = "
 | TC-008 | `POST /auth/register`        | Email sai format, password dưới 8 ký tự, thiếu tên/phone/installationId | `422 VALIDATION_ERROR`                                                       |
 | TC-009 | `POST /auth/register`        | Gửi thêm field không tồn tại, ví dụ`role=admin`                      | `400 INVALID_REQUEST`                                                        |
 | TC-010 | `POST /auth/register`        | Gọi lại với email đã có user                                            | `409 EMAIL_ALREADY_REGISTERED`                                               |
-| TC-011 | `POST /auth/register`        | Gọi lại khi email đang có challenge chưa hết hạn                       | `409 REGISTRATION_PENDING`, có `verificationId` trong context             |
+| TC-011 | `POST /auth/register`        | Gọi lại khi email đang có challenge chưa hết hạn                       | `202`, challenge cũ bị xoá và OTP cũ không còn hợp lệ                     |
 | TC-012 | `POST /auth/register/verify` | OTP sai                                                                       | `422 OTP_INVALID`; attempts tăng trong database                             |
 | TC-013 | `POST /auth/register/verify` | Nhập sai đủ số lần cho phép; khi test nên để rate limit OTP cao      | `429 OTP_ATTEMPTS_EXCEEDED`                                                  |
-| TC-014 | `POST /auth/register/verify` | Dùng OTP sau`EMAIL_VERIFICATION_TTL`                                       | `410 OTP_EXPIRED`                                                            |
+| TC-014 | `POST /auth/register/verify` | Dùng OTP sau`EMAIL_VERIFICATION_TTL`                                       | `410 OTP_EXPIRED` hoặc `404 VERIFICATION_NOT_FOUND` sau tác vụ dọn dẹp    |
 | TC-015 | `POST /auth/register/verify` | Dùng`verificationId` không tồn tại                                      | `404 VERIFICATION_NOT_FOUND`                                                 |
 | TC-016 | `POST /auth/register/verify` | Dùng lại challenge đã verify thành công                                 | `410 VERIFICATION_ALREADY_USED`                                              |
 | TC-017 | `POST /auth/register/resend` | Gửi lại trước`EMAIL_RESEND_COOLDOWN`                                    | `429 OTP_RESEND_TOO_SOON`, có `retryAfterSeconds`                         |

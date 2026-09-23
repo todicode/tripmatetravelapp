@@ -37,7 +37,8 @@ public class SecurityConfiguration {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/auth/register", "/api/v1/auth/register/verify",
-                                "/api/v1/auth/register/resend", "/api/v1/auth/login", "/api/v1/auth/google",
+                                "/api/v1/auth/register/resend", "/api/v1/auth/register/cancel",
+                                "/api/v1/auth/login", "/api/v1/auth/google",
                                 "/api/v1/auth/refresh", "/api/v1/health", "/actuator/health").permitAll()
                         .requestMatchers("/api/v1/auth/logout").authenticated()
                         .anyRequest().authenticated())

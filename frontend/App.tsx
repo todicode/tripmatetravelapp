@@ -1,9 +1,10 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  BackHandler,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -36,10 +37,7 @@ const heroImage = {
   uri: 'https://images.unsplash.com/photo-1528127269322-539801943592?w=800&auto=format&fit=crop&q=80',
 };
 
-const mockApiBaseUrl = Platform.OS === 'android'
-  ? 'http://10.0.2.2:4010/api/v1'
-  : 'http://localhost:4010/api/v1';
-const googleAuthApiBaseUrl = process.env.EXPO_PUBLIC_GOOGLE_AUTH_API_URL
+const authApiBaseUrl = process.env.EXPO_PUBLIC_GOOGLE_AUTH_API_URL
   ?? (Platform.OS === 'android' ? 'http://10.0.2.2:8080/api/v1' : 'http://localhost:8080/api/v1');
 const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '';
 const installationId = '00000000-0000-4000-8000-000000000002';
@@ -110,8 +108,8 @@ async function apiRequest<T>(
   return payload.data as T;
 }
 
-async function mockRequest<T>(path: string, body: Record<string, unknown>) {
-  return apiRequest<T>(mockApiBaseUrl, 'Mock API', path, body);
+async function authRequest<T>(path: string, body: Record<string, unknown>) {
+  return apiRequest<T>(authApiBaseUrl, 'Backend API', path, body);
 }
 
 function configureGoogleSignIn() {
@@ -135,7 +133,7 @@ async function googleAuthRequest(): Promise<SessionResponse> {
     throw new ApiRequestError('GOOGLE_SIGN_IN_CANCELLED', 'Đăng nhập Google đã bị hủy.', 0);
   }
 
-  return apiRequest<SessionResponse>(googleAuthApiBaseUrl, 'Backend API', '/auth/google', {
+  return authRequest<SessionResponse>('/auth/google', {
     idToken: result.data.idToken,
     installationId,
   });
@@ -415,8 +413,8 @@ function ForgotPasswordSheet({
 }
 
 function LoginPanel({ onRegister }: { onRegister: () => void }) {
-  const [email, setEmail] = useState('nguyenvana@gmail.com');
-  const [password, setPassword] = useState('TripMate2026!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [forgotVisible, setForgotVisible] = useState(false);
@@ -436,7 +434,7 @@ function LoginPanel({ onRegister }: { onRegister: () => void }) {
     setApiError(null);
     setIsSubmitting(true);
     try {
-      const session = await mockRequest<SessionResponse>('/auth/login', {
+      const session = await authRequest<SessionResponse>('/auth/login', {
         email: email.trim(),
         installationId,
         password,
@@ -510,20 +508,51 @@ function LoginPanel({ onRegister }: { onRegister: () => void }) {
 }
 
 function RegisterPanel({ onLogin }: { onLogin: () => void }) {
-  const [name, setName] = useState('Nguyễn Văn A');
-  const [email, setEmail] = useState('nguyenvana@gmail.com');
-  const [phone, setPhone] = useState('0912345678');
-  const [password, setPassword] = useState('TripMate2026!');
-  const [confirmPassword, setConfirmPassword] = useState('TripMate2026!');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [agreeTerms, setAgreeTerms] = useState(true);
+  const [agreeTerms, setAgreeTerms] = useState(false);
   const [registerStep, setRegisterStep] = useState<'form' | 'otp'>('form');
   const [verificationId, setVerificationId] = useState('');
   const [otp, setOtp] = useState('');
   const [challenge, setChallenge] = useState<RegistrationChallenge | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+
+  const pendingVerificationRef = useRef<string | null>(null);
+
+  const cancelPendingRegistration = () => {
+    const pendingId = pendingVerificationRef.current;
+    pendingVerificationRef.current = null;
+    setVerificationId('');
+    setChallenge(null);
+    setOtp('');
+    setApiError(null);
+    setRegisterStep('form');
+    if (pendingId) {
+      void authRequest<void>('/auth/register/cancel', { verificationId: pendingId }).catch(() => {});
+    }
+  };
+
+  useEffect(() => () => {
+    const pendingId = pendingVerificationRef.current;
+    if (pendingId) {
+      void authRequest<void>('/auth/register/cancel', { verificationId: pendingId }).catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    if (registerStep !== 'otp') return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (!isSubmitting) cancelPendingRegistration();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [registerStep, isSubmitting]);
 
   const showSession = (session: SessionResponse) => {
     Alert.alert('Đăng ký thành công', `Phiên đăng nhập đã cấp cho ${session.user.email}.`);
@@ -546,7 +575,7 @@ function RegisterPanel({ onLogin }: { onLogin: () => void }) {
     setApiError(null);
     setIsSubmitting(true);
     try {
-      const nextChallenge = await mockRequest<RegistrationChallenge>('/auth/register', {
+      const nextChallenge = await authRequest<RegistrationChallenge>('/auth/register', {
         displayName: name.trim(),
         email: email.trim(),
         installationId,
@@ -555,6 +584,7 @@ function RegisterPanel({ onLogin }: { onLogin: () => void }) {
       });
       setChallenge(nextChallenge);
       setVerificationId(nextChallenge.verificationId);
+      pendingVerificationRef.current = nextChallenge.verificationId;
       setOtp('');
       setRegisterStep('otp');
     } catch (error) {
@@ -573,10 +603,11 @@ function RegisterPanel({ onLogin }: { onLogin: () => void }) {
     setApiError(null);
     setIsSubmitting(true);
     try {
-      const session = await mockRequest<SessionResponse>('/auth/register/verify', {
+      const session = await authRequest<SessionResponse>('/auth/register/verify', {
         otp,
         verificationId,
       });
+      pendingVerificationRef.current = null;
       showSession(session);
     } catch (error) {
       setApiError(getApiErrorMessage(error));
@@ -589,12 +620,12 @@ function RegisterPanel({ onLogin }: { onLogin: () => void }) {
     setApiError(null);
     setIsSubmitting(true);
     try {
-      const nextChallenge = await mockRequest<RegistrationChallenge>('/auth/register/resend', {
+      const nextChallenge = await authRequest<RegistrationChallenge>('/auth/register/resend', {
         verificationId,
       });
       setChallenge(nextChallenge);
       setOtp('');
-      Alert.alert('Đã gửi lại mã', 'Mock API đã tạo challenge OTP mới.');
+      Alert.alert('Đã gửi lại mã', 'Vui lòng kiểm tra hộp thư email của bạn.');
     } catch (error) {
       setApiError(getApiErrorMessage(error));
     } finally {
@@ -631,8 +662,8 @@ function RegisterPanel({ onLogin }: { onLogin: () => void }) {
           Nhập mã 6 chữ số đã gửi tới <Text style={styles.strongText}>{email}</Text>.
         </Text>
         <View style={styles.mockNotice}>
-          <Text style={styles.mockNoticeTitle}>MOCK API</Text>
-          <Text style={styles.mockNoticeText}>Mã mặc định của mock là 123456. Nhập mã khác sẽ không hợp lệ.</Text>
+          <Text style={styles.mockNoticeTitle}>EMAIL OTP</Text>
+          <Text style={styles.mockNoticeText}>Mã có hiệu lực trong 3 phút. Kiểm tra email hoặc log backend nếu chưa bật SMTP.</Text>
           {challenge && <Text style={styles.mockNoticeMeta}>Challenge: {challenge.verificationId.slice(0, 8)}…</Text>}
         </View>
         <InputField
@@ -649,10 +680,7 @@ function RegisterPanel({ onLogin }: { onLogin: () => void }) {
           <Pressable
             accessibilityRole="button"
             disabled={isSubmitting}
-            onPress={() => {
-              setApiError(null);
-              setRegisterStep('form');
-            }}
+            onPress={cancelPendingRegistration}
             style={({ pressed }) => [styles.otpBackButton, pressed && styles.subtlePressed]}
           >
             <Text style={styles.otpBackText}>Quay lại</Text>
