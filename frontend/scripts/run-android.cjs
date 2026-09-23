@@ -11,7 +11,11 @@ const localJdks = fs.existsSync(toolchainsDir)
   : [];
 const candidates = process.env.ANDROID_JAVA_HOME
   ? [process.env.ANDROID_JAVA_HOME]
-  : [...localJdks, process.env.JAVA_HOME].filter(Boolean);
+  : [
+      ...localJdks,
+      process.platform === 'win32' && 'C:\\Program Files\\Eclipse Adoptium\\jdk-17.0.20.101-hotspot',
+      process.env.JAVA_HOME,
+    ].filter(Boolean);
 const javaExecutable = process.platform === 'win32' ? 'java.exe' : 'java';
 const javaHome = candidates.find((candidate) => {
   const binDir = path.join(candidate, 'bin');

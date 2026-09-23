@@ -79,6 +79,6 @@ npm.cmd start -- --lan
 
 Nếu thay đổi thư viện native hoặc `app.json`, chạy `npx.cmd expo prebuild --platform android` lại trước khi bấm Run. Expo SDK 57 tạo lại thư mục native mặc định; lưu các thay đổi native thủ công trước khi chạy. Đồng bộ dependency bằng `npx.cmd expo install --fix` khi nâng Expo SDK.
 
-Màn hình hiện tại là UI mẫu; các nút đăng nhập/Google hiển thị thông báo chờ API thật.
+Các nút Google dùng backend thật; xem [hướng dẫn test Google Auth](../docs/GOOGLE_AUTH_QUICKSTART.md). Email/password và OTP vẫn dùng Mock API.
 
 Không commit node_modules, token, keystore hoặc API secret của backend. Khi tạo ứng dụng, thêm .gitignore và file cấu hình mẫu tương ứng.

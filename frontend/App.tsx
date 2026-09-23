@@ -1,4 +1,5 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
 import {
@@ -38,6 +39,9 @@ const heroImage = {
 const mockApiBaseUrl = Platform.OS === 'android'
   ? 'http://10.0.2.2:4010/api/v1'
   : 'http://localhost:4010/api/v1';
+const googleAuthApiBaseUrl = process.env.EXPO_PUBLIC_GOOGLE_AUTH_API_URL
+  ?? (Platform.OS === 'android' ? 'http://10.0.2.2:8080/api/v1' : 'http://localhost:8080/api/v1');
+const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '';
 const installationId = '00000000-0000-4000-8000-000000000002';
 
 type SessionResponse = {
@@ -72,17 +76,22 @@ class ApiRequestError extends Error {
   }
 }
 
-async function mockRequest<T>(path: string, body: Record<string, unknown>): Promise<T> {
+async function apiRequest<T>(
+  baseUrl: string,
+  serviceName: string,
+  path: string,
+  body: Record<string, unknown>,
+): Promise<T> {
   let response: Response;
 
   try {
-    response = await fetch(`${mockApiBaseUrl}${path}`, {
+    response = await fetch(`${baseUrl}${path}`, {
       body: JSON.stringify(body),
       headers: { 'Content-Type': 'application/json' },
       method: 'POST',
     });
   } catch {
-    throw new ApiRequestError('NETWORK_ERROR', `Không thể kết nối Mock API tại ${mockApiBaseUrl}.`, 0);
+    throw new ApiRequestError('NETWORK_ERROR', `Không thể kết nối ${serviceName} tại ${baseUrl}.`, 0);
   }
 
   const payload = await response.json().catch(() => ({})) as {
@@ -93,12 +102,43 @@ async function mockRequest<T>(path: string, body: Record<string, unknown>): Prom
   if (!response.ok || payload.error) {
     throw new ApiRequestError(
       payload.error?.code ?? 'REQUEST_FAILED',
-      payload.error?.message ?? `Mock API trả về HTTP ${response.status}.`,
+      payload.error?.message ?? `${serviceName} trả về HTTP ${response.status}.`,
       response.status,
     );
   }
 
   return payload.data as T;
+}
+
+async function mockRequest<T>(path: string, body: Record<string, unknown>) {
+  return apiRequest<T>(mockApiBaseUrl, 'Mock API', path, body);
+}
+
+function configureGoogleSignIn() {
+  if (!googleWebClientId) {
+    throw new ApiRequestError(
+      'GOOGLE_CONFIG_MISSING',
+      'Chưa có EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID trong frontend/.env.local.',
+      0,
+    );
+  }
+
+  GoogleSignin.configure({ webClientId: googleWebClientId });
+}
+
+async function googleAuthRequest(): Promise<SessionResponse> {
+  configureGoogleSignIn();
+  await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+
+  const result = await GoogleSignin.signIn();
+  if (result.type !== 'success' || !result.data.idToken) {
+    throw new ApiRequestError('GOOGLE_SIGN_IN_CANCELLED', 'Đăng nhập Google đã bị hủy.', 0);
+  }
+
+  return apiRequest<SessionResponse>(googleAuthApiBaseUrl, 'Backend API', '/auth/google', {
+    idToken: result.data.idToken,
+    installationId,
+  });
 }
 
 function getApiErrorMessage(error: unknown) {
@@ -384,7 +424,7 @@ function LoginPanel({ onRegister }: { onRegister: () => void }) {
   const [apiError, setApiError] = useState<string | null>(null);
 
   const showSession = (session: SessionResponse) => {
-    Alert.alert('Đăng nhập thành công', `Mock session đã cấp cho ${session.user.email}.`);
+    Alert.alert('Đăng nhập thành công', `Phiên đăng nhập đã cấp cho ${session.user.email}.`);
   };
 
   const submit = async () => {
@@ -413,10 +453,7 @@ function LoginPanel({ onRegister }: { onRegister: () => void }) {
     setApiError(null);
     setIsSubmitting(true);
     try {
-      const session = await mockRequest<SessionResponse>('/auth/google', {
-        idToken: 'google-id-token-from-mobile',
-        installationId,
-      });
+      const session = await googleAuthRequest();
       showSession(session);
     } catch (error) {
       setApiError(getApiErrorMessage(error));
@@ -489,7 +526,7 @@ function RegisterPanel({ onLogin }: { onLogin: () => void }) {
   const [apiError, setApiError] = useState<string | null>(null);
 
   const showSession = (session: SessionResponse) => {
-    Alert.alert('Đăng ký thành công', `Mock session đã cấp cho ${session.user.email}.`);
+    Alert.alert('Đăng ký thành công', `Phiên đăng nhập đã cấp cho ${session.user.email}.`);
   };
 
   const submit = async () => {
@@ -569,10 +606,7 @@ function RegisterPanel({ onLogin }: { onLogin: () => void }) {
     setApiError(null);
     setIsSubmitting(true);
     try {
-      const session = await mockRequest<SessionResponse>('/auth/google', {
-        idToken: 'google-id-token-from-mobile',
-        installationId,
-      });
+      const session = await googleAuthRequest();
       showSession(session);
     } catch (error) {
       setApiError(getApiErrorMessage(error));

@@ -1,6 +1,6 @@
 ﻿# TripMate Backend
 
-Backend API for the Login and Register screens in `frontend/App.tsx`. The frontend is intentionally not changed to call these endpoints in this task.
+Backend API for the Login and Register screens in `frontend/App.tsx`. The current native Android development build calls this backend for Google sign-in; email/password and OTP still use the Mock API.
 
 ## Stack
 
@@ -96,7 +96,8 @@ $login = Invoke-RestMethod "$base/auth/login" -Method Post -ContentType "applica
 } | ConvertTo-Json)
 
 $google = Invoke-RestMethod "$base/auth/google" -Method Post -ContentType "application/json" -Body (@{
-  idToken = "google-id-token-from-mobile"
+  # For a real request, use the ID token returned by the mobile Google SDK.
+  idToken = "<google-id-token-from-mobile>"
   installationId = $installationId
 } | ConvertTo-Json)
 
