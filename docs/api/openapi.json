@@ -325,7 +325,7 @@
                 "default": {
                   "value": {
                     "email": "an@example.test",
-                    "password": "Demo-only-password-123!",
+                    "password": "TripMate2026!",
                     "installationId": "00000000-0000-4000-8000-000000000002",
                     "displayName": "Nguyễn An",
                     "phone": "+84901234567"
@@ -433,7 +433,7 @@
                 "default": {
                   "value": {
                     "email": "an@example.test",
-                    "password": "Demo-only-password-123!",
+                    "password": "TripMate2026!",
                     "installationId": "00000000-0000-4000-8000-000000000002"
                   }
                 }
@@ -7711,7 +7711,7 @@
           },
           "password": {
             "type": "string",
-            "example": "Demo-only-password-123!",
+            "example": "TripMate2026!",
             "minLength": 8,
             "maxLength": 128,
             "writeOnly": true
@@ -7756,7 +7756,7 @@
           },
           "password": {
             "type": "string",
-            "example": "Demo-only-password-123!",
+            "example": "TripMate2026!",
             "minLength": 8,
             "maxLength": 128,
             "writeOnly": true

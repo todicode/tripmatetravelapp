@@ -35,6 +35,82 @@ const heroImage = {
   uri: 'https://images.unsplash.com/photo-1528127269322-539801943592?w=800&auto=format&fit=crop&q=80',
 };
 
+const mockApiBaseUrl = Platform.OS === 'android'
+  ? 'http://10.0.2.2:4010/api/v1'
+  : 'http://localhost:4010/api/v1';
+const installationId = '00000000-0000-4000-8000-000000000002';
+
+type SessionResponse = {
+  accessToken: string;
+  tokenType: string;
+  expiresIn: number;
+  refreshToken: string;
+  refreshExpiresAt: string;
+  deviceId: string;
+  user: {
+    id: string;
+    displayName: string;
+    email: string;
+  };
+};
+
+type RegistrationChallenge = {
+  verificationId: string;
+  expiresAt: string;
+  resendAvailableAt: string;
+};
+
+class ApiRequestError extends Error {
+  code: string;
+  status: number;
+
+  constructor(code: string, message: string, status: number) {
+    super(message);
+    this.name = 'ApiRequestError';
+    this.code = code;
+    this.status = status;
+  }
+}
+
+async function mockRequest<T>(path: string, body: Record<string, unknown>): Promise<T> {
+  let response: Response;
+
+  try {
+    response = await fetch(`${mockApiBaseUrl}${path}`, {
+      body: JSON.stringify(body),
+      headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+    });
+  } catch {
+    throw new ApiRequestError('NETWORK_ERROR', `Không thể kết nối Mock API tại ${mockApiBaseUrl}.`, 0);
+  }
+
+  const payload = await response.json().catch(() => ({})) as {
+    data?: T;
+    error?: { code?: string; message?: string };
+  };
+
+  if (!response.ok || payload.error) {
+    throw new ApiRequestError(
+      payload.error?.code ?? 'REQUEST_FAILED',
+      payload.error?.message ?? `Mock API trả về HTTP ${response.status}.`,
+      response.status,
+    );
+  }
+
+  return payload.data as T;
+}
+
+function getApiErrorMessage(error: unknown) {
+  if (error instanceof ApiRequestError) {
+    return `${error.code}: ${error.message}`;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return 'Đã xảy ra lỗi không xác định.';
+}
+
 function MapBackdrop() {
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
@@ -87,13 +163,13 @@ function Hero({ activeTab }: { activeTab: AuthTab }) {
   );
 }
 
-function GoogleButton({ label }: { label: string }) {
+function GoogleButton({ label, onPress }: { label: string; onPress: () => void }) {
   return (
     <Pressable
       accessibilityLabel={label}
       accessibilityRole="button"
       android_ripple={{ color: '#F0F0F2', borderless: false }}
-      onPress={() => Alert.alert('Google', 'Đăng nhập Google sẽ được tích hợp sau.')}
+      onPress={onPress}
       style={({ pressed }) => [styles.googleButton, pressed && styles.pressed]}
     >
       <MaterialCommunityIcons name="google" size={19} color="#4285F4" />
@@ -112,6 +188,19 @@ function Divider({ label }: { label: string }) {
   );
 }
 
+function InlineError({ message }: { message: string | null }) {
+  if (!message) {
+    return null;
+  }
+
+  return (
+    <View accessibilityRole="alert" style={styles.errorBanner}>
+      <MaterialCommunityIcons name="alert-circle-outline" size={17} color="#B42318" />
+      <Text style={styles.errorText}>{message}</Text>
+    </View>
+  );
+}
+
 function InputField({
   icon,
   placeholder,
@@ -123,7 +212,7 @@ function InputField({
   placeholder: string;
   value: string;
   onChangeText: (value: string) => void;
-} & Pick<TextInputProps, 'autoCapitalize' | 'autoComplete' | 'keyboardType'>) {
+} & Pick<TextInputProps, 'autoCapitalize' | 'autoComplete' | 'keyboardType' | 'maxLength'>) {
   return (
     <View style={styles.inputWrap}>
       <MaterialCommunityIcons name={icon} size={18} color="#7A7A7A" />
@@ -291,18 +380,54 @@ function LoginPanel({ onRegister }: { onRegister: () => void }) {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [forgotVisible, setForgotVisible] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
 
-  const submit = () => {
+  const showSession = (session: SessionResponse) => {
+    Alert.alert('Đăng nhập thành công', `Mock session đã cấp cho ${session.user.email}.`);
+  };
+
+  const submit = async () => {
     if (!email.trim() || !password.trim()) {
       Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ email và mật khẩu.');
       return;
     }
-    Alert.alert('Đăng nhập', 'Kết nối API sẽ được tích hợp ở bước tiếp theo.');
+
+    setApiError(null);
+    setIsSubmitting(true);
+    try {
+      const session = await mockRequest<SessionResponse>('/auth/login', {
+        email: email.trim(),
+        installationId,
+        password,
+      });
+      showSession(session);
+    } catch (error) {
+      setApiError(getApiErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const submitGoogle = async () => {
+    setApiError(null);
+    setIsSubmitting(true);
+    try {
+      const session = await mockRequest<SessionResponse>('/auth/google', {
+        idToken: 'google-id-token-from-mobile',
+        installationId,
+      });
+      showSession(session);
+    } catch (error) {
+      setApiError(getApiErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <View style={styles.panelContent}>
-      <GoogleButton label="Tiếp tục với Google" />
+      <GoogleButton label="Tiếp tục với Google" onPress={submitGoogle} />
       <Divider label="hoặc dùng email" />
 
       <InputField
@@ -333,7 +458,8 @@ function LoginPanel({ onRegister }: { onRegister: () => void }) {
         </Pressable>
       </View>
 
-      <PrimaryButton label="Đăng nhập" onPress={submit} />
+      <InlineError message={apiError} />
+      <PrimaryButton label="Đăng nhập" loading={isSubmitting} onPress={submit} />
       <View style={styles.switchPrompt}>
         <Text style={styles.promptText}>Chưa có tài khoản? </Text>
         <Pressable accessibilityRole="link" onPress={onRegister}>
@@ -350,13 +476,23 @@ function RegisterPanel({ onLogin }: { onLogin: () => void }) {
   const [name, setName] = useState('Nguyễn Văn A');
   const [email, setEmail] = useState('nguyenvana@gmail.com');
   const [phone, setPhone] = useState('0912345678');
-  const [password, setPassword] = useState('TripMate2026@');
-  const [confirmPassword, setConfirmPassword] = useState('TripMate2026@');
+  const [password, setPassword] = useState('TripMate2026!');
+  const [confirmPassword, setConfirmPassword] = useState('TripMate2026!');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(true);
+  const [registerStep, setRegisterStep] = useState<'form' | 'otp'>('form');
+  const [verificationId, setVerificationId] = useState('');
+  const [otp, setOtp] = useState('');
+  const [challenge, setChallenge] = useState<RegistrationChallenge | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
 
-  const submit = () => {
+  const showSession = (session: SessionResponse) => {
+    Alert.alert('Đăng ký thành công', `Mock session đã cấp cho ${session.user.email}.`);
+  };
+
+  const submit = async () => {
     if (!name.trim() || !email.trim() || !phone.trim() || !password.trim() || !confirmPassword.trim()) {
       Alert.alert('Lỗi', 'Vui lòng điền đầy đủ thông tin đăng ký.');
       return;
@@ -369,12 +505,141 @@ function RegisterPanel({ onLogin }: { onLogin: () => void }) {
       Alert.alert('Thông báo', 'Vui lòng đồng ý với điều khoản sử dụng.');
       return;
     }
-    Alert.alert('Đăng ký', 'Kết nối API đăng ký sẽ được tích hợp ở bước tiếp theo.');
+
+    setApiError(null);
+    setIsSubmitting(true);
+    try {
+      const nextChallenge = await mockRequest<RegistrationChallenge>('/auth/register', {
+        displayName: name.trim(),
+        email: email.trim(),
+        installationId,
+        password,
+        phone: phone.trim(),
+      });
+      setChallenge(nextChallenge);
+      setVerificationId(nextChallenge.verificationId);
+      setOtp('');
+      setRegisterStep('otp');
+    } catch (error) {
+      setApiError(getApiErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const verifyOtp = async () => {
+    if (!/^\d{6}$/.test(otp)) {
+      setApiError('OTP_INVALID: Vui lòng nhập đủ 6 chữ số.');
+      return;
+    }
+
+    setApiError(null);
+    setIsSubmitting(true);
+    try {
+      const session = await mockRequest<SessionResponse>('/auth/register/verify', {
+        otp,
+        verificationId,
+      });
+      showSession(session);
+    } catch (error) {
+      setApiError(getApiErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const resendOtp = async () => {
+    setApiError(null);
+    setIsSubmitting(true);
+    try {
+      const nextChallenge = await mockRequest<RegistrationChallenge>('/auth/register/resend', {
+        verificationId,
+      });
+      setChallenge(nextChallenge);
+      setOtp('');
+      Alert.alert('Đã gửi lại mã', 'Mock API đã tạo challenge OTP mới.');
+    } catch (error) {
+      setApiError(getApiErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const submitGoogle = async () => {
+    setApiError(null);
+    setIsSubmitting(true);
+    try {
+      const session = await mockRequest<SessionResponse>('/auth/google', {
+        idToken: 'google-id-token-from-mobile',
+        installationId,
+      });
+      showSession(session);
+    } catch (error) {
+      setApiError(getApiErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (registerStep === 'otp') {
+    return (
+      <View style={styles.panelContent}>
+        <View style={styles.otpHeader}>
+          <View style={styles.otpIconCircle}>
+            <MaterialCommunityIcons name="shield-check-outline" size={20} color={colors.blue} />
+          </View>
+          <View>
+            <Text style={styles.otpTitle}>Xác thực mã OTP</Text>
+            <Text style={styles.otpStep}>Bước 2/2: Kiểm tra email</Text>
+          </View>
+        </View>
+        <Text style={styles.otpDescription}>
+          Nhập mã 6 chữ số đã gửi tới <Text style={styles.strongText}>{email}</Text>.
+        </Text>
+        <View style={styles.mockNotice}>
+          <Text style={styles.mockNoticeTitle}>MOCK API</Text>
+          <Text style={styles.mockNoticeText}>Mã mặc định của mock là 123456. Nhập mã khác sẽ không hợp lệ.</Text>
+          {challenge && <Text style={styles.mockNoticeMeta}>Challenge: {challenge.verificationId.slice(0, 8)}…</Text>}
+        </View>
+        <InputField
+          icon="key-variant"
+          placeholder="Mã OTP 6 chữ số"
+          value={otp}
+          onChangeText={setOtp}
+          keyboardType="number-pad"
+          maxLength={6}
+        />
+        <InlineError message={apiError} />
+        <PrimaryButton label="Xác thực OTP" loading={isSubmitting} onPress={verifyOtp} />
+        <View style={styles.otpActions}>
+          <Pressable
+            accessibilityRole="button"
+            disabled={isSubmitting}
+            onPress={() => {
+              setApiError(null);
+              setRegisterStep('form');
+            }}
+            style={({ pressed }) => [styles.otpBackButton, pressed && styles.subtlePressed]}
+          >
+            <Text style={styles.otpBackText}>Quay lại</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            disabled={isSubmitting}
+            onPress={resendOtp}
+            style={({ pressed }) => [styles.otpResendButton, pressed && styles.subtlePressed]}
+          >
+            <MaterialCommunityIcons name="refresh" size={15} color={colors.blue} />
+            <Text style={styles.link}>Gửi lại mã</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
   };
 
   return (
     <View style={styles.panelContent}>
-      <GoogleButton label="Đăng ký với Google" />
+      <GoogleButton label="Đăng ký với Google" onPress={submitGoogle} />
       <Divider label="hoặc đăng ký với email" />
 
       <InputField icon="account-outline" placeholder="Họ và tên" value={name} onChangeText={setName} />
@@ -429,7 +694,8 @@ function RegisterPanel({ onLogin }: { onLogin: () => void }) {
         </Text>
       </View>
 
-      <PrimaryButton label="Đăng ký tài khoản" onPress={submit} />
+      <InlineError message={apiError} />
+      <PrimaryButton label="Đăng ký tài khoản" loading={isSubmitting} onPress={submit} />
       <View style={styles.switchPromptRegister}>
         <Text style={styles.promptText}>Đã có tài khoản? </Text>
         <Pressable accessibilityRole="link" onPress={onLogin}>
@@ -440,16 +706,26 @@ function RegisterPanel({ onLogin }: { onLogin: () => void }) {
   );
 }
 
-function PrimaryButton({ label, onPress }: { label: string; onPress: () => void }) {
+function PrimaryButton({
+  label,
+  loading = false,
+  onPress,
+}: {
+  label: string;
+  loading?: boolean;
+  onPress: () => void;
+}) {
   return (
     <Pressable
       accessibilityLabel={label}
       accessibilityRole="button"
+      accessibilityState={{ busy: loading, disabled: loading }}
       android_ripple={{ color: colors.blueBright }}
+      disabled={loading}
       onPress={onPress}
-      style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.primaryButton, loading && styles.disabledButton, pressed && styles.pressed]}
     >
-      <Text style={styles.primaryButtonText}>{label}</Text>
+      <Text style={styles.primaryButtonText}>{loading ? 'Đang xử lý…' : label}</Text>
     </Pressable>
   );
 }
@@ -560,6 +836,8 @@ const styles = StyleSheet.create({
   segmentText: { color: colors.muted, fontSize: 13, fontWeight: '400' },
   segmentTextActive: { color: colors.ink, fontWeight: '600' },
   panelContent: { paddingHorizontal: 0 },
+  errorBanner: { alignItems: 'center', backgroundColor: '#FFF4F2', borderColor: '#FECACA', borderRadius: 12, borderWidth: 1, flexDirection: 'row', marginTop: 8, paddingHorizontal: 12, paddingVertical: 9 },
+  errorText: { color: '#B42318', flex: 1, fontSize: 12, lineHeight: 17, marginLeft: 7 },
   googleButton: { alignItems: 'center', backgroundColor: colors.white, borderColor: colors.border, borderRadius: 22, borderWidth: 1, flexDirection: 'row', height: 44, justifyContent: 'center', minHeight: 44 },
   googleText: { color: colors.ink, fontSize: 13, fontWeight: '400', marginLeft: 9 },
   dividerRow: { alignItems: 'center', flexDirection: 'row', marginVertical: 11 },
@@ -575,12 +853,27 @@ const styles = StyleSheet.create({
   forgotLinkButton: { alignItems: 'center', justifyContent: 'center', minHeight: 44, paddingLeft: 10 },
   link: { color: colors.blue, fontSize: 12, fontWeight: '600' },
   primaryButton: { alignItems: 'center', backgroundColor: colors.blue, borderRadius: 22, flexDirection: 'row', height: 44, justifyContent: 'center', marginTop: 4, minHeight: 44 },
+  disabledButton: { backgroundColor: '#8DB5E5' },
   primaryButtonText: { color: colors.white, fontSize: 14, fontWeight: '400' },
   switchPrompt: { alignItems: 'center', flexDirection: 'row', justifyContent: 'center', marginTop: 11 },
   switchPromptRegister: { alignItems: 'center', flexDirection: 'row', justifyContent: 'center', marginTop: 9 },
   promptText: { color: colors.muted, fontSize: 12 },
   termsRow: { alignItems: 'center', flexDirection: 'row', minHeight: 42, paddingHorizontal: 1 },
   termsText: { color: colors.muted, flex: 1, fontSize: 11, marginLeft: -2 },
+  otpHeader: { alignItems: 'center', flexDirection: 'row', marginBottom: 14 },
+  otpIconCircle: { alignItems: 'center', backgroundColor: '#EAF2FF', borderRadius: 19, height: 38, justifyContent: 'center', marginRight: 10, width: 38 },
+  otpTitle: { color: colors.ink, fontSize: 16, fontWeight: '700' },
+  otpStep: { color: colors.muted, fontSize: 11, marginTop: 2 },
+  otpDescription: { color: colors.muted, fontSize: 12, lineHeight: 18, marginBottom: 12 },
+  strongText: { color: colors.ink, fontWeight: '600' },
+  mockNotice: { backgroundColor: '#EAF2FF', borderColor: '#B9D4F8', borderRadius: 14, borderWidth: 1, marginBottom: 12, paddingHorizontal: 12, paddingVertical: 10 },
+  mockNoticeTitle: { color: colors.blue, fontSize: 10, fontWeight: '800', letterSpacing: 0.8 },
+  mockNoticeText: { color: '#335B86', fontSize: 12, marginTop: 3 },
+  mockNoticeMeta: { color: '#6B86A2', fontSize: 10, marginTop: 4 },
+  otpActions: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
+  otpBackButton: { alignItems: 'center', justifyContent: 'center', minHeight: 44, paddingHorizontal: 10 },
+  otpBackText: { color: colors.muted, fontSize: 12, fontWeight: '500' },
+  otpResendButton: { alignItems: 'center', flexDirection: 'row', minHeight: 44, paddingHorizontal: 10 },
   pressed: { opacity: 0.78 },
   subtlePressed: { opacity: 0.62 },
   modalBackdrop: { backgroundColor: 'rgba(0,0,0,0.42)', flex: 1, justifyContent: 'flex-end' },

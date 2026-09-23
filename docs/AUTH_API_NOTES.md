@@ -8,7 +8,9 @@
 - Base URL backend thật: `http://localhost:8080/api/v1`.
 - Mock API: `http://localhost:4010/api/v1`.
 - Android Emulator: dùng `http://10.0.2.2:8080/api/v1` cho backend thật hoặc port `4010` cho mock.
-- Frontend hiện mới có UI đăng nhập/đăng ký; chưa gọi API thật, chưa lưu token và chưa có màn hình nhập OTP.
+- Frontend đã tích hợp Mock API cho login, register, verify OTP, resend OTP và Google auth.
+- Mock session hiện chỉ dùng để hiển thị kết quả test; access/refresh token chưa được lưu vào secure storage.
+- Backend thật và database chưa được tích hợp vào frontend.
 
 ## API endpoints
 
@@ -43,7 +45,7 @@ Response lỗi dạng `{ "requestId", "error" }`. Request/response auth nên dù
 ```json
 {
   "email": "an@example.test",
-  "password": "Demo-only-password-123!",
+  "password": "TripMate2026!",
   "displayName": "Nguyen An",
   "phone": "+84901234567",
   "installationId": "00000000-0000-4000-8000-000000000002"
@@ -78,6 +80,10 @@ Backend chưa tạo `app_users` hoặc session ở bước này. Mật khẩu v�
 
 OTP đúng, chưa hết hạn và chưa được dùng sẽ trả `201` cùng `SessionResponse`. OTP sai trả `422 OTP_INVALID`; hết hạn hoặc đã dùng trả `410`; vượt số lần thử trả `429 OTP_ATTEMPTS_EXCEEDED`.
 
+Với mock API hiện tại, OTP mặc định để test là `123456`. Nhập mã 6 chữ số khác sẽ trả `422 OTP_INVALID`.
+
+Mock sẽ giữ tạm `displayName`, `email` và `phone` từ request đăng ký để trả lại trong `SessionResponse` sau khi verify thành công. Password vẫn xuất hiện trong request log để test local, nhưng không nằm trong object `user` response theo contract API.
+
 ### Gửi lại OTP
 
 `POST /auth/register/resend`
@@ -105,7 +111,7 @@ Thông số mặc định:
 ```json
 {
   "email": "an@example.test",
-  "password": "Demo-only-password-123!",
+  "password": "TripMate2026!",
   "installationId": "uuid"
 }
 ```
@@ -194,16 +200,17 @@ Contract OpenAPI có khai báo thêm `PATCH /users/me`, nhưng backend hiện m�
 
 ## 6. Việc cần làm khi tích hợp frontend
 
-- [ ] Tạo API client với base URL lấy từ config.
+- [x] Tạo helper gọi Mock API với base URL theo Android Emulator/Desktop.
 - [ ] Sinh hoặc lấy ổn định `installationId` cho mỗi lần cài đặt app.
-- [ ] Kết nối form đăng nhập với `/auth/login`.
-- [ ] Kết nối form đăng ký với `/auth/register`.
-- [ ] Tạo màn hình nhập OTP sau response `202`.
-- [ ] Xử lý resend countdown và các lỗi OTP `422/410/429`.
+- [x] Kết nối form đăng nhập với `/auth/login`.
+- [x] Kết nối form đăng ký với `/auth/register`.
+- [x] Tạo màn hình nhập OTP sau response `202`.
+- [x] Xử lý lỗi API và resend OTP cơ bản cho mock.
 - [ ] Lưu access/refresh token bằng secure storage.
 - [ ] Thêm interceptor Bearer token.
 - [ ] Implement single-flight refresh khi access token hết hạn.
-- [ ] Kết nối Google Sign-In và gửi ID token lên `/auth/google`.
+- [x] Gửi demo ID token lên `/auth/google` của Mock API.
+- [ ] Kết nối Google Sign-In thật và gửi ID token lên `/auth/google`.
 - [ ] Gọi `/users/me` sau khi có session.
 - [ ] Xử lý logout và xóa cache tài khoản.
 - [ ] Không gọi `response.json()` với response `204`.
@@ -217,3 +224,54 @@ Contract OpenAPI có khai báo thêm `PATCH /users/me`, nhưng backend hiện m�
 - `docs/BACKEND_AUTH_TEST_CASES.md`
 - `backend/src/main/java/com/tripmate/identity/web/AuthController.java`
 - `backend/src/main/java/com/tripmate/identity/application/IdentityService.java`
+
+## Chạy mock auth cho frontend
+
+Mock API là server local, không dùng database. Mở hai terminal từ thư mục gốc repo.
+
+### Terminal 1: khởi động mock server
+
+```powershell
+node docs/api/mock-server.mjs
+```
+
+Server mặc định chạy tại:
+
+```text
+http://localhost:4010/api/v1
+```
+
+### Terminal 2: chạy React Native trên Android Emulator
+
+Mở Android Studio Device Manager và start emulator trước, sau đó chạy:
+
+```powershell
+cd frontend
+npm.cmd ci
+npm.cmd run android
+```
+
+Frontend dùng `http://10.0.2.2:4010/api/v1` khi chạy trên Android Emulator. Không đổi sang `localhost` vì `localhost` trong emulator là chính emulator, không phải máy tính.
+
+### Thông tin test
+
+- Đăng nhập: dùng email hợp lệ bất kỳ và password `TripMate2026!`.
+- Đăng nhập sai password: trả `401 INVALID_CREDENTIALS`.
+- Đăng ký: nhập thông tin form, sau đó nhập OTP `123456`.
+- OTP 6 số khác `123456`: trả `422 OTP_INVALID`.
+- Sau khi verify thành công, `SessionResponse.user` lấy `displayName`, `email` và `phone` từ form đăng ký.
+
+### Theo dõi request trong terminal
+
+Mỗi request được in với nhãn phân biệt, sau đó là JSON format:
+
+```text
+[MOCK API] POST /api/v1/auth/login -> 200 | requestId=...
+{
+  "type": "mock-request",
+  "method": "POST",
+  "url": "/api/v1/auth/login"
+}
+```
+
+Log local hiện thị đầy đủ request, bao gồm password/token mock để debug. Không dùng mock server này trong production. Khi sửa `mock-server.mjs`, dùng `Ctrl+C` và chạy lại server để nạp code mới.
