@@ -54,6 +54,70 @@ test('auth is required on protected operation', async () => {
   assert.equal(response.status, 401);
   assert.equal((await response.json()).error.code, 'AUTH_REQUIRED');
 });
+test('registration accepts only the mock OTP 123456', async () => {
+  const valid = spec.paths['/auth/register/verify'].post.requestBody.content['application/json'].examples.default.value;
+  const response = await fetch(base + '/auth/register/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...valid, otp: '654321' })
+  });
+  assert.equal(response.status, 422);
+  assert.equal((await response.json()).error.code, 'OTP_INVALID');
+});
+test('registration verification returns the submitted user details', async () => {
+  const registration = {
+    ...spec.paths['/auth/register'].post.requestBody.content['application/json'].examples.default.value,
+    displayName: 'Test User',
+    email: 'test.user@example.test',
+    phone: '+84987654321',
+    password: 'TripMate2026!'
+  };
+  const registerResponse = await fetch(base + '/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(registration)
+  });
+  assert.equal(registerResponse.status, 202);
+  const challenge = await registerResponse.json();
+  const verifyResponse = await fetch(base + '/auth/register/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ verificationId: challenge.data.verificationId, otp: '123456' })
+  });
+  assert.equal(verifyResponse.status, 201);
+  const session = await verifyResponse.json();
+  assert.deepEqual({
+    displayName: session.data.user.displayName,
+    email: session.data.user.email,
+    phone: session.data.user.phone
+  }, {
+    displayName: registration.displayName,
+    email: registration.email,
+    phone: registration.phone
+  });
+  assert.equal('password' in session.data.user, false);
+});
+test('login rejects an incorrect mock password', async () => {
+  const valid = spec.paths['/auth/login'].post.requestBody.content['application/json'].examples.default.value;
+  const response = await fetch(base + '/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...valid, password: 'Wrong-password-123!' })
+  });
+  assert.equal(response.status, 401);
+  assert.equal((await response.json()).error.code, 'INVALID_CREDENTIALS');
+});
+test('login returns the submitted email in the session user', async () => {
+  const valid = spec.paths['/auth/login'].post.requestBody.content['application/json'].examples.default.value;
+  const email = 'signed.in@example.test';
+  const response = await fetch(base + '/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...valid, email })
+  });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).data.user.email, email);
+});
 test('mock chooses empty and READY/FAILED/stale fixtures', async () => {
   const trip = '00000000-0000-4000-8000-000000000010';
   const draft = '00000000-0000-4000-8000-000000000051';

@@ -5,22 +5,23 @@
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
-    "android": "expo run:android",
+    "android": "node scripts/run-android.cjs",
     "typecheck": "tsc --noEmit",
     "ios": "expo run:ios"
   },
   "dependencies": {
-    "@expo/vector-icons": "^14.1.0",
-    "expo": "^53.0.0",
-    "expo-asset": "~11.1.7",
-    "expo-font": "13.3.2",
-    "expo-status-bar": "~2.2.3",
-    "react": "19.0.0",
-    "react-native": "0.79.2",
-    "react-native-safe-area-context": "5.4.0"
+    "@expo/vector-icons": "^15.0.2",
+    "@react-native-google-signin/google-signin": "^16.1.5",
+    "expo": "^57.0.23",
+    "expo-asset": "^57.0.17",
+    "expo-font": "~57.0.4",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "~5.7.0"
   },
   "devDependencies": {
-    "@types/react": "~19.0.10",
-    "typescript": "~5.8.3"
+    "@types/react": "~19.2.4",
+    "typescript": "~6.0.3"
   }
 }

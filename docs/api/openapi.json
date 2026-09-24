@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "TripMate API Contract",
-    "version": "1.0.0",
-    "description": "Contract-first cho backend Spring và mobile React Native. Baseline thiết kế 17/09/2026 dựa TRIPMATE_PLAN.md và ERD v1; chưa phải API đã triển khai. JSON này là nguồn chuẩn wire format, examples là dữ liệu giả. Quy tắc bắt buộc: docs/api/TEAM_RULES.md. Realtime: x-realtime. Tất cả số bigint được truyền bằng chuỗi."
+    "version": "1.2.0",
+    "description": "Contract-first TripMate API for the Spring backend and mobile React Native client. Version 1.2.0 adds cancellation of unfinished registration, allows replacing a pending challenge, and sets email OTP expiry to three minutes. This JSON is the canonical wire format; examples use fixture data. Rules: docs/api/TEAM_RULES.md. Realtime: x-realtime. Bigint values are sent as strings."
   },
   "servers": [
     {
@@ -99,7 +99,7 @@
                     "value": {
                       "data": {
                         "status": "UP",
-                        "contractVersion": "1.0.0"
+                        "contractVersion": "1.1.0"
                       },
                       "requestId": "00000000-0000-4000-8000-000000000090"
                     }
@@ -258,13 +258,13 @@
         "tags": [
           "Auth"
         ],
-        "operationId": "register",
-        "summary": "Đăng ký và tạo phiên",
-        "description": "Email trim/lowercase; không trim hoặc đổi mật khẩu. installationId được mobile tạo một lần cho mỗi lần cài. Đăng nhập thành công mới được gắn thiết bị; ID thiết bị không thay xác thực.",
+        "operationId": "startRegistration",
+        "summary": "Start manual registration and send email OTP",
+        "description": "Email is trimmed and lowercased; password is never trimmed or changed. A new registration replaces any unfinished challenge for the same email. The OTP expires after 3 minutes; app_users is created only after verification. installationId is generated once by mobile for each installation.",
         "x-permission": "PUBLIC",
         "responses": {
-          "201": {
-            "description": "Đăng ký và tạo phiên",
+          "202": {
+            "description": "Registration challenge created and email OTP requested",
             "headers": {
               "X-Request-Id": {
                 "schema": {
@@ -277,29 +277,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionResponse"
+                  "$ref": "#/components/schemas/RegistrationChallengeResponse"
                 },
                 "examples": {
                   "success": {
                     "value": {
                       "data": {
-                        "accessToken": "mock-access-token-not-a-jwt",
-                        "tokenType": "Bearer",
-                        "expiresIn": 900,
-                        "refreshToken": "mock-refresh-token",
-                        "refreshExpiresAt": "2026-10-17T03:00:00Z",
-                        "deviceId": "00000000-0000-4000-8000-000000000002",
-                        "user": {
-                          "id": "00000000-0000-4000-8000-000000000001",
-                          "displayName": "Nguyễn An",
-                          "avatarMediaId": null,
-                          "email": "an@example.test",
-                          "interestCodes": [
-                            "FOOD"
-                          ],
-                          "createdAt": "2026-09-17T03:00:00Z",
-                          "updatedAt": "2026-09-17T03:00:00Z"
-                        }
+                        "verificationId": "00000000-0000-4000-8000-000000000101",
+                        "expiresAt": "2026-09-17T03:03:00Z",
+                        "resendAvailableAt": "2026-09-17T03:01:00Z"
                       },
                       "requestId": "00000000-0000-4000-8000-000000000090"
                     }
@@ -314,6 +300,9 @@
           "409": {
             "$ref": "#/components/responses/Error409"
           },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
           "422": {
             "$ref": "#/components/responses/Error422"
           },
@@ -322,9 +311,6 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
-          },
-          "415": {
-            "$ref": "#/components/responses/Error415"
           }
         },
         "security": [],
@@ -339,15 +325,22 @@
                 "default": {
                   "value": {
                     "email": "an@example.test",
-                    "password": "Demo-only-password-123!",
+                    "password": "TripMate2026!",
                     "installationId": "00000000-0000-4000-8000-000000000002",
-                    "displayName": "Nguyễn An"
+                    "displayName": "Nguyễn An",
+                    "phone": "+84901234567"
                   }
                 }
               }
             }
           }
-        }
+        },
+        "x-error-codes": [
+          "EMAIL_ALREADY_REGISTERED",
+          "VALIDATION_ERROR",
+          "OTP_DELIVERY_FAILED",
+          "RATE_LIMITED"
+        ]
       }
     },
     "/auth/login": {
@@ -439,14 +432,19 @@
                 "default": {
                   "value": {
                     "email": "an@example.test",
-                    "password": "Demo-only-password-123!",
+                    "password": "TripMate2026!",
                     "installationId": "00000000-0000-4000-8000-000000000002"
                   }
                 }
               }
             }
           }
-        }
+        },
+        "x-error-codes": [
+          "INVALID_CREDENTIALS",
+          "ACCOUNT_DISABLED",
+          "RATE_LIMITED"
+        ]
       }
     },
     "/auth/refresh": {
@@ -540,7 +538,12 @@
               }
             }
           }
-        }
+        },
+        "x-error-codes": [
+          "INVALID_REFRESH_TOKEN",
+          "REFRESH_TOKEN_REUSE",
+          "RATE_LIMITED"
+        ]
       }
     },
     "/auth/logout": {
@@ -6944,6 +6947,362 @@
           }
         ]
       }
+    },
+    "/auth/register/verify": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "verifyRegistration",
+        "summary": "Verify OTP and create session",
+        "description": "The challenge is locked in a transaction. A correct, unexpired OTP is single-use. On success the backend creates the user, binds the device, and returns a TripMate session.",
+        "x-permission": "PUBLIC",
+        "x-error-codes": [
+          "VERIFICATION_NOT_FOUND",
+          "OTP_INVALID",
+          "OTP_EXPIRED",
+          "OTP_ATTEMPTS_EXCEEDED",
+          "VERIFICATION_ALREADY_USED",
+          "EMAIL_ALREADY_REGISTERED",
+          "RATE_LIMITED"
+        ],
+        "responses": {
+          "201": {
+            "description": "Registration verified and session created",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "accessToken": "mock-access-token-not-a-jwt",
+                        "tokenType": "Bearer",
+                        "expiresIn": 900,
+                        "refreshToken": "mock-refresh-token",
+                        "refreshExpiresAt": "2026-10-17T03:00:00Z",
+                        "deviceId": "00000000-0000-4000-8000-000000000002",
+                        "user": {
+                          "id": "00000000-0000-4000-8000-000000000001",
+                          "displayName": "Nguyễn An",
+                          "avatarMediaId": null,
+                          "email": "an@example.test",
+                          "interestCodes": [
+                            "FOOD"
+                          ],
+                          "createdAt": "2026-09-17T03:00:00Z",
+                          "updatedAt": "2026-09-17T03:00:00Z",
+                          "phone": "+84901234567"
+                        }
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error410"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyRegistrationRequest"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "verificationId": "00000000-0000-4000-8000-000000000101",
+                    "otp": "123456"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/register/resend": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "resendRegistrationOtp",
+        "summary": "Resend registration OTP",
+        "description": "A resend is allowed only after resendAvailableAt. Each new code replaces the old code and resets the attempt counter.",
+        "x-permission": "PUBLIC",
+        "x-error-codes": [
+          "VERIFICATION_NOT_FOUND",
+          "VERIFICATION_ALREADY_USED",
+          "OTP_RESEND_TOO_SOON",
+          "RATE_LIMITED"
+        ],
+        "responses": {
+          "202": {
+            "description": "Registration OTP resent",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationChallengeResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "verificationId": "00000000-0000-4000-8000-000000000101",
+                        "expiresAt": "2026-09-17T03:03:00Z",
+                        "resendAvailableAt": "2026-09-17T03:01:00Z"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error410"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResendOtpRequest"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "verificationId": "00000000-0000-4000-8000-000000000101"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/register/cancel": {
+      "post": {
+        "tags": ["Auth"],
+        "operationId": "cancelRegistration",
+        "summary": "Discard an unfinished email registration",
+        "description": "Deletes the pending registration identified by verificationId. Repeated calls and unknown IDs are safe no-ops. A verified account is never deleted.",
+        "x-permission": "PUBLIC",
+        "x-error-codes": ["VALIDATION_ERROR", "RATE_LIMITED"],
+        "responses": {
+          "204": {
+            "description": "Pending registration discarded or already absent",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/Error400" },
+          "415": { "$ref": "#/components/responses/Error415" },
+          "422": { "$ref": "#/components/responses/Error422" },
+          "429": { "$ref": "#/components/responses/Error429" }
+        },
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CancelRegistrationRequest" },
+              "examples": {
+                "default": { "value": { "verificationId": "00000000-0000-4000-8000-000000000101" } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/google": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "authenticateWithGoogle",
+        "summary": "Register or sign in with Google",
+        "description": "Mobile sends a Google ID token over HTTPS. The backend verifies signature, audience, issuer, expiry, subject, and email_verified, then issues TripMate access and refresh tokens. A client-supplied email or Google user ID is not accepted as proof.",
+        "x-permission": "PUBLIC",
+        "x-error-codes": [
+          "INVALID_GOOGLE_TOKEN",
+          "GOOGLE_NOT_CONFIGURED",
+          "GOOGLE_PROVIDER_UNAVAILABLE",
+          "AUTH_METHOD_CONFLICT",
+          "ACCOUNT_DISABLED",
+          "RATE_LIMITED"
+        ],
+        "responses": {
+          "200": {
+            "description": "Google sign-in or registration succeeded",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "accessToken": "mock-access-token-not-a-jwt",
+                        "tokenType": "Bearer",
+                        "expiresIn": 900,
+                        "refreshToken": "mock-refresh-token",
+                        "refreshExpiresAt": "2026-10-17T03:00:00Z",
+                        "deviceId": "00000000-0000-4000-8000-000000000002",
+                        "user": {
+                          "id": "00000000-0000-4000-8000-000000000001",
+                          "displayName": "Nguyễn An",
+                          "avatarMediaId": null,
+                          "email": "an@example.test",
+                          "interestCodes": [
+                            "FOOD"
+                          ],
+                          "createdAt": "2026-09-17T03:00:00Z",
+                          "updatedAt": "2026-09-17T03:00:00Z",
+                          "phone": "+84901234567"
+                        }
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          }
+        },
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleAuthRequest"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "idToken": "google-id-token-from-mobile",
+                    "installationId": "00000000-0000-4000-8000-000000000002"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -7141,7 +7500,7 @@
           },
           "contractVersion": {
             "type": "string",
-            "example": "1.0.0"
+            "example": "1.1.0"
           }
         },
         "required": [
@@ -7281,6 +7640,12 @@
             "example": "2026-09-17T03:00:00Z",
             "format": "date-time",
             "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 32,
+            "nullable": true,
+            "example": "+84901234567"
           }
         },
         "required": [
@@ -7385,7 +7750,7 @@
           },
           "password": {
             "type": "string",
-            "example": "Demo-only-password-123!",
+            "example": "TripMate2026!",
             "minLength": 8,
             "maxLength": 128,
             "writeOnly": true
@@ -7401,13 +7766,21 @@
             "minLength": 1,
             "maxLength": 100,
             "pattern": "\\S"
+          },
+          "phone": {
+            "type": "string",
+            "minLength": 7,
+            "maxLength": 32,
+            "pattern": "^\\+?[0-9 ()-]{7,32}$",
+            "example": "+84901234567"
           }
         },
         "required": [
           "email",
           "password",
           "installationId",
-          "displayName"
+          "displayName",
+          "phone"
         ],
         "additionalProperties": false
       },
@@ -7422,7 +7795,7 @@
           },
           "password": {
             "type": "string",
-            "example": "Demo-only-password-123!",
+            "example": "TripMate2026!",
             "minLength": 8,
             "maxLength": 128,
             "writeOnly": true
@@ -11564,6 +11937,142 @@
         ],
         "additionalProperties": false,
         "description": "FCM data: tất cả giá trị là string. Chỉ gửi ID thông báo và loại; lấy GET notifications rồi dữ liệu đích sau khi kiểm tra quyền. Không gửi tọa độ, nội dung chat, tệp hay URL riêng tư."
+      },
+      "RegistrationChallenge": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "verificationId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "00000000-0000-4000-8000-000000000101"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-09-17T03:03:00Z"
+          },
+          "resendAvailableAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-09-17T03:01:00Z"
+          }
+        },
+        "required": [
+          "verificationId",
+          "expiresAt",
+          "resendAvailableAt"
+        ],
+        "example": {
+          "verificationId": "00000000-0000-4000-8000-000000000101",
+          "expiresAt": "2026-09-17T03:03:00Z",
+          "resendAvailableAt": "2026-09-17T03:01:00Z"
+        }
+      },
+      "RegistrationChallengeResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RegistrationChallenge"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "00000000-0000-4000-8000-000000000090"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "example": {
+          "data": {
+            "verificationId": "00000000-0000-4000-8000-000000000101",
+            "expiresAt": "2026-09-17T03:03:00Z",
+            "resendAvailableAt": "2026-09-17T03:01:00Z"
+          },
+          "requestId": "00000000-0000-4000-8000-000000000090"
+        }
+      },
+      "VerifyRegistrationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "verificationId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "00000000-0000-4000-8000-000000000101"
+          },
+          "otp": {
+            "type": "string",
+            "minLength": 6,
+            "maxLength": 6,
+            "pattern": "^\\d{6}$",
+            "writeOnly": true,
+            "example": "123456"
+          }
+        },
+        "required": [
+          "verificationId",
+          "otp"
+        ],
+        "example": {
+          "verificationId": "00000000-0000-4000-8000-000000000101",
+          "otp": "123456"
+        }
+      },
+      "ResendOtpRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "verificationId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "00000000-0000-4000-8000-000000000101"
+          }
+        },
+        "required": [
+          "verificationId"
+        ],
+        "example": {
+          "verificationId": "00000000-0000-4000-8000-000000000101"
+        }
+      },
+      "CancelRegistrationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "verificationId": { "type": "string", "format": "uuid" }
+        },
+        "required": ["verificationId"],
+        "example": { "verificationId": "00000000-0000-4000-8000-000000000101" }
+      },
+      "GoogleAuthRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "idToken": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8192,
+            "writeOnly": true,
+            "example": "google-id-token-from-mobile"
+          },
+          "installationId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "00000000-0000-4000-8000-000000000002"
+          }
+        },
+        "required": [
+          "idToken",
+          "installationId"
+        ],
+        "example": {
+          "idToken": "google-id-token-from-mobile",
+          "installationId": "00000000-0000-4000-8000-000000000002"
+        }
       }
     },
     "responses": {

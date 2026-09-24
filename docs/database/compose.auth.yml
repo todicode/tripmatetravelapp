@@ -1,0 +1,24 @@
+name: tripmate-auth-local
+
+services:
+  postgres:
+    image: postgres:17
+    ports:
+      - "127.0.0.1:55432:5432"
+    environment:
+      POSTGRES_DB: tripmate_auth
+      POSTGRES_USER: tripmate
+      POSTGRES_PASSWORD: ${TRIPMATE_DB_PASSWORD:?Set TRIPMATE_DB_PASSWORD in .env.erd.local}
+      TZ: UTC
+    volumes:
+      - auth_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "tripmate", "-d", "tripmate_auth"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+volumes:
+  auth_pgdata:
+    name: tripmate_auth_local_pgdata

@@ -7,8 +7,28 @@
 **/build/
 **/.gradle/
 **/local.properties
+.gradle-home/
 
 # JavaScript dependencies and Expo output
 **/node_modules/
 **/.expo/
 **/dist/
+
+# Local credentials, diagnostics and generated app data
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+*.jks
+*.keystore
+*.p8
+*.p12
+*.key
+google-services.json
+GoogleService-Info.plist
+/build.txt
+/error.txt
+/informationforintergration.txt
+/.postman/
+/postman/
+/personal/

@@ -1,5 +1,20 @@
 # Contract changelog
 
+## 1.2.0 - 2026-09-23
+
+- Documented the existing `X-Request-Id` header on the registration cancellation response.
+- Added `POST /auth/register/cancel` to discard an unfinished registration (idempotent 204).
+- Starting registration again with the same email replaces an unfinished challenge; the previous OTP becomes invalid.
+- Reduced email OTP expiry from 10 minutes to 3 minutes. Frontend and backend must use the returned `expiresAt` for timing; no database schema migration is needed.
+- Verified with backend auth tests, the SMTP email template test, frontend typecheck, and mock contract tests.
+
+## 1.1.0 - 2026-09-22
+
+- Added manual registration challenge, email OTP verification, and resend operations.
+- Added Google ID token authentication with backend verification and TripMate session issuance.
+- Added the optional phone field to profile responses and the required phone field to manual registration.
+- Added request/response examples and operation-specific authentication error codes.
+
 ## 1.0.0 — 2026-09-17
 
 Baseline triển khai đầu tiên; không có API runtime trước đó để migration.

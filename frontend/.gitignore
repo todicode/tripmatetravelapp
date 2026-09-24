@@ -9,3 +9,6 @@ web-build/
 *.key
 google-services.json
 GoogleService-Info.plist
+.env
+.env.*
+!.env.example

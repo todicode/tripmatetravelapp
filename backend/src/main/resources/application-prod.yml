@@ -1,0 +1,11 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+  jpa:
+    open-in-view: false
+
+tripmate:
+  email:
+    mode: smtp
+

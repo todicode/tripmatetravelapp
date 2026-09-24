@@ -7,6 +7,7 @@ import { deref, validate } from './schema.mjs';
 
 export const spec = JSON.parse(readFileSync(new URL('./openapi.json', import.meta.url), 'utf8'));
 const prefix = '/api/v1';
+const mockPassword = 'TripMate2026!';
 const routes = Object.entries(spec.paths).flatMap(([path, methods]) =>
   Object.entries(methods).map(([method, operation]) => ({
     path, method: method.toUpperCase(), operation,
@@ -32,8 +33,13 @@ function demoPdf() {
 }
 
 export function createMockServer() {
+  const pendingRegistrations = new Map();
+
   return http.createServer(async (req, res) => {
     const requestId = randomUUID();
+    const startedAt = Date.now();
+    let requestBody;
+    let responseBody;
     res.setHeader('X-Request-Id', requestId);
     res.setHeader('X-Mock-Server', 'tripmate-static-fixtures');
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -41,11 +47,30 @@ export function createMockServer() {
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
     res.setHeader('Access-Control-Expose-Headers', 'X-Request-Id, X-Mock-Server, Retry-After');
     res.setHeader('Cache-Control', 'private, no-store');
-    const json = (status, body) => { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(body)); };
+    const json = (status, body) => {
+      responseBody = body;
+      res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(body));
+    };
     const error = (status, code, message, details = []) => {
       if (status === 401) res.setHeader('WWW-Authenticate', 'Bearer');
       json(status, { requestId, error: { code, message, details, context: {} } });
     };
+    res.on('finish', () => {
+      const request = requestBody;
+      const response = responseBody;
+      console.log(`\n[MOCK API] ${req.method} ${req.url} -> ${res.statusCode} | requestId=${requestId}`);
+      console.log(JSON.stringify({
+        type: 'mock-request',
+        requestId,
+        method: req.method,
+        url: req.url,
+        status: res.statusCode,
+        durationMs: Date.now() - startedAt,
+        ...(request === undefined ? {} : { request }),
+        ...(response === undefined ? {} : { response })
+      }, null, 2));
+    });
     try {
       if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
       const url = new URL(req.url, 'http://localhost');
@@ -99,10 +124,19 @@ export function createMockServer() {
             let body;
             try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); }
             catch { error(400, 'BAD_REQUEST', 'Malformed JSON'); return; }
+            requestBody = body;
             const errors = validate(spec, content[mime].schema, body);
             if (errors.length) { error(422, 'VALIDATION_ERROR', 'Request does not match contract', errors.map(message => ({ field: '$', code: 'INVALID_VALUE', message }))); return; }
           }
         }
+      }
+      if (operation.operationId === 'verifyRegistration' && requestBody?.otp !== '123456') {
+        error(422, 'OTP_INVALID', 'Invalid OTP');
+        return;
+      }
+      if (operation.operationId === 'login' && requestBody?.password !== mockPassword) {
+        error(401, 'INVALID_CREDENTIALS', 'Invalid credentials');
+        return;
       }
       const status = chosenStatus ?? Object.keys(operation.responses).find(code => /^2\d\d$/.test(code));
       const response = deref(spec, operation.responses[status]);
@@ -118,6 +152,23 @@ export function createMockServer() {
         const name = req.headers['x-mock-example'] ?? (media.examples.success ? 'success' : Object.keys(media.examples)[0]);
         if (!media.examples[name]) { error(400, 'BAD_REQUEST', 'Unknown example; choose: ' + Object.keys(media.examples).join(', ')); return; }
         const body = structuredClone(media.examples[name].value);
+        if (operation.operationId === 'startRegistration') {
+          pendingRegistrations.set(body.data.verificationId, {
+            displayName: requestBody.displayName,
+            email: requestBody.email,
+            phone: requestBody.phone
+          });
+        }
+        if (operation.operationId === 'verifyRegistration') {
+          const registration = pendingRegistrations.get(requestBody?.verificationId);
+          if (registration) {
+            body.data.user = { ...body.data.user, ...registration };
+            pendingRegistrations.delete(requestBody.verificationId);
+          }
+        }
+        if (operation.operationId === 'login') {
+          body.data.user = { ...body.data.user, email: requestBody.email };
+        }
         body.requestId = requestId;
         if (['listLocations', 'updateLocation'].includes(operation.operationId) && Number(status) < 300) {
           const now = new Date();

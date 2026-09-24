@@ -1,0 +1,16 @@
+spring:
+  config:
+    activate:
+      on-profile: test
+  flyway:
+    enabled: false
+
+tripmate:
+  security:
+    auth-rate-limit-window: 1m
+    auth-rate-limit-per-window: 10
+    otp-rate-limit-per-window: 5
+  email:
+    mode: log
+  google:
+    web-client-id: test-client-id
