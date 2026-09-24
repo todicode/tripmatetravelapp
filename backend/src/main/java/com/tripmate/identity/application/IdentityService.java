@@ -148,7 +148,7 @@ public class IdentityService {
 
         UserEntity user = new UserEntity(UUID.randomUUID(), pending.getEmail(), pending.getPasswordHash(),
                 pending.getDisplayName(), pending.getPhone(), generateFriendCode(), now);
-        userRepository.save(user);
+        user = userRepository.save(user);
         pending.markUsed();
         pendingRegistrationRepository.save(pending);
         DeviceEntity device = bindDevice(pending.getInstallationId(), user);
@@ -218,7 +218,7 @@ public class IdentityService {
             String unusablePassword = passwordEncoder.encode(randomSecret());
             user = new UserEntity(UUID.randomUUID(), email, unusablePassword, profile.displayName(),
                     null, generateFriendCode(), Instant.now());
-            userRepository.save(user);
+            user = userRepository.save(user);
             authIdentityRepository.save(new AuthIdentityEntity(UUID.randomUUID(), user, GOOGLE_PROVIDER,
                     profile.subject(), email));
         }

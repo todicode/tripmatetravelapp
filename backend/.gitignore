@@ -1,7 +1,7 @@
+# Local secrets and environment files
 target/
+*.log
+hs_err_pid*
 .env
 .env.*
 !.env.example
-*.log
-hs_err_pid*
-

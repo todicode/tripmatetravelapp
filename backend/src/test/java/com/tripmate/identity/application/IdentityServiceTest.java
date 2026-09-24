@@ -1,6 +1,7 @@
 package com.tripmate.identity.application;
 
 import com.tripmate.identity.domain.DeviceEntity;
+import com.tripmate.identity.domain.AuthIdentityEntity;
 import com.tripmate.identity.domain.PendingRegistrationEntity;
 import com.tripmate.identity.domain.RefreshTokenEntity;
 import com.tripmate.identity.domain.UserEntity;
@@ -45,6 +46,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -198,6 +200,11 @@ class IdentityServiceTest {
         when(pendingRegistrationRepository.findByIdForUpdate(verificationId)).thenReturn(Optional.of(pending));
         when(userRepository.existsByEmail("an@example.test")).thenReturn(false);
         when(userRepository.existsByFriendCode(anyString())).thenReturn(false);
+        when(userRepository.save(any(UserEntity.class))).thenAnswer(invocation -> {
+            UserEntity draft = invocation.getArgument(0);
+            return new UserEntity(draft.getId(), draft.getEmail(), draft.getPasswordHash(),
+                    draft.getDisplayName(), draft.getPhone(), draft.getFriendCode(), draft.getEmailVerifiedAt());
+        });
         when(deviceRepository.findByInstallationId(installationId)).thenReturn(Optional.empty());
         when(deviceRepository.save(any(DeviceEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(jwtTokenService.issue(any(UserEntity.class), any(DeviceEntity.class))).thenReturn("access-token");
@@ -230,6 +237,37 @@ class IdentityServiceTest {
         assertEquals(HttpStatus.CONFLICT, exception.getStatus());
         assertEquals("AUTH_METHOD_CONFLICT", exception.getCode());
         verify(authIdentityRepository, never()).save(any());
+    }
+
+    @Test
+    void googleRegistrationBindsExistingDeviceToSavedUser() {
+        UUID installationId = UUID.randomUUID();
+        DeviceEntity device = new DeviceEntity(UUID.randomUUID(), installationId);
+        UserEntity previousUser = new UserEntity(UUID.randomUUID(), "old@example.test", "hash",
+                "Old User", null, "TM-OLD", Instant.now());
+        device.bind(previousUser);
+        UserEntity savedUser = new UserEntity(UUID.randomUUID(), "google@example.test", "hash",
+                "Google User", null, "TM-GOOGLE", Instant.now());
+        when(googleIdentityVerifier.verify("google-token")).thenReturn(
+                new GoogleIdentityVerifier.GoogleProfile("subject", "google@example.test", true, "Google User"));
+        when(passwordEncoder.encode(anyString())).thenReturn("hash");
+        // JPA merge returns a managed copy, not the original object with an assigned UUID.
+        when(userRepository.save(any(UserEntity.class))).thenReturn(savedUser);
+        when(deviceRepository.findByInstallationId(installationId)).thenReturn(Optional.of(device));
+        when(deviceRepository.save(device)).thenReturn(device);
+        when(jwtTokenService.issue(savedUser, device)).thenReturn("access-token");
+
+        SessionResponse response = service.authenticateWithGoogle(new GoogleAuthRequest("google-token", installationId));
+
+        assertSame(savedUser, device.getUser());
+        assertEquals(savedUser.getId(), response.user().id());
+        assertEquals("access-token", response.accessToken());
+        ArgumentCaptor<AuthIdentityEntity> identity = ArgumentCaptor.forClass(AuthIdentityEntity.class);
+        verify(authIdentityRepository).save(identity.capture());
+        assertSame(savedUser, identity.getValue().getUser());
+        ArgumentCaptor<RefreshTokenEntity> refresh = ArgumentCaptor.forClass(RefreshTokenEntity.class);
+        verify(refreshTokenRepository).save(refresh.capture());
+        assertSame(savedUser, refresh.getValue().getUser());
     }
 
     @Test

@@ -2,6 +2,25 @@
 
 Backend API for the Login and Register screens in `frontend/App.tsx`. The Android development build calls this backend for Google sign-in, email/password login, registration, and email OTP verification.
 
+## Local email configuration
+
+`scripts/run-backend.ps1` reads email settings directly from `backend/.env`:
+
+```dotenv
+EMAIL_MODE=smtp
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=your-gmail-address@gmail.com
+MAIL_PASSWORD=YOUR_GMAIL_APP_PASSWORD
+MAIL_FROM=your-gmail-address@gmail.com
+```
+
+These settings take precedence over `personal/gmail-smtp.env`. Use `EMAIL_MODE=log`
+for development OTPs in the terminal. SMTP mode requires all five `MAIL_*` fields;
+incomplete configuration stops startup. Restart the backend after changes.
+The helper also reads `SERVER_PORT` from this file; database and Google settings
+continue to use the helper's existing configuration sources.
+
 ## Stack
 
 - Java 26

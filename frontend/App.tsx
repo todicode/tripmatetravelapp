@@ -128,6 +128,8 @@ async function googleAuthRequest(): Promise<SessionResponse> {
   configureGoogleSignIn();
   await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 
+  // Clear the previous Google selection so users can choose an account on each attempt.
+  await GoogleSignin.signOut();
   const result = await GoogleSignin.signIn();
   if (result.type !== 'success' || !result.data.idToken) {
     throw new ApiRequestError('GOOGLE_SIGN_IN_CANCELLED', 'Đăng nhập Google đã bị hủy.', 0);
