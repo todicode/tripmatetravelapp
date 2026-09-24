@@ -2,6 +2,8 @@ package com.tripmate.identity.web;
 
 import com.tripmate.identity.web.AuthRequests.RegisterRequest;
 import com.tripmate.identity.web.AuthRequests.VerifyRegistrationRequest;
+import com.tripmate.identity.web.AuthRequests.ConfirmPasswordResetRequest;
+import com.tripmate.identity.web.AuthRequests.RequestPasswordResetRequest;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import org.junit.jupiter.api.AfterAll;
@@ -44,5 +46,14 @@ class AuthRequestValidationTest {
 
         assertTrue(validator.validate(valid).isEmpty());
         assertFalse(validator.validate(invalid).isEmpty());
+    }
+
+    @Test
+    void passwordResetRequiresValidEmailOtpAndNewPassword() {
+        assertTrue(validator.validate(new RequestPasswordResetRequest("an@example.test")).isEmpty());
+        assertFalse(validator.validate(new RequestPasswordResetRequest("not-an-email")).isEmpty());
+        assertTrue(validator.validate(new ConfirmPasswordResetRequest(UUID.randomUUID(), "123456",
+                "new-password")).isEmpty());
+        assertFalse(validator.validate(new ConfirmPasswordResetRequest(null, "12ab", "short")).isEmpty());
     }
 }

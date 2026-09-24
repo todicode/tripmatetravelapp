@@ -37,6 +37,22 @@ class SmtpEmailSenderTest {
         assertTrue(content.contains("Nếu bạn không yêu cầu đăng ký"));
     }
 
+    @Test
+    void sendsPasswordResetEmailWithDistinctSubject() throws Exception {
+        JavaMailSender mailSender = mock(JavaMailSender.class);
+        MimeMessage message = new MimeMessage(Session.getInstance(new Properties()));
+        when(mailSender.createMimeMessage()).thenReturn(message);
+
+        new SmtpEmailSender(mailSender, "tripmate.opt@gmail.com", Duration.ofMinutes(3))
+                .sendPasswordResetCode("recipient@example.test", "654321", Instant.now().plusSeconds(180));
+
+        verify(mailSender).send(message);
+        assertEquals("TripMate | Mã đặt lại mật khẩu", message.getSubject());
+        String content = collectText(message.getContent());
+        assertTrue(content.contains("654321"));
+        assertTrue(content.contains("Đặt lại mật khẩu"));
+    }
+
     private String collectText(Object content) throws Exception {
         if (content instanceof Multipart multipart) {
             StringBuilder text = new StringBuilder();

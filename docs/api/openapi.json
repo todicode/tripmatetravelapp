@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "TripMate API Contract",
-    "version": "1.2.0",
-    "description": "Contract-first TripMate API for the Spring backend and mobile React Native client. Version 1.2.0 adds cancellation of unfinished registration, allows replacing a pending challenge, and sets email OTP expiry to three minutes. This JSON is the canonical wire format; examples use fixture data. Rules: docs/api/TEAM_RULES.md. Realtime: x-realtime. Bigint values are sent as strings."
+    "version": "1.3.0",
+    "description": "Contract-first TripMate API for the Spring backend and mobile React Native client. Version 1.3.0 adds email OTP password reset. This JSON is the canonical wire format; examples use fixture data. Rules: docs/api/TEAM_RULES.md. Realtime: x-realtime. Bigint values are sent as strings."
   },
   "servers": [
     {
@@ -99,7 +99,7 @@
                     "value": {
                       "data": {
                         "status": "UP",
-                        "contractVersion": "1.1.0"
+                        "contractVersion": "1.3.0"
                       },
                       "requestId": "00000000-0000-4000-8000-000000000090"
                     }
@@ -7153,12 +7153,17 @@
     },
     "/auth/register/cancel": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "operationId": "cancelRegistration",
         "summary": "Discard an unfinished email registration",
         "description": "Deletes the pending registration identified by verificationId. Repeated calls and unknown IDs are safe no-ops. A verified account is never deleted.",
         "x-permission": "PUBLIC",
-        "x-error-codes": ["VALIDATION_ERROR", "RATE_LIMITED"],
+        "x-error-codes": [
+          "VALIDATION_ERROR",
+          "RATE_LIMITED"
+        ],
         "responses": {
           "204": {
             "description": "Pending registration discarded or already absent",
@@ -7172,19 +7177,33 @@
               }
             }
           },
-          "400": { "$ref": "#/components/responses/Error400" },
-          "415": { "$ref": "#/components/responses/Error415" },
-          "422": { "$ref": "#/components/responses/Error422" },
-          "429": { "$ref": "#/components/responses/Error429" }
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
         },
         "security": [],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/CancelRegistrationRequest" },
+              "schema": {
+                "$ref": "#/components/schemas/CancelRegistrationRequest"
+              },
               "examples": {
-                "default": { "value": { "verificationId": "00000000-0000-4000-8000-000000000101" } }
+                "default": {
+                  "value": {
+                    "verificationId": "00000000-0000-4000-8000-000000000101"
+                  }
+                }
               }
             }
           }
@@ -7300,6 +7319,175 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/auth/password-reset/request": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "requestPasswordReset",
+        "summary": "Send password reset OTP to an existing account email",
+        "description": "Email is trimmed and lowercased. Returns EMAIL_NOT_FOUND for unknown email. One active challenge per user; another request after the cooldown replaces it. The OTP expires after 3 minutes and is limited to 5 attempts.",
+        "x-permission": "PUBLIC",
+        "security": [],
+        "x-error-codes": [
+          "EMAIL_NOT_FOUND",
+          "PASSWORD_RESET_UNAVAILABLE",
+          "OTP_RESEND_TOO_SOON",
+          "VALIDATION_ERROR",
+          "RATE_LIMITED"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestPasswordResetRequest"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "email": "an@example.test"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Password reset OTP requested",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordResetChallengeResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "resetId": "00000000-0000-4000-8000-000000000102",
+                        "expiresAt": "2026-09-24T03:03:00Z",
+                        "resendAvailableAt": "2026-09-24T03:01:00Z"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        }
+      }
+    },
+    "/auth/password-reset/confirm": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "confirmPasswordReset",
+        "summary": "Consume password reset OTP and change password",
+        "description": "Valid OTP changes the password once and invalidates all existing sessions. No new session is issued; the user must log in with the new password.",
+        "x-permission": "PUBLIC",
+        "security": [],
+        "x-error-codes": [
+          "RESET_NOT_FOUND",
+          "RESET_ALREADY_USED",
+          "OTP_EXPIRED",
+          "OTP_INVALID",
+          "OTP_ATTEMPTS_EXCEEDED",
+          "PASSWORD_RESET_UNAVAILABLE",
+          "VALIDATION_ERROR",
+          "RATE_LIMITED"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmPasswordResetRequest"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "resetId": "00000000-0000-4000-8000-000000000102",
+                    "otp": "123456",
+                    "newPassword": "NewTripMate2026!"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Password changed and prior sessions revoked",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error410"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
           }
         }
       }
@@ -7500,7 +7688,7 @@
           },
           "contractVersion": {
             "type": "string",
-            "example": "1.1.0"
+            "example": "1.3.0"
           }
         },
         "required": [
@@ -12043,10 +12231,17 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "verificationId": { "type": "string", "format": "uuid" }
+          "verificationId": {
+            "type": "string",
+            "format": "uuid"
+          }
         },
-        "required": ["verificationId"],
-        "example": { "verificationId": "00000000-0000-4000-8000-000000000101" }
+        "required": [
+          "verificationId"
+        ],
+        "example": {
+          "verificationId": "00000000-0000-4000-8000-000000000101"
+        }
       },
       "GoogleAuthRequest": {
         "type": "object",
@@ -12072,6 +12267,109 @@
         "example": {
           "idToken": "google-id-token-from-mobile",
           "installationId": "00000000-0000-4000-8000-000000000002"
+        }
+      },
+      "RequestPasswordResetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 254
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "example": {
+          "email": "an@example.test"
+        }
+      },
+      "PasswordResetChallenge": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "resetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "resendAvailableAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "resetId",
+          "expiresAt",
+          "resendAvailableAt"
+        ],
+        "example": {
+          "resetId": "00000000-0000-4000-8000-000000000102",
+          "expiresAt": "2026-09-24T03:03:00Z",
+          "resendAvailableAt": "2026-09-24T03:01:00Z"
+        }
+      },
+      "PasswordResetChallengeResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PasswordResetChallenge"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "example": {
+          "data": {
+            "resetId": "00000000-0000-4000-8000-000000000102",
+            "expiresAt": "2026-09-24T03:03:00Z",
+            "resendAvailableAt": "2026-09-24T03:01:00Z"
+          },
+          "requestId": "00000000-0000-4000-8000-000000000090"
+        }
+      },
+      "ConfirmPasswordResetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "resetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "otp": {
+            "type": "string",
+            "minLength": 6,
+            "maxLength": 6,
+            "pattern": "^\\d{6}$",
+            "writeOnly": true
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 128,
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "resetId",
+          "otp",
+          "newPassword"
+        ],
+        "example": {
+          "resetId": "00000000-0000-4000-8000-000000000102",
+          "otp": "123456",
+          "newPassword": "NewTripMate2026!"
         }
       }
     },

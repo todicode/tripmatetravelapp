@@ -48,7 +48,7 @@ The default local connection matches `docs/database/DBEAVER_LOCAL.md`:
 | `DATABASE_USERNAME` | `tripmate` | Database user |
 | `DATABASE_PASSWORD` | empty | Set locally; never commit it |
 
-Flyway applies `src/main/resources/db/migration/V1__identity.sql`. The migration owns the identity tables used here: `app_users`, `user_devices`, `refresh_tokens`, `pending_registrations`, and `auth_identities`.
+Flyway applies `src/main/resources/db/migration/V1__identity.sql` and `V2__password_reset.sql`. The second migration adds password reset challenges without changing existing identity data.
 
 ## Environment
 
@@ -84,6 +84,8 @@ Base URL: `http://localhost:8080/api/v1`.
 7. `POST /auth/refresh` rotates a single-use refresh token. Reuse revokes the whole token family.
 8. `POST /auth/logout` requires the bearer access token, revokes refresh tokens for the current device and increments its binding version.
 9. `GET /users/me` requires the bearer access token and returns the profile, including `phone` when available.
+10. `POST /auth/password-reset/request` accepts an existing account `email`, sends a six digit OTP, and returns `resetId`, `expiresAt`, and `resendAvailableAt`. Unknown emails return `EMAIL_NOT_FOUND`; repeat requests within the cooldown return `OTP_RESEND_TOO_SOON`.
+11. `POST /auth/password-reset/confirm` accepts `resetId`, `otp`, and `newPassword` (8–128 characters). A valid OTP is single-use, changes the password, and invalidates all prior access and refresh tokens. The user must log in again.
 
 Successful JSON responses use `{ "data": ..., "requestId": ... }`; errors use `{ "requestId": ..., "error": { "code", "message", "details", "context" } }`. The complete wire contract and examples are in [`docs/api/openapi.json`](../docs/api/openapi.json).
 

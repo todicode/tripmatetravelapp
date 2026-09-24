@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 public interface DeviceRepository extends JpaRepository<DeviceEntity, UUID> {
@@ -18,4 +19,8 @@ public interface DeviceRepository extends JpaRepository<DeviceEntity, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select device from DeviceEntity device left join fetch device.user where device.id = :id")
     Optional<DeviceEntity> findByIdForUpdate(@Param("id") UUID id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select device from DeviceEntity device where device.user.id = :userId")
+    List<DeviceEntity> findByUserIdForUpdate(@Param("userId") UUID userId);
 }

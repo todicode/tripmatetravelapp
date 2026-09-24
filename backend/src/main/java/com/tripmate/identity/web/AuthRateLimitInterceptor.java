@@ -64,10 +64,12 @@ public class AuthRateLimitInterceptor implements HandlerInterceptor {
         if (!uri.startsWith("/api/v1/auth/")) {
             return null;
         }
-        if (uri.endsWith("/register/verify") || uri.endsWith("/register/resend")) {
+        if (uri.endsWith("/register/verify") || uri.endsWith("/register/resend")
+                || uri.endsWith("/password-reset/confirm")) {
             return "otp";
         }
         if (uri.endsWith("/register") || uri.endsWith("/login")
+                || uri.endsWith("/password-reset/request")
                 || uri.endsWith("/google") || uri.endsWith("/refresh")) {
             return "general";
         }

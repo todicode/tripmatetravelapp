@@ -29,4 +29,22 @@ class AuthRateLimitInterceptorTest {
 
         assertTrue(exception.getRetryAfterSeconds() >= 1);
     }
+
+    @Test
+    void limitsPasswordResetRequestsAndConfirmations() throws Exception {
+        AuthRateLimitInterceptor interceptor = new AuthRateLimitInterceptor(Duration.ofMinutes(1), 1, 1);
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getRemoteAddr()).thenReturn("127.0.0.1");
+        when(request.getRequestURI()).thenReturn("/api/v1/auth/password-reset/request",
+                "/api/v1/auth/password-reset/request", "/api/v1/auth/password-reset/confirm",
+                "/api/v1/auth/password-reset/confirm");
+
+        assertTrue(interceptor.preHandle(request, mock(HttpServletResponse.class), new Object()));
+        assertThrows(RateLimitExceededException.class,
+                () -> interceptor.preHandle(request, mock(HttpServletResponse.class), new Object()));
+        assertTrue(interceptor.preHandle(request, mock(HttpServletResponse.class), new Object()));
+        assertThrows(RateLimitExceededException.class,
+                () -> interceptor.preHandle(request, mock(HttpServletResponse.class), new Object()));
+    }
 }
