@@ -7160,7 +7160,18 @@
         "x-permission": "PUBLIC",
         "x-error-codes": ["VALIDATION_ERROR", "RATE_LIMITED"],
         "responses": {
-          "204": { "description": "Pending registration discarded or already absent" },
+          "204": {
+            "description": "Pending registration discarded or already absent",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              }
+            }
+          },
           "400": { "$ref": "#/components/responses/Error400" },
           "415": { "$ref": "#/components/responses/Error415" },
           "422": { "$ref": "#/components/responses/Error422" },

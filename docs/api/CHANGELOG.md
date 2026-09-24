@@ -2,6 +2,7 @@
 
 ## 1.2.0 - 2026-09-23
 
+- Documented the existing `X-Request-Id` header on the registration cancellation response.
 - Added `POST /auth/register/cancel` to discard an unfinished registration (idempotent 204).
 - Starting registration again with the same email replaces an unfinished challenge; the previous OTP becomes invalid.
 - Reduced email OTP expiry from 10 minutes to 3 minutes. Frontend and backend must use the returned `expiresAt` for timing; no database schema migration is needed.
