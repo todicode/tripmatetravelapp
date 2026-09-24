@@ -20,6 +20,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import ExploreHome from './src/ExploreHome';
 
 type AuthTab = 'login' | 'register';
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
@@ -561,7 +562,7 @@ function ForgotPasswordSheet({
   );
 }
 
-function LoginPanel({ onRegister }: { onRegister: () => void }) {
+function LoginPanel({ onRegister, onAuthenticated }: { onRegister: () => void; onAuthenticated: (session: SessionResponse) => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -569,10 +570,6 @@ function LoginPanel({ onRegister }: { onRegister: () => void }) {
   const [forgotVisible, setForgotVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
-
-  const showSession = (session: SessionResponse) => {
-    Alert.alert('Đăng nhập thành công', `Phiên đăng nhập đã cấp cho ${session.user.email}.`);
-  };
 
   const submit = async () => {
     if (!email.trim() || !password.trim()) {
@@ -589,7 +586,7 @@ function LoginPanel({ onRegister }: { onRegister: () => void }) {
         installationId,
         password,
       });
-      showSession(session);
+      onAuthenticated(session);
     } catch (error) {
       setApiError(getApiErrorMessage(error));
     } finally {
@@ -602,7 +599,7 @@ function LoginPanel({ onRegister }: { onRegister: () => void }) {
     setIsSubmitting(true);
     try {
       const session = await googleAuthRequest();
-      showSession(session);
+      onAuthenticated(session);
     } catch (error) {
       setApiError(getApiErrorMessage(error));
     } finally {
@@ -657,7 +654,7 @@ function LoginPanel({ onRegister }: { onRegister: () => void }) {
   );
 }
 
-function RegisterPanel({ onLogin }: { onLogin: () => void }) {
+function RegisterPanel({ onLogin, onAuthenticated }: { onLogin: () => void; onAuthenticated: (session: SessionResponse) => void }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -703,10 +700,6 @@ function RegisterPanel({ onLogin }: { onLogin: () => void }) {
     });
     return () => subscription.remove();
   }, [registerStep, isSubmitting]);
-
-  const showSession = (session: SessionResponse) => {
-    Alert.alert('Đăng ký thành công', `Phiên đăng nhập đã cấp cho ${session.user.email}.`);
-  };
 
   const submit = async () => {
     if (!name.trim() || !email.trim() || !phone.trim() || !password.trim() || !confirmPassword.trim()) {
@@ -759,7 +752,7 @@ function RegisterPanel({ onLogin }: { onLogin: () => void }) {
         verificationId,
       });
       pendingVerificationRef.current = null;
-      showSession(session);
+      onAuthenticated(session);
     } catch (error) {
       setApiError(getApiErrorMessage(error));
     } finally {
@@ -789,7 +782,7 @@ function RegisterPanel({ onLogin }: { onLogin: () => void }) {
     setIsSubmitting(true);
     try {
       const session = await googleAuthRequest();
-      showSession(session);
+      onAuthenticated(session);
     } catch (error) {
       setApiError(getApiErrorMessage(error));
     } finally {
@@ -943,7 +936,7 @@ function PrimaryButton({
   );
 }
 
-function AuthSheet({ activeTab, onChangeTab }: { activeTab: AuthTab; onChangeTab: (tab: AuthTab) => void }) {
+function AuthSheet({ activeTab, onChangeTab, onAuthenticated }: { activeTab: AuthTab; onChangeTab: (tab: AuthTab) => void; onAuthenticated: (session: SessionResponse) => void }) {
   return (
     <View style={styles.sheet}>
       <View style={styles.sheetHandle} />
@@ -968,9 +961,9 @@ function AuthSheet({ activeTab, onChangeTab }: { activeTab: AuthTab; onChangeTab
       </View>
 
       {activeTab === 'login' ? (
-        <LoginPanel onRegister={() => onChangeTab('register')} />
+        <LoginPanel onRegister={() => onChangeTab('register')} onAuthenticated={onAuthenticated} />
       ) : (
-        <RegisterPanel onLogin={() => onChangeTab('login')} />
+        <RegisterPanel onLogin={() => onChangeTab('login')} onAuthenticated={onAuthenticated} />
       )}
     </View>
   );
@@ -978,25 +971,45 @@ function AuthSheet({ activeTab, onChangeTab }: { activeTab: AuthTab; onChangeTab
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<AuthTab>('login');
+  const [session, setSession] = useState<SessionResponse | null>(null);
+
+  const logout = async () => {
+    if (!session) return;
+    try {
+      await fetch(`${authApiBaseUrl}/auth/logout`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.accessToken}` },
+      });
+    } catch {
+      // Clear the local session even when the server cannot be reached.
+    } finally {
+      setSession(null);
+      setActiveTab('login');
+    }
+  };
 
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
         <StatusBar style="dark" />
-        <MapBackdrop />
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.flex}
-        >
-          <ScrollView
-            contentContainerStyle={styles.content}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <Hero activeTab={activeTab} />
-            <AuthSheet activeTab={activeTab} onChangeTab={setActiveTab} />
-          </ScrollView>
-        </KeyboardAvoidingView>
+        {session ? <ExploreHome onLogout={() => { void logout(); }} /> : (
+          <>
+            <MapBackdrop />
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              style={styles.flex}
+            >
+              <ScrollView
+                contentContainerStyle={styles.content}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                <Hero activeTab={activeTab} />
+                <AuthSheet activeTab={activeTab} onChangeTab={setActiveTab} onAuthenticated={setSession} />
+              </ScrollView>
+            </KeyboardAvoidingView>
+          </>
+        )}
       </SafeAreaView>
     </SafeAreaProvider>
   );
