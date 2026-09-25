@@ -992,7 +992,7 @@ export default function App() {
     <SafeAreaProvider>
       <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
         <StatusBar style="dark" />
-        {session ? <ExploreHome onLogout={() => { void logout(); }} /> : (
+        {session ? <ExploreHome user={session.user} onLogout={() => { void logout(); }} /> : (
           <>
             <MapBackdrop />
             <KeyboardAvoidingView

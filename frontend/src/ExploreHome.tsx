@@ -1,10 +1,11 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert, ImageBackground, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  Alert, BackHandler, ImageBackground, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import rawDestinations from './data/destinations.json';
+import ProfileScreen from './ProfileScreen';
 
 type Stop = { name: string; time?: string; note?: string; lat?: number; lng?: number };
 type DayPlan = { dayNumber?: number; dayTitle: string; highlight?: string; stops: Stop[] };
@@ -58,7 +59,8 @@ function normalize(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
 }
 
-export default function ExploreHome({ onLogout }: { onLogout: () => void }) {
+export default function ExploreHome({ user, onLogout }: { user: { displayName: string; email: string }; onLogout: () => void }) {
+  const [activeTab, setActiveTab] = useState<'explore' | 'profile'>('explore');
   const [cityKey, setCityKey] = useState<string | null>(null);
   const [category, setCategory] = useState('all');
   const [query, setQuery] = useState('');
@@ -83,6 +85,14 @@ export default function ExploreHome({ onLogout }: { onLogout: () => void }) {
   useEffect(() => {
     if (mapReady.current) runMap('updateMap', [{ key: cityKey, category }]);
   }, [cityKey, category]);
+  useEffect(() => {
+    if (activeTab !== 'profile') return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      setActiveTab('explore');
+      return true;
+    });
+    return () => subscription.remove();
+  }, [activeTab]);
 
   const selectCity = (key: string) => {
     const selected = destinations[key];
@@ -131,6 +141,7 @@ export default function ExploreHome({ onLogout }: { onLogout: () => void }) {
   };
 
   return <View style={styles.root}>
+    {activeTab === 'profile' ? <ProfileScreen user={user} onExplore={() => setActiveTab('explore')} onLogout={onLogout} /> : <>
     <View style={[styles.mapWrap, destination ? styles.mapSelected : styles.mapOverview]}>
       <WebView ref={mapRef} source={{ html: mapHtml, baseUrl: 'https://unpkg.com' }} originWhitelist={['*']}
         javaScriptEnabled domStorageEnabled scrollEnabled={false} style={styles.map}
@@ -177,12 +188,13 @@ export default function ExploreHome({ onLogout }: { onLogout: () => void }) {
         </Pressable>)}
       </ScrollView>}
     </View>
+    </>}
 
     <View style={styles.bottomNav}>{[
-      { label: 'Khám phá', icon: 'compass-outline' as const, action: () => reset(), active: true },
+      { label: 'Khám phá', icon: 'compass-outline' as const, action: () => setActiveTab('explore'), active: activeTab === 'explore' },
       { label: 'Chuyến đi', icon: 'map-outline' as const, action: () => Alert.alert('Chuyến đi', 'Giao diện Chuyến đi sẽ được bổ sung ở phần tiếp theo.'), active: false },
       { label: 'Tin nhắn', icon: 'message-outline' as const, action: () => Alert.alert('Tin nhắn', 'Giao diện Tin nhắn sẽ được bổ sung ở phần tiếp theo.'), active: false },
-      { label: 'Cá nhân', icon: 'account-outline' as const, action: () => Alert.alert('Cá nhân', 'Giao diện Cá nhân sẽ được bổ sung ở phần tiếp theo.', [{ text: 'Đóng' }, { text: 'Đăng xuất', onPress: onLogout }]), active: false },
+      { label: 'Cá nhân', icon: 'account-outline' as const, action: () => setActiveTab('profile'), active: activeTab === 'profile' },
     ].map((tab) => <Pressable key={tab.label} style={styles.navItem} onPress={tab.action} accessibilityRole="tab" accessibilityState={{ selected: tab.active }}><Icon name={tab.icon} size={22} tint={tab.active ? color.blue : color.muted} /><Text style={[styles.navLabel, tab.active && styles.navActive]}>{tab.label}</Text></Pressable>)}</View>
 
     <Modal visible={showPlan && !!destination} transparent animationType="slide" onRequestClose={() => setShowPlan(false)}><View style={styles.modalBackdrop}><Pressable style={styles.backdropTouch} onPress={() => setShowPlan(false)} /><View style={styles.modalSheet}>
