@@ -10,6 +10,7 @@ import CreateTripScreen from './trips/CreateTripScreen';
 import ManageTripsScreen from './trips/ManageTripsScreen';
 import TrackTripScreen from './trips/TrackTripScreen';
 import { Trip } from './trips/tripModel';
+import ChatHome, { useChatSession } from './chat/ChatHome';
 
 type Stop = { name: string; time?: string; note?: string; lat?: number; lng?: number };
 type DayPlan = { dayNumber?: number; dayTitle: string; highlight?: string; stops: Stop[] };
@@ -64,7 +65,8 @@ function normalize(value: string) {
 }
 
 export default function ExploreHome({ user, onLogout }: { user: { displayName: string; email: string }; onLogout: () => void }) {
-  const [activeTab, setActiveTab] = useState<'explore' | 'trips' | 'profile'>('explore');
+  const [activeTab, setActiveTab] = useState<'explore' | 'trips' | 'profile' | 'chat'>('explore');
+  const chatSession = useChatSession();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [tripScreen, setTripScreen] = useState<{ kind: 'create'; cityKey?: string; title?: string } | { kind: 'track'; id: string } | null>(null);
   const [cityKey, setCityKey] = useState<string | null>(null);
@@ -92,7 +94,7 @@ export default function ExploreHome({ user, onLogout }: { user: { displayName: s
     if (mapReady.current) runMap('updateMap', [{ key: cityKey, category }]);
   }, [cityKey, category]);
   useEffect(() => {
-    if (activeTab === 'explore' || tripScreen?.kind === 'create') return;
+    if (activeTab === 'explore' || tripScreen?.kind === 'create' || (activeTab === 'chat' && !tripScreen)) return;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       if (tripScreen) setTripScreen(null);
       else setActiveTab('explore');
@@ -162,7 +164,7 @@ export default function ExploreHome({ user, onLogout }: { user: { displayName: s
   }
 
   return <View style={styles.root}>
-    {activeTab === 'profile' ? <ProfileScreen user={user} onExplore={() => setActiveTab('explore')} onTrips={() => setActiveTab('trips')} onLogout={onLogout} /> : activeTab === 'trips' ? <ManageTripsScreen trips={trips} onCreate={() => openCreate()} onTrack={(id) => setTripScreen({ kind: 'track', id })} /> : <>
+    {activeTab === 'chat' ? <ChatHome session={chatSession} user={user} trips={trips} onExit={() => setActiveTab('explore')} onTrip={(id) => setTripScreen({ kind: 'track', id })} /> : activeTab === 'profile' ? <ProfileScreen user={user} onExplore={() => setActiveTab('explore')} onTrips={() => setActiveTab('trips')} onLogout={onLogout} /> : activeTab === 'trips' ? <ManageTripsScreen trips={trips} onCreate={() => openCreate()} onTrack={(id) => setTripScreen({ kind: 'track', id })} /> : <>
     <View style={[styles.mapWrap, destination ? styles.mapSelected : styles.mapOverview]}>
       <WebView ref={mapRef} source={{ html: mapHtml, baseUrl: 'https://unpkg.com' }} originWhitelist={['*']}
         javaScriptEnabled domStorageEnabled scrollEnabled={false} style={styles.map}
@@ -214,7 +216,7 @@ export default function ExploreHome({ user, onLogout }: { user: { displayName: s
     <View style={styles.bottomNav}>{[
       { label: 'Khám phá', icon: 'compass-outline' as const, action: () => setActiveTab('explore'), active: activeTab === 'explore' },
       { label: 'Chuyến đi', icon: 'map-outline' as const, action: () => setActiveTab('trips'), active: activeTab === 'trips' },
-      { label: 'Tin nhắn', icon: 'message-outline' as const, action: () => Alert.alert('Tin nhắn', 'Giao diện Tin nhắn sẽ được bổ sung ở phần tiếp theo.'), active: false },
+      { label: 'Tin nhắn', icon: 'message-outline' as const, action: () => setActiveTab('chat'), active: activeTab === 'chat' },
       { label: 'Cá nhân', icon: 'account-outline' as const, action: () => setActiveTab('profile'), active: activeTab === 'profile' },
     ].map((tab) => <Pressable key={tab.label} style={styles.navItem} onPress={tab.action} accessibilityRole="tab" accessibilityState={{ selected: tab.active }}><Icon name={tab.icon} size={22} tint={tab.active ? color.blue : color.muted} /><Text style={[styles.navLabel, tab.active && styles.navActive]}>{tab.label}</Text></Pressable>)}</View>
 
