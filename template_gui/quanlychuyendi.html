@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="vi" class="h-full">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>TripMate - Chuyến đi của tôi</title>
+  
+  <!-- Apple SF Pro Font Fallback Stack & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"SF Pro Display"', '"SF Pro Text"', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            primary: '#0066cc',
+            'primary-focus': '#0071e3',
+            'primary-on-dark': '#2997ff',
+            ink: '#1d1d1f',
+            'ink-muted-80': '#333333',
+            'ink-muted-48': '#7a7a7a',
+            parchment: '#f5f5f7',
+            pearl: '#fafafc',
+            'tile-1': '#272729',
+            'tile-2': '#2a2a2c',
+            'tile-3': '#252527',
+            hairline: '#e0e0e0',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    .apple-headline { letter-spacing: -0.374px; line-height: 1.15; }
+    .apple-body { letter-spacing: -0.374px; line-height: 1.47; }
+    .apple-product-shadow { box-shadow: 3px 5px 30px rgba(0, 0, 0, 0.22); }
+    .frosted-nav {
+      background: rgba(245, 245, 247, 0.85);
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+    }
+    .apple-press {
+      transition: transform 0.15s cubic-bezier(0.2, 0, 1), background-color 0.15s ease;
+    }
+    .apple-press:active {
+      transform: scale(0.95) !important;
+    }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+
+  <!-- Shared Trips Store -->
+  <script src="/src/js/trips-store.js"></script>
+</head>
+<body class="h-full bg-[#f5f5f7] flex items-center justify-center p-0 md:p-6 font-sans antialiased text-[#1d1d1f] selection:bg-[#0066cc]/15 select-none">
+
+  <!-- Mobile Viewport Container -->
+  <main id="phone-screen" class="relative w-full max-w-[400px] h-[100dvh] md:h-[852px] bg-[#f5f5f7] md:rounded-[42px] border-0 md:border md:border-[#e0e0e0] flex flex-col justify-between overflow-hidden shadow-2xl select-none">
+
+    <!-- ==================== 1. STATUS BAR ==================== -->
+    <header class="relative z-30 pt-3 px-7 pb-1 flex items-center justify-between text-[#1d1d1f] select-none shrink-0 bg-[#ffffff] border-b border-[#e0e0e0]">
+      <span class="text-[13px] font-semibold tracking-tight text-[#1d1d1f]" id="live-time">09:41</span>
+      
+      <!-- Dynamic Island Cutout -->
+      <div class="absolute left-1/2 -translate-x-1/2 top-2.5 w-[92px] h-[24px] bg-[#000000] rounded-full flex items-center justify-between px-3">
+        <div class="w-2.5 h-2.5 rounded-full bg-[#1a1a1a]"></div>
+        <div class="w-2.5 h-2.5 rounded-full bg-[#0d2a4a] border border-[#0066cc]/40"></div>
+      </div>
+
+      <div class="flex items-center space-x-1.5 text-[#1d1d1f]">
+        <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M2 22h20V2L2 22z"/></svg>
+        <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98A16.88 16.88 0 0012 4z"/></svg>
+        <div class="w-4 h-2.5 border border-[#1d1d1f] rounded-[2.5px] p-[1px] flex items-center">
+          <div class="w-full h-full bg-[#1d1d1f] rounded-[1px]"></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ==================== 2. TOP ACTION HEADER ==================== -->
+    <nav class="h-[52px] px-4 frosted-nav flex items-center justify-between border-b border-[#e0e0e0] shrink-0 z-20">
+      <div class="flex items-center space-x-2">
+        <h1 class="text-[20px] font-semibold text-[#1d1d1f] tracking-tight">Chuyến đi</h1>
+        <span id="trips-count-badge" class="text-[11px] font-normal px-2 py-0.5 rounded-full bg-[#ffffff] text-[#0066cc] border border-[#e0e0e0]">
+          3
+        </span>
+      </div>
+
+      <div class="flex items-center space-x-1.5">
+        <button onclick="resetDemoTrips()" class="h-8 px-2.5 bg-[#ffffff] hover:bg-[#f5f5f7] text-[#7a7a7a] hover:text-[#1d1d1f] rounded-full text-[11px] border border-[#e0e0e0] apple-press" title="Đặt lại demo">
+          ↺ Reset
+        </button>
+        <button onclick="window.location.href='taochuyendi.html'" class="h-8 px-3.5 bg-[#0066cc] hover:bg-[#0071e3] text-[#ffffff] rounded-full text-[12px] font-normal flex items-center space-x-1 apple-press">
+          <span>+ Tạo chuyến</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- ==================== 3. SCROLLABLE CONTENT ==================== -->
+    <div class="flex-1 overflow-y-auto px-4 py-3 space-y-3 no-scrollbar z-10">
+
+      <!-- Segmented Control Filter (DESIGN.md configurator-option-chip / rounded-pill) -->
+      <div class="flex items-center space-x-1.5 overflow-x-auto no-scrollbar py-0.5">
+        <button onclick="filterTrips('all', this)" class="trip-filter-chip px-3.5 py-1.5 rounded-full bg-[#0066cc] text-[#ffffff] text-[12px] font-normal apple-press">Tất cả</button>
+        <button onclick="filterTrips('upcoming', this)" class="trip-filter-chip px-3.5 py-1.5 rounded-full bg-[#ffffff] text-[#1d1d1f] border border-[#e0e0e0] text-[12px] font-normal hover:border-[#0066cc] apple-press">Sắp tới</button>
+        <button onclick="filterTrips('ongoing', this)" class="trip-filter-chip px-3.5 py-1.5 rounded-full bg-[#ffffff] text-[#1d1d1f] border border-[#e0e0e0] text-[12px] font-normal hover:border-[#0066cc] apple-press">Đang đi</button>
+        <button onclick="filterTrips('past', this)" class="trip-filter-chip px-3.5 py-1.5 rounded-full bg-[#ffffff] text-[#1d1d1f] border border-[#e0e0e0] text-[12px] font-normal hover:border-[#0066cc] apple-press">Đã đi</button>
+      </div>
+
+      <!-- Notice Banner: Local Storage Cached & Click to Track (PROMPT.MD) -->
+      <div class="bg-[#ffffff] rounded-[14px] p-2.5 border border-[#e0e0e0] flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <span class="w-2 h-2 rounded-full bg-[#0066cc]"></span>
+          <span class="text-[11px] text-[#1d1d1f]">Chuyến đi lưu trong LocalStorage • Bấm vào để theo dõi trực tiếp</span>
+        </div>
+        <span class="text-[10px] text-[#7a7a7a]">OpenStreetMap</span>
+      </div>
+
+      <!-- Dynamic Trips List Container -->
+      <div id="trips-cards-container" class="space-y-3">
+        <!-- Rendered by JavaScript -->
+      </div>
+
+      <!-- Empty State -->
+      <div id="trips-empty-state" class="hidden text-center py-12 px-4 bg-[#ffffff] rounded-[18px] border border-[#e0e0e0]">
+        <div class="w-12 h-12 rounded-full bg-[#f5f5f7] border border-[#e0e0e0] mx-auto flex items-center justify-center text-[#7a7a7a]">
+          <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
+        </div>
+        <h3 class="font-semibold text-[14px] text-[#1d1d1f] mt-3">Chưa có chuyến đi nào</h3>
+        <p class="text-[12px] text-[#7a7a7a] mt-1 max-w-[220px] mx-auto leading-relaxed">
+          Tạo chuyến đi mới kết hợp gợi ý OpenStreetMap và AI lập lịch trình.
+        </p>
+        <button onclick="window.location.href='taochuyendi.html'" class="mt-4 px-4 py-2 bg-[#0066cc] hover:bg-[#0071e3] text-[#ffffff] text-[12px] font-normal rounded-full apple-press">
+          + Tạo chuyến đi ngay
+        </button>
+      </div>
+
+    </div>
+
+    <!-- ==================== 4. FROSTED TAB BAR ==================== -->
+    <nav class="relative z-30 h-[58px] frosted-nav border-t border-[#e0e0e0] flex flex-col justify-center px-4 shrink-0">
+      <div class="flex items-center justify-around">
+        <button type="button" onclick="window.location.href='menuchinh.html'" class="flex flex-col items-center justify-center text-[#7a7a7a] hover:text-[#1d1d1f] apple-press">
+          <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+          <span class="text-[10px] font-normal mt-0.5">Khám phá</span>
+        </button>
+
+        <button type="button" class="flex flex-col items-center justify-center text-[#0066cc] apple-press">
+          <svg class="w-5 h-5 stroke-[2.2]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          <span class="text-[10px] font-semibold mt-0.5">Chuyến đi</span>
+        </button>
+
+        <button type="button" onclick="window.location.href='giaodientinnhanchinh.html'" class="flex flex-col items-center justify-center text-[#7a7a7a] hover:text-[#1d1d1f] apple-press">
+          <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+          <span class="text-[10px] font-normal mt-0.5">Tin nhắn</span>
+        </button>
+
+        <button type="button" onclick="window.location.href='canhan.html'" class="flex flex-col items-center justify-center text-[#7a7a7a] hover:text-[#1d1d1f] apple-press">
+          <svg class="w-5 h-5 stroke-[1.8]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
+          <span class="text-[10px] font-normal mt-0.5">Cá nhân</span>
+        </button>
+      </div>
+
+      <div class="w-24 h-1 bg-[#1d1d1f] rounded-full mx-auto mt-1 shrink-0"></div>
+    </nav>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="absolute top-12 left-4 right-4 z-50 transform -translate-y-16 opacity-0 transition-all duration-300 pointer-events-none bg-[#1d1d1f] text-[#ffffff] px-4 py-2.5 rounded-full text-[13px] font-normal flex items-center justify-between border border-[#333333]">
+      <span id="toast-text">Thông báo</span>
+      <span class="text-[#2997ff] text-[12px]">Xong</span>
+    </div>
+
+  </main>
+
+  <script>
+    function updateClock() {
+      const now = new Date();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const clockEl = document.getElementById('live-time');
+      if (clockEl) clockEl.textContent = `${hours}:${minutes}`;
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    function showToast(title, message) {
+      const toast = document.getElementById('toast');
+      const text = document.getElementById('toast-text');
+      if (toast && text) {
+        text.textContent = message || title;
+        toast.classList.remove('-translate-y-16', 'opacity-0');
+        toast.classList.add('translate-y-0', 'opacity-100');
+        setTimeout(() => {
+          toast.classList.remove('translate-y-0', 'opacity-100');
+          toast.classList.add('-translate-y-16', 'opacity-0');
+        }, 2200);
+      }
+    }
+
+    let currentFilter = 'all';
+
+    function renderTrips() {
+      const container = document.getElementById('trips-cards-container');
+      const emptyState = document.getElementById('trips-empty-state');
+      container.innerHTML = '';
+
+      const allTrips = TripsStore.getAllTrips();
+      document.getElementById('trips-count-badge').textContent = allTrips.length;
+
+      const filtered = allTrips.filter(t => {
+        if (currentFilter === 'all') return true;
+        return t.status === currentFilter;
+      });
+
+      if (filtered.length === 0) {
+        emptyState.classList.remove('hidden');
+        return;
+      } else {
+        emptyState.classList.add('hidden');
+      }
+
+      filtered.forEach((trip) => {
+        const stopsCount = (trip.stops || []).length;
+        const membersCount = (trip.members || []).length + 1;
+
+        let statusText = 'Sắp khởi hành';
+        let statusBadgeClass = 'text-[11px] font-semibold text-[#0066cc]';
+        if (trip.status === 'ongoing') {
+          statusText = '● Đang diễn ra';
+          statusBadgeClass = 'text-[11px] font-semibold text-[#0066cc]';
+        } else if (trip.status === 'past') {
+          statusText = 'Đã hoàn thành';
+          statusBadgeClass = 'text-[11px] text-[#7a7a7a]';
+        }
+
+        const card = document.createElement('article');
+        card.className = 'trip-card bg-[#ffffff] rounded-[18px] border border-[#e0e0e0] p-4 space-y-3 apple-press cursor-pointer hover:border-[#0066cc] transition-all';
+        card.onclick = () => openTripTracking(trip.id);
+
+        card.innerHTML = `
+          <div class="flex space-x-3 items-center">
+            <div class="w-16 h-16 rounded-[8px] overflow-hidden shrink-0 bg-[#f5f5f7] relative">
+              <img class="w-full h-full object-cover" src="${trip.image || 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=400&auto=format&fit=crop&q=80'}" alt="${trip.title}">
+              ${trip.aiScheduled ? '<span class="absolute top-1 left-1 bg-[#0066cc] text-[#ffffff] text-[8px] font-semibold px-1 rounded">AI</span>' : ''}
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between">
+                <span class="${statusBadgeClass}">${trip.startDate || ''}</span>
+                <span class="text-[10px] text-[#7a7a7a] bg-[#f5f5f7] px-2 py-0.5 rounded-full border border-[#e0e0e0]">${trip.duration || 'Nhiều ngày'}</span>
+              </div>
+              <h3 class="font-semibold text-[#1d1d1f] text-[14px] truncate mt-0.5">${trip.title}</h3>
+              <p class="text-[12px] text-[#7a7a7a] truncate">${trip.destination} • ${stopsCount} điểm OSM</p>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between pt-2 border-t border-[#f0f0f0]">
+            <div class="flex items-center space-x-1.5">
+              <div class="flex -space-x-1.5 overflow-hidden">
+                <div class="w-6 h-6 rounded-full bg-[#f5f5f7] border border-[#ffffff] flex items-center justify-center text-[10px] font-semibold text-[#1d1d1f]">Tôi</div>
+                ${(trip.members || []).slice(0, 2).map(m => `
+                  <div class="w-6 h-6 rounded-full bg-[#f5f5f7] border border-[#ffffff] flex items-center justify-center text-[10px] font-semibold text-[#1d1d1f]">${m.avatar || 'B'}</div>
+                `).join('')}
+              </div>
+              <span class="text-[10px] text-[#7a7a7a]">${membersCount} người</span>
+            </div>
+            
+            <div class="flex items-center space-x-2">
+              <button 
+                type="button" 
+                onclick="event.stopPropagation(); window.location.href='tinnhannhom.html';" 
+                class="h-8 px-3 bg-[#f5f5f7] hover:bg-[#e0e0e0] text-[#1d1d1f] text-[12px] font-normal rounded-full border border-[#e0e0e0] apple-press"
+              >
+                Chat nhóm
+              </button>
+              <button 
+                type="button" 
+                onclick="event.stopPropagation(); openTripTracking('${trip.id}');" 
+                class="h-8 px-3 bg-[#0066cc] hover:bg-[#0071e3] text-[#ffffff] text-[12px] font-normal rounded-full apple-press flex items-center space-x-1"
+              >
+                <span>Theo dõi</span>
+                <span>→</span>
+              </button>
+            </div>
+          </div>
+        `;
+
+        container.appendChild(card);
+      });
+    }
+
+    function openTripTracking(tripId) {
+      window.location.href = `theodoichuyendi.html?id=${tripId}`;
+    }
+
+    function filterTrips(status, btn) {
+      currentFilter = status;
+      document.querySelectorAll('.trip-filter-chip').forEach(b => {
+        b.className = 'trip-filter-chip px-3.5 py-1.5 rounded-full bg-[#ffffff] text-[#1d1d1f] border border-[#e0e0e0] text-[12px] font-normal hover:border-[#0066cc] apple-press';
+      });
+      btn.className = 'trip-filter-chip px-3.5 py-1.5 rounded-full bg-[#0066cc] text-[#ffffff] text-[12px] font-normal apple-press';
+      renderTrips();
+    }
+
+    function resetDemoTrips() {
+      TripsStore.resetDemo();
+      renderTrips();
+      showToast('Đặt lại demo', 'Đã khôi phục các chuyến đi mẫu ban đầu');
+    }
+
+    window.addEventListener('DOMContentLoaded', renderTrips);
+  </script>
+</body>
+</html>

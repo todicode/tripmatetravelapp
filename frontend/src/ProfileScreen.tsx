@@ -7,6 +7,7 @@ type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
 type Props = {
   user: { displayName: string; email: string };
   onExplore: () => void;
+  onTrips: () => void;
   onLogout: () => void;
 };
 
@@ -22,11 +23,11 @@ const colors = {
 
 const pending = (title: string) => Alert.alert(title, 'Giao diện này sẽ được bổ sung ở phần tiếp theo.');
 
-export default function ProfileScreen({ user, onExplore, onLogout }: Props) {
+export default function ProfileScreen({ user, onExplore, onTrips, onLogout }: Props) {
   const name = user.displayName?.trim() || user.email;
   const initial = name.charAt(0).toLocaleUpperCase('vi-VN');
   const menuItems: { label: string; icon: IconName; action: () => void }[] = [
-    { label: 'Chuyến đi của tôi', icon: 'calendar-month-outline', action: () => pending('Chuyến đi của tôi') },
+    { label: 'Chuyến đi của tôi', icon: 'calendar-month-outline', action: onTrips },
     { label: 'Lời mời kết bạn', icon: 'account-outline', action: () => pending('Lời mời kết bạn') },
     { label: 'Điểm đến yêu thích', icon: 'heart-outline', action: () => pending('Điểm đến yêu thích') },
     { label: 'Bản đồ OpenStreetMap đã qua', icon: 'compass-outline', action: onExplore },

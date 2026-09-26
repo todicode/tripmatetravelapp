@@ -6,6 +6,10 @@ import {
 import { WebView } from 'react-native-webview';
 import rawDestinations from './data/destinations.json';
 import ProfileScreen from './ProfileScreen';
+import CreateTripScreen from './trips/CreateTripScreen';
+import ManageTripsScreen from './trips/ManageTripsScreen';
+import TrackTripScreen from './trips/TrackTripScreen';
+import { Trip } from './trips/tripModel';
 
 type Stop = { name: string; time?: string; note?: string; lat?: number; lng?: number };
 type DayPlan = { dayNumber?: number; dayTitle: string; highlight?: string; stops: Stop[] };
@@ -60,7 +64,9 @@ function normalize(value: string) {
 }
 
 export default function ExploreHome({ user, onLogout }: { user: { displayName: string; email: string }; onLogout: () => void }) {
-  const [activeTab, setActiveTab] = useState<'explore' | 'profile'>('explore');
+  const [activeTab, setActiveTab] = useState<'explore' | 'trips' | 'profile'>('explore');
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [tripScreen, setTripScreen] = useState<{ kind: 'create'; cityKey?: string; title?: string } | { kind: 'track'; id: string } | null>(null);
   const [cityKey, setCityKey] = useState<string | null>(null);
   const [category, setCategory] = useState('all');
   const [query, setQuery] = useState('');
@@ -86,13 +92,14 @@ export default function ExploreHome({ user, onLogout }: { user: { displayName: s
     if (mapReady.current) runMap('updateMap', [{ key: cityKey, category }]);
   }, [cityKey, category]);
   useEffect(() => {
-    if (activeTab !== 'profile') return;
+    if (activeTab === 'explore' || tripScreen?.kind === 'create') return;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      setActiveTab('explore');
+      if (tripScreen) setTripScreen(null);
+      else setActiveTab('explore');
       return true;
     });
     return () => subscription.remove();
-  }, [activeTab]);
+  }, [activeTab, tripScreen]);
 
   const selectCity = (key: string) => {
     const selected = destinations[key];
@@ -140,8 +147,22 @@ export default function ExploreHome({ user, onLogout }: { user: { displayName: s
     } finally { setRouteBusy(false); }
   };
 
+  const openCreate = (selectedCityKey?: string, title?: string) => {
+    setShowPlan(false);
+    setActiveTab('trips');
+    setTripScreen({ kind: 'create', cityKey: selectedCityKey, title });
+  };
+  if (tripScreen?.kind === 'create') return <CreateTripScreen initialCityKey={tripScreen.cityKey} initialTitle={tripScreen.title} onBack={() => setTripScreen(null)} onSave={(trip) => {
+    setTrips((current) => [trip, ...current]);
+    setTripScreen({ kind: 'track', id: trip.id });
+  }} />;
+  if (tripScreen?.kind === 'track') {
+    const trip = trips.find((item) => item.id === tripScreen.id);
+    if (trip) return <TrackTripScreen trip={trip} onBack={() => setTripScreen(null)} onUpdate={(updated) => setTrips((current) => current.map((item) => item.id === updated.id ? updated : item))} />;
+  }
+
   return <View style={styles.root}>
-    {activeTab === 'profile' ? <ProfileScreen user={user} onExplore={() => setActiveTab('explore')} onLogout={onLogout} /> : <>
+    {activeTab === 'profile' ? <ProfileScreen user={user} onExplore={() => setActiveTab('explore')} onTrips={() => setActiveTab('trips')} onLogout={onLogout} /> : activeTab === 'trips' ? <ManageTripsScreen trips={trips} onCreate={() => openCreate()} onTrack={(id) => setTripScreen({ kind: 'track', id })} /> : <>
     <View style={[styles.mapWrap, destination ? styles.mapSelected : styles.mapOverview]}>
       <WebView ref={mapRef} source={{ html: mapHtml, baseUrl: 'https://unpkg.com' }} originWhitelist={['*']}
         javaScriptEnabled domStorageEnabled scrollEnabled={false} style={styles.map}
@@ -192,7 +213,7 @@ export default function ExploreHome({ user, onLogout }: { user: { displayName: s
 
     <View style={styles.bottomNav}>{[
       { label: 'Khám phá', icon: 'compass-outline' as const, action: () => setActiveTab('explore'), active: activeTab === 'explore' },
-      { label: 'Chuyến đi', icon: 'map-outline' as const, action: () => Alert.alert('Chuyến đi', 'Giao diện Chuyến đi sẽ được bổ sung ở phần tiếp theo.'), active: false },
+      { label: 'Chuyến đi', icon: 'map-outline' as const, action: () => setActiveTab('trips'), active: activeTab === 'trips' },
       { label: 'Tin nhắn', icon: 'message-outline' as const, action: () => Alert.alert('Tin nhắn', 'Giao diện Tin nhắn sẽ được bổ sung ở phần tiếp theo.'), active: false },
       { label: 'Cá nhân', icon: 'account-outline' as const, action: () => setActiveTab('profile'), active: activeTab === 'profile' },
     ].map((tab) => <Pressable key={tab.label} style={styles.navItem} onPress={tab.action} accessibilityRole="tab" accessibilityState={{ selected: tab.active }}><Icon name={tab.icon} size={22} tint={tab.active ? color.blue : color.muted} /><Text style={[styles.navLabel, tab.active && styles.navActive]}>{tab.label}</Text></Pressable>)}</View>
@@ -201,7 +222,7 @@ export default function ExploreHome({ user, onLogout }: { user: { displayName: s
       <View style={styles.handle} /><View style={styles.modalHeader}><View style={styles.grow}><Text style={styles.modalMeta}>{destination?.name}  •  {duration}  •  {stops.length} điểm dừng</Text><Text style={styles.modalTitle}>Lịch trình toàn cảnh {destination?.name} ({duration})</Text></View><Pressable style={styles.closeButton} onPress={() => setShowPlan(false)}><Icon name="close" size={18} tint={color.muted} /></Pressable></View>
       {destination?.image && <ImageBackground source={{ uri: destination.image }} style={styles.preview} imageStyle={styles.previewImage}><View style={styles.previewOverlay}><Text style={styles.previewText} numberOfLines={2}>{dayPlans.map((day) => day.highlight || day.dayTitle).join(' • ')}</Text></View></ImageBackground>}
       <ScrollView style={styles.timeline} contentContainerStyle={styles.timelineContent}><View style={styles.rowBetween}><Text style={styles.timelineHeading}>CHI TIẾT LỊCH TRÌNH THEO NGÀY</Text><Text style={styles.blueSmall}>{dayPlans.length} ngày trọn gói</Text></View>{dayPlans.map((day, index) => <View key={index} style={styles.dayCard}><View style={styles.dayHeader}><Text style={styles.dayBadge}>Ngày {day.dayNumber ?? index + 1}</Text><Text style={styles.dayTitle} numberOfLines={1}>{day.dayTitle}</Text><Text style={styles.dayCount}>{day.stops.length} trạm</Text></View>{day.highlight && <Text style={styles.dayHighlight}>{day.highlight}</Text>}{day.stops.map((stop, stopIndex) => <View key={`${stop.name}-${stopIndex}`} style={styles.stop}><View style={styles.stopDot} /><View style={styles.grow}><Text style={styles.stopName}>{stop.name}</Text>{stop.note && <Text style={styles.stopNote}>{stop.note}</Text>}</View><Text style={styles.stopTime}>{stop.time ?? '09:00'}</Text></View>)}</View>)}</ScrollView>
-      <View style={styles.modalActions}><Pressable style={styles.routeButton} onPress={previewRoad} disabled={routeBusy}><Icon name="eye-outline" size={16} /><Text style={styles.routeText}>{routeBusy ? 'Đang vẽ...' : 'Xem đường bộ'}</Text></Pressable><Pressable style={styles.createButton} onPress={() => Alert.alert('Tạo chuyến đi', 'Giao diện tạo chuyến đi sẽ được bổ sung ở phần tiếp theo.')}><Icon name="plus" size={16} tint={color.white} /><Text style={styles.createText}>Tạo chuyến đi này</Text></Pressable></View>
+      <View style={styles.modalActions}><Pressable style={styles.routeButton} onPress={previewRoad} disabled={routeBusy}><Icon name="eye-outline" size={16} /><Text style={styles.routeText}>{routeBusy ? 'Đang vẽ...' : 'Xem đường bộ'}</Text></Pressable><Pressable style={styles.createButton} onPress={() => openCreate(cityKey ?? undefined, `Khám phá ${destination?.name ?? ''}`)}><Icon name="plus" size={16} tint={color.white} /><Text style={styles.createText}>Tạo chuyến đi này</Text></Pressable></View>
     </View></View></Modal>
   </View>;
 }

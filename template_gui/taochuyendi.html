@@ -1,0 +1,1775 @@
+<!DOCTYPE html>
+<html lang="vi" class="h-full">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>TripMate - Tạo chuyến đi mới</title>
+  
+  <!-- Apple SF Pro Font Fallback Stack & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+  <!-- Leaflet CSS & JS for OpenStreetMap -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"SF Pro Display"', '"SF Pro Text"', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            primary: '#0066cc',
+            'primary-focus': '#0071e3',
+            'primary-on-dark': '#2997ff',
+            ink: '#1d1d1f',
+            'ink-muted-80': '#333333',
+            'ink-muted-48': '#7a7a7a',
+            parchment: '#f5f5f7',
+            pearl: '#fafafc',
+            'tile-1': '#272729',
+            'tile-2': '#2a2a2c',
+            'tile-3': '#252527',
+            hairline: '#e0e0e0',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    .apple-headline { letter-spacing: -0.374px; line-height: 1.15; }
+    .apple-body { letter-spacing: -0.374px; line-height: 1.47; }
+    .frosted-nav {
+      background: rgba(245, 245, 247, 0.85);
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+    }
+    .apple-press {
+      transition: transform 0.15s cubic-bezier(0.2, 0, 1), background-color 0.15s ease;
+    }
+    .apple-press:active {
+      transform: scale(0.95) !important;
+    }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    #osm-preview-map {
+      width: 100%;
+      height: 165px;
+      background: #f5f5f7;
+      z-index: 1;
+    }
+    .leaflet-control-zoom {
+      border: 1px solid #e0e0e0 !important;
+      border-radius: 9999px !important;
+      overflow: hidden;
+      box-shadow: none !important;
+    }
+    .leaflet-control-zoom-in, .leaflet-control-zoom-out {
+      background: #ffffff !important;
+      color: #1d1d1f !important;
+      width: 26px !important;
+      height: 26px !important;
+      line-height: 26px !important;
+      font-size: 14px !important;
+    }
+    .leaflet-control-attribution {
+      font-size: 8px !important;
+      background: rgba(255, 255, 255, 0.75) !important;
+      color: #7a7a7a !important;
+      padding: 0 4px !important;
+    }
+    .leaflet-popup-content-wrapper {
+      border-radius: 12px !important;
+      border: 1px solid #e0e0e0 !important;
+      box-shadow: none !important;
+      padding: 0 !important;
+    }
+  </style>
+
+  <!-- Shared Trips Store -->
+  <script src="/src/js/trips-store.js"></script>
+</head>
+<body class="h-full bg-[#f5f5f7] flex items-center justify-center p-0 md:p-6 font-sans antialiased text-[#1d1d1f] selection:bg-[#0066cc]/15 select-none">
+
+  <!-- Mobile Viewport -->
+  <main id="phone-screen" class="relative w-full max-w-[400px] h-[100dvh] md:h-[852px] bg-[#f5f5f7] md:rounded-[42px] border-0 md:border md:border-[#e0e0e0] flex flex-col justify-between overflow-hidden shadow-2xl select-none">
+
+    <!-- ==================== 1. STATUS BAR ==================== -->
+    <header class="relative z-30 pt-3 px-7 pb-1 flex items-center justify-between text-[#1d1d1f] select-none shrink-0 bg-[#ffffff] border-b border-[#e0e0e0]">
+      <span class="text-[13px] font-semibold tracking-tight text-[#1d1d1f]" id="live-time">09:41</span>
+      
+      <!-- Dynamic Island Cutout -->
+      <div class="absolute left-1/2 -translate-x-1/2 top-2.5 w-[92px] h-[24px] bg-[#000000] rounded-full flex items-center justify-between px-3">
+        <div class="w-2.5 h-2.5 rounded-full bg-[#1a1a1a]"></div>
+        <div class="w-2.5 h-2.5 rounded-full bg-[#0d2a4a] border border-[#0066cc]/40"></div>
+      </div>
+
+      <div class="flex items-center space-x-1.5 text-[#1d1d1f]">
+        <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M2 22h20V2L2 22z"/></svg>
+        <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98A16.88 16.88 0 0012 4z"/></svg>
+        <div class="w-4 h-2.5 border border-[#1d1d1f] rounded-[2.5px] p-[1px] flex items-center">
+          <div class="w-full h-full bg-[#1d1d1f] rounded-[1px]"></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ==================== 2. TOP APP BAR (DESIGN.md: sub-nav-frosted) ==================== -->
+    <nav class="h-[52px] px-3.5 frosted-nav flex items-center justify-between border-b border-[#e0e0e0] shrink-0 z-20">
+      <button onclick="goBack()" class="w-8 h-8 rounded-full flex items-center justify-center text-[#0066cc] hover:bg-[#ffffff] apple-press" title="Quay lại" aria-label="Quay lại">
+        <svg class="w-5 h-5 stroke-[2.2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path d="M15.75 19.5L8.25 12l7.5-7.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <div class="flex flex-col items-center">
+        <h1 class="text-[16px] font-semibold text-[#1d1d1f] tracking-tight">Tạo chuyến đi</h1>
+        <span class="text-[11px] text-[#7a7a7a]">OpenStreetMap &amp; AI Planner</span>
+      </div>
+
+      <button onclick="goBack()" class="w-8 h-8 rounded-full flex items-center justify-center text-[#7a7a7a] hover:text-[#1d1d1f] hover:bg-[#ffffff] apple-press" title="Đóng" aria-label="Đóng">
+        <svg class="w-4 h-4 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </nav>
+
+    <!-- ==================== 3. SCROLLABLE FORM CONTENT ==================== -->
+    <div class="flex-1 overflow-y-auto px-4 py-3 space-y-3 no-scrollbar z-10" id="main-scroll-content">
+
+      <!-- ==================== STAGE 1: BẮT BUỘC CHỌN ĐỊA ĐIỂM MUỐN ĐI (MẶC ĐỊNH HIỂN THỊ ĐẦU TIÊN) ==================== -->
+      <div id="destination-select-stage" class="space-y-3">
+        
+        <!-- Welcome Prompt Banner -->
+        <section class="bg-[#ffffff] rounded-[18px] p-4 border border-[#e0e0e0] space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-semibold tracking-wider text-[#0066cc] uppercase bg-[#0066cc]/10 px-2.5 py-0.5 rounded-full border border-[#0066cc]/20">
+              Bước 1: Chọn điểm đến
+            </span>
+            <span class="text-[10px] text-[#7a7a7a]">Bắt buộc để tiếp tục</span>
+          </div>
+          <h2 class="text-[17px] font-semibold text-[#1d1d1f] tracking-tight apple-headline">
+            Bạn muốn đi du lịch ở đâu?
+          </h2>
+          <p class="text-[12px] text-[#7a7a7a] leading-relaxed">
+            Nhập hoặc chọn địa điểm muốn đi chơi. Hệ thống sẽ gửi lên OpenStreetMap xử lý tọa độ và tự động tạo ra những gợi ý chuyến đi phù hợp.
+          </p>
+        </section>
+
+        <!-- Destination Input & OpenStreetMap Query Box -->
+        <section class="bg-[#ffffff] rounded-[18px] p-4 border border-[#e0e0e0] space-y-3">
+          <label for="initial-destination-input" class="text-[11px] font-semibold text-[#7a7a7a] uppercase tracking-wider block">
+            Nhập địa điểm bạn muốn đi
+          </label>
+
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#7a7a7a]">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </div>
+            <input 
+              id="initial-destination-input" 
+              type="text" 
+              placeholder="Ví dụ: Ninh Bình, Đà Nẵng, Cần Thơ, Hải Phòng, Huế..." 
+              class="w-full h-11 pl-10 pr-24 text-[13px] bg-[#f5f5f7] border border-[#e0e0e0] rounded-full focus:bg-[#ffffff] focus:border-[#0071e3] outline-none text-[#1d1d1f]"
+              oninput="handleInitialOsmSearchInput(this.value)"
+              onkeydown="if(event.key==='Enter'){event.preventDefault(); submitDestinationSearch();}"
+            >
+            <button 
+              id="btn-confirm-destination"
+              type="button" 
+              onclick="submitDestinationSearch()" 
+              class="absolute right-1 top-1 h-9 px-3.5 bg-[#0066cc] hover:bg-[#0071e3] text-[#ffffff] text-[12px] font-normal rounded-full flex items-center space-x-1 apple-press"
+            >
+              <span>Khám phá</span>
+            </button>
+          </div>
+
+          <!-- OpenStreetMap Live Search Autocomplete Results -->
+          <div id="osm-live-dropdown" class="hidden space-y-1 pt-1 max-h-[180px] overflow-y-auto no-scrollbar border-t border-[#f0f0f0]">
+            <!-- Results inserted dynamically -->
+          </div>
+
+          <!-- Processing / Loading State -->
+          <div id="destination-loading-state" class="hidden p-3 rounded-[12px] bg-[#f5f5f7] border border-[#e0e0e0] flex items-center space-x-2.5">
+            <div class="w-4 h-4 border-2 border-[#0066cc] border-t-transparent rounded-full animate-spin shrink-0"></div>
+            <p id="destination-loading-text" class="text-[12px] text-[#0066cc] font-medium">Đang gửi lên OpenStreetMap &amp; tạo gợi ý chuyến đi...</p>
+          </div>
+        </section>
+
+        <!-- Popular Hot Destinations Quick Pick -->
+        <section class="bg-[#ffffff] rounded-[18px] p-4 border border-[#e0e0e0] space-y-2.5">
+          <div class="flex items-center justify-between">
+            <h3 class="text-[13px] font-semibold text-[#1d1d1f]">Hoặc chọn điểm đến phổ biến</h3>
+            <span class="text-[10px] text-[#7a7a7a]">OpenStreetMap</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <!-- Ninh Bình -->
+            <button type="button" onclick="selectDestinationAndLoad('ninhbinh', 'Ninh Bình, Việt Nam', 'Ninh Bình')" class="p-2.5 rounded-[14px] bg-[#f5f5f7] hover:bg-[#0066cc]/5 border border-[#e0e0e0] hover:border-[#0066cc] text-left transition apple-press">
+              <span class="text-[13px] font-semibold text-[#1d1d1f] block">Ninh Bình</span>
+              <span class="text-[10px] text-[#7a7a7a] block mt-0.5">Tràng An • Hang Múa</span>
+            </button>
+
+            <!-- Đà Nẵng -->
+            <button type="button" onclick="selectDestinationAndLoad('danang', 'Đà Nẵng, Việt Nam', 'Đà Nẵng')" class="p-2.5 rounded-[14px] bg-[#f5f5f7] hover:bg-[#0066cc]/5 border border-[#e0e0e0] hover:border-[#0066cc] text-left transition apple-press">
+              <span class="text-[13px] font-semibold text-[#1d1d1f] block">Đà Nẵng</span>
+              <span class="text-[10px] text-[#7a7a7a] block mt-0.5">Bà Nà Hills • Cầu Rồng</span>
+            </button>
+
+            <!-- Đà Lạt -->
+            <button type="button" onclick="selectDestinationAndLoad('dalat', 'Đà Lạt, Lâm Đồng', 'Đà Lạt')" class="p-2.5 rounded-[14px] bg-[#f5f5f7] hover:bg-[#0066cc]/5 border border-[#e0e0e0] hover:border-[#0066cc] text-left transition apple-press">
+              <span class="text-[13px] font-semibold text-[#1d1d1f] block">Đà Lạt</span>
+              <span class="text-[10px] text-[#7a7a7a] block mt-0.5">Lâm Đồng • Xứ sương mù</span>
+            </button>
+
+            <!-- Phú Quốc -->
+            <button type="button" onclick="selectDestinationAndLoad('phuquoc', 'Phú Quốc, Kiên Giang', 'Phú Quốc')" class="p-2.5 rounded-[14px] bg-[#f5f5f7] hover:bg-[#0066cc]/5 border border-[#e0e0e0] hover:border-[#0066cc] text-left transition apple-press">
+              <span class="text-[13px] font-semibold text-[#1d1d1f] block">Phú Quốc</span>
+              <span class="text-[10px] text-[#7a7a7a] block mt-0.5">Kiên Giang • Đảo Ngọc</span>
+            </button>
+
+            <!-- Sa Pa -->
+            <button type="button" onclick="selectDestinationAndLoad('sapa', 'Sa Pa, Lào Cai', 'Sa Pa')" class="p-2.5 rounded-[14px] bg-[#f5f5f7] hover:bg-[#0066cc]/5 border border-[#e0e0e0] hover:border-[#0066cc] text-left transition apple-press">
+              <span class="text-[13px] font-semibold text-[#1d1d1f] block">Sa Pa</span>
+              <span class="text-[10px] text-[#7a7a7a] block mt-0.5">Lào Cai • Fansipan</span>
+            </button>
+
+            <!-- Hội An -->
+            <button type="button" onclick="selectDestinationAndLoad('hoian', 'Hội An, Quảng Nam', 'Hội An')" class="p-2.5 rounded-[14px] bg-[#f5f5f7] hover:bg-[#0066cc]/5 border border-[#e0e0e0] hover:border-[#0066cc] text-left transition apple-press">
+              <span class="text-[13px] font-semibold text-[#1d1d1f] block">Hội An</span>
+              <span class="text-[10px] text-[#7a7a7a] block mt-0.5">Quảng Nam • Phố cổ</span>
+            </button>
+
+            <!-- Nha Trang -->
+            <button type="button" onclick="selectDestinationAndLoad('nhatrang', 'Nha Trang, Khánh Hòa', 'Nha Trang')" class="p-2.5 rounded-[14px] bg-[#f5f5f7] hover:bg-[#0066cc]/5 border border-[#e0e0e0] hover:border-[#0066cc] text-left transition apple-press">
+              <span class="text-[13px] font-semibold text-[#1d1d1f] block">Nha Trang</span>
+              <span class="text-[10px] text-[#7a7a7a] block mt-0.5">Khánh Hòa • Biển đảo</span>
+            </button>
+
+            <!-- Huế -->
+            <button type="button" onclick="selectDestinationAndLoad('hue', 'Huế, Thừa Thiên Huế', 'Huế')" class="p-2.5 rounded-[14px] bg-[#f5f5f7] hover:bg-[#0066cc]/5 border border-[#e0e0e0] hover:border-[#0066cc] text-left transition apple-press">
+              <span class="text-[13px] font-semibold text-[#1d1d1f] block">Huế</span>
+              <span class="text-[10px] text-[#7a7a7a] block mt-0.5">Thừa Thiên Huế • Cố đô</span>
+            </button>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- ==================== STAGE 2: CÁC TÍNH NĂNG CÒN LẠI (CHỈ HIỂN THỊ SAU KHI ĐÃ CHỌN ĐỊA ĐIỂM) ==================== -->
+      <div id="trip-features-container" class="space-y-3 hidden">
+
+        <!-- Section 1: Thông tin điểm đến đã chọn & Tên chuyến đi -->
+        <section class="bg-[#ffffff] rounded-[18px] p-4 border border-[#e0e0e0] space-y-2.5">
+          <div class="flex items-center justify-between">
+            <div class="min-w-0 pr-2">
+              <span class="text-[10px] font-semibold text-[#0066cc] uppercase tracking-wider block">Điểm đến đã chọn</span>
+              <h2 id="active-destination-title" class="text-[15px] font-semibold text-[#1d1d1f] truncate">Địa điểm</h2>
+              <p id="active-destination-coords" class="text-[10px] text-[#7a7a7a] mt-0.5 flex items-center space-x-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#0066cc]"></span>
+                <span id="active-destination-coords-text">Đã xác thực OpenStreetMap</span>
+              </p>
+            </div>
+            <button 
+              type="button" 
+              onclick="resetToDestinationSelection()" 
+              class="px-3 py-1.5 rounded-full text-[11px] font-normal bg-[#f5f5f7] hover:bg-[#e0e0e0] text-[#0066cc] border border-[#e0e0e0] shrink-0 apple-press"
+            >
+              Đổi điểm đến
+            </button>
+          </div>
+
+          <!-- Trip Name Input -->
+          <div class="space-y-1 pt-1 border-t border-[#f0f0f0]">
+            <label for="trip-title-input" class="text-[11px] font-semibold text-[#7a7a7a] uppercase tracking-wider">
+              Tên chuyến đi
+            </label>
+            <input 
+              id="trip-title-input"
+              type="text" 
+              placeholder="Đặt tên cho chuyến đi..."
+              class="w-full h-10 px-3.5 text-[13px] font-normal bg-[#f5f5f7] border border-[#e0e0e0] rounded-[12px] focus:bg-[#ffffff] focus:border-[#0071e3] outline-none transition text-[#1d1d1f]" 
+            >
+          </div>
+
+          <!-- Interactive OpenStreetMap Preview with Real Road Polyline -->
+          <div class="relative w-full rounded-[14px] overflow-hidden border border-[#e0e0e0] mt-1.5">
+            <div id="osm-preview-map"></div>
+            <div class="absolute bottom-2 left-2 z-[500] bg-[#ffffff]/90 px-2 py-0.5 rounded-full border border-[#e0e0e0] text-[9px] text-[#1d1d1f] flex items-center space-x-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#0066cc]"></span>
+              <span id="osm-map-coords-label">Đường bộ OSRM</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section 2: THỜI GIAN CHUYẾN ĐI (PROMPT.MD: Yêu cầu nhập ngay thời gian chuyến đi trước khi xử lý các tác vụ khác) -->
+        <section class="bg-[#ffffff] rounded-[18px] p-4 border border-[#e0e0e0] space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="flex items-center space-x-1.5">
+                <span class="w-2 h-2 rounded-full bg-[#0066cc]"></span>
+                <span class="text-[10px] font-semibold text-[#0066cc] uppercase tracking-wider">Thời gian</span>
+              </div>
+              <h2 class="text-[#1d1d1f] font-semibold text-[14px] mt-0.5">Thời gian chuyến đi</h2>
+              <p class="text-[11px] text-[#7a7a7a] mt-0.5" id="date-summary-text">Khởi hành: 25/09/2026</p>
+            </div>
+            <span id="duration-badge" class="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#0066cc] text-[#ffffff] shadow-none">
+              2 ngày 1 đêm
+            </span>
+          </div>
+
+          <!-- Quick Duration Presets -->
+          <div class="flex items-center space-x-1.5 overflow-x-auto no-scrollbar py-0.5">
+            <button type="button" onclick="setPresetDuration(1)" id="preset-btn-1" class="duration-preset-btn px-2.5 py-1 rounded-full text-[11px] font-normal bg-[#f5f5f7] text-[#1d1d1f] border border-[#e0e0e0] shrink-0 apple-press">1 ngày</button>
+            <button type="button" onclick="setPresetDuration(2)" id="preset-btn-2" class="duration-preset-btn px-2.5 py-1 rounded-full text-[11px] font-normal bg-[#0066cc] text-[#ffffff] shrink-0 apple-press">2 ngày 1 đêm</button>
+            <button type="button" onclick="setPresetDuration(3)" id="preset-btn-3" class="duration-preset-btn px-2.5 py-1 rounded-full text-[11px] font-normal bg-[#f5f5f7] text-[#1d1d1f] border border-[#e0e0e0] shrink-0 apple-press">3 ngày 2 đêm</button>
+            <button type="button" onclick="setPresetDuration(4)" id="preset-btn-4" class="duration-preset-btn px-2.5 py-1 rounded-full text-[11px] font-normal bg-[#f5f5f7] text-[#1d1d1f] border border-[#e0e0e0] shrink-0 apple-press">4 ngày 3 đêm</button>
+          </div>
+
+          <!-- Month Navigation -->
+          <div class="flex items-center justify-between px-1 pt-1 border-t border-[#f0f0f0]">
+            <button type="button" onclick="prevMonth()" class="w-8 h-8 rounded-full border border-[#e0e0e0] bg-[#ffffff] hover:bg-[#f5f5f7] text-[#1d1d1f] flex items-center justify-center apple-press" aria-label="Tháng trước">
+              ‹
+            </button>
+            <span id="calendar-month-title" class="text-[14px] font-semibold text-[#1d1d1f]">
+              Tháng 9, 2026
+            </span>
+            <button type="button" onclick="nextMonth()" class="w-8 h-8 rounded-full border border-[#e0e0e0] bg-[#ffffff] hover:bg-[#f5f5f7] text-[#1d1d1f] flex items-center justify-center apple-press" aria-label="Tháng sau">
+              ›
+            </button>
+          </div>
+
+          <!-- Days of Week -->
+          <div class="grid grid-cols-7 gap-1 text-center text-[11px] font-normal text-[#7a7a7a] py-1">
+            <div>T2</div><div>T3</div><div>T4</div><div>T5</div><div>T6</div><div>T7</div><div>CN</div>
+          </div>
+
+          <!-- Calendar Days Grid -->
+          <div id="calendar-days-grid" class="grid grid-cols-7 gap-1 text-center"></div>
+
+          <div class="text-right pt-1 border-t border-[#f0f0f0]">
+            <span id="date-return-text" class="text-[11px] text-[#7a7a7a]">Trở về: 26/09/2026</span>
+          </div>
+        </section>
+
+        <!-- Section 3: GỢI Ý CHUYẾN ĐI (PROMPT.MD: Cho phép tạo thêm ngày, lịch tự động kéo dài tương ứng) -->
+        <section class="bg-[#ffffff] rounded-[18px] p-4 border border-[#e0e0e0] space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-[#1d1d1f] font-semibold text-[14px]">Gợi ý chuyến đi</h2>
+              <p class="text-[11px] text-[#7a7a7a]" id="day-plans-subtitle">Lịch trình chi tiết theo từng ngày</p>
+            </div>
+            <span id="day-plans-count-badge" class="text-[10px] text-[#0066cc] bg-[#f5f5f7] px-2 py-0.5 rounded-full border border-[#e0e0e0]">
+              2 ngày
+            </span>
+          </div>
+
+          <!-- Day Plans Container (Multi-day distinct options) -->
+          <div id="day-plans-container" class="space-y-2 pt-0.5">
+            <!-- Rendered dynamically by script -->
+          </div>
+
+          <!-- Add Day Button (+ Thêm ngày) -->
+          <button 
+            type="button" 
+            onclick="addNewDayToTrip()" 
+            class="w-full py-2.5 rounded-[14px] border border-dashed border-[#0066cc] text-[#0066cc] hover:bg-[#0066cc]/5 flex items-center justify-center space-x-1.5 font-medium text-[12px] apple-press transition"
+          >
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            <span id="add-day-btn-label">+ Thêm ngày (Ngày 3)</span>
+          </button>
+        </section>
+
+        <!-- Section 4: ĐỊA ĐIỂM CHUYẾN ĐI (PROMPT.MD: Đổi thành 'Địa điểm chuyến đi', mặc định TẮT, chỉ hiện nếu tích chọn) -->
+        <section class="bg-[#ffffff] rounded-[18px] p-4 border border-[#e0e0e0] space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-[#1d1d1f] font-semibold text-[14px]">Địa điểm chuyến đi</h2>
+              <p class="text-[11px] text-[#7a7a7a]">Tùy chỉnh các điểm dừng trong hành trình</p>
+            </div>
+
+            <!-- Apple Style Toggle Switch (Default OFF) -->
+            <button 
+              type="button" 
+              id="toggle-custom-stops-switch" 
+              onclick="toggleCustomStops()" 
+              class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out bg-[#e0e0e0]" 
+              role="switch" 
+              aria-checked="false"
+            >
+              <span 
+                id="toggle-custom-stops-thumb" 
+                class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-[#ffffff] shadow-sm ring-0 transition duration-200 ease-in-out translate-x-0"
+              ></span>
+            </button>
+          </div>
+
+          <p id="custom-stops-off-hint" class="text-[12px] text-[#7a7a7a] leading-relaxed">
+            Bật để tùy chỉnh thêm, bớt hoặc tự nhập các địa điểm theo ý thích.
+          </p>
+
+          <!-- Expanded Custom Stops Panel (Default Hidden) -->
+          <div id="custom-stops-expanded-panel" class="space-y-3 pt-2.5 border-t border-[#f0f0f0] transition-all duration-300 hidden">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-semibold text-[#7a7a7a] uppercase tracking-wider">Danh sách trạm</span>
+              <span id="selected-stops-counter" class="text-[10px] text-[#0066cc] bg-[#f5f5f7] px-2 py-0.5 rounded-full border border-[#e0e0e0]">
+                0 điểm đã chọn
+              </span>
+            </div>
+
+            <!-- Custom Location Input (User can type any place they want to visit) -->
+            <div class="space-y-1.5 p-3 rounded-[14px] bg-[#f5f5f7] border border-[#e0e0e0]">
+              <span class="text-[11px] font-semibold text-[#1d1d1f] block">Tự nhập địa điểm bạn muốn ghé</span>
+              <div class="flex space-x-1.5">
+                <input 
+                  id="custom-place-input" 
+                  type="text" 
+                  placeholder="Nhập tên quán cafe, khách sạn, điểm check-in..."
+                  class="flex-1 h-9 px-3 text-[12px] font-normal bg-[#ffffff] border border-[#e0e0e0] rounded-full focus:border-[#0071e3] outline-none text-[#1d1d1f]"
+                  onkeydown="if(event.key==='Enter'){event.preventDefault(); addCustomLocationFromInput();}"
+                >
+                <button 
+                  type="button" 
+                  onclick="addCustomLocationFromInput()" 
+                  class="h-9 px-3.5 bg-[#0066cc] hover:bg-[#0071e3] text-[#ffffff] rounded-full text-[12px] font-normal shrink-0 apple-press"
+                >
+                  + Thêm
+                </button>
+              </div>
+              <p class="text-[10px] text-[#7a7a7a]">Hệ thống sẽ tự động tra cứu tọa độ OpenStreetMap và nối tuyến đường bộ.</p>
+            </div>
+
+            <!-- Hot Locations Catalog (Filtered by Category) -->
+            <div class="space-y-2 pt-1">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-semibold text-[#7a7a7a] uppercase tracking-wider">Điểm hot tại khu vực</span>
+                <span class="text-[10px] text-[#7a7a7a]">Bấm để thêm / gỡ bỏ</span>
+              </div>
+
+              <!-- Category filter chips -->
+              <div class="flex items-center space-x-1.5 overflow-x-auto no-scrollbar py-0.5">
+                <button type="button" onclick="filterHotSpots('all', this)" class="hot-cat-chip px-2.5 py-1 rounded-full text-[11px] font-normal bg-[#0066cc] text-[#ffffff] shrink-0 apple-press">Tất cả</button>
+                <button type="button" onclick="filterHotSpots('cafe', this)" class="hot-cat-chip px-2.5 py-1 rounded-full text-[11px] font-normal bg-[#f5f5f7] text-[#1d1d1f] border border-[#e0e0e0] shrink-0 apple-press">Cà phê</button>
+                <button type="button" onclick="filterHotSpots('nature', this)" class="hot-cat-chip px-2.5 py-1 rounded-full text-[11px] font-normal bg-[#f5f5f7] text-[#1d1d1f] border border-[#e0e0e0] shrink-0 apple-press">Thắng cảnh</button>
+                <button type="button" onclick="filterHotSpots('food', this)" class="hot-cat-chip px-2.5 py-1 rounded-full text-[11px] font-normal bg-[#f5f5f7] text-[#1d1d1f] border border-[#e0e0e0] shrink-0 apple-press">Ẩm thực</button>
+              </div>
+
+              <!-- Hot Spots List -->
+              <div id="hot-spots-list" class="space-y-1.5 max-h-[190px] overflow-y-auto no-scrollbar">
+                <!-- Rendered dynamically -->
+              </div>
+            </div>
+
+            <!-- Active Selected Stops Management (Shows current stops with delete action) -->
+            <div class="space-y-1.5 pt-2 border-t border-[#f0f0f0]">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-semibold text-[#7a7a7a] uppercase tracking-wider">Hành trình các trạm hiện tại</span>
+                <button type="button" onclick="clearAllStops()" class="text-[10px] text-[#7a7a7a] hover:text-[#0066cc]">Làm mới trạm</button>
+              </div>
+
+              <div id="active-stops-list" class="space-y-1 max-h-[160px] overflow-y-auto no-scrollbar">
+                <!-- Rendered dynamically -->
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section 5: Thành viên tham gia (PROMPT.MD: Mặc định TẮT) -->
+        <section class="bg-[#ffffff] rounded-[18px] p-4 border border-[#e0e0e0] space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-[#1d1d1f] font-semibold text-[14px]">Thành viên tham gia</h2>
+              <p class="text-[11px] text-[#7a7a7a] mt-0.5">Mời bạn bè cùng tham gia chuyến đi</p>
+            </div>
+
+            <!-- Apple Style Toggle Switch (Default OFF) -->
+            <button 
+              type="button" 
+              id="toggle-invite-switch" 
+              onclick="toggleInviteFriends()" 
+              class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out bg-[#e0e0e0]" 
+              role="switch" 
+              aria-checked="false"
+            >
+              <span 
+                id="toggle-invite-thumb" 
+                class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-[#ffffff] shadow-sm ring-0 transition duration-200 ease-in-out translate-x-0"
+              ></span>
+            </button>
+          </div>
+
+          <p id="invite-off-hint" class="text-[12px] text-[#7a7a7a] leading-relaxed">
+            Bật để mời bạn bè cùng tham gia và chia sẻ lịch trình.
+          </p>
+
+          <!-- Expanded Member Search & Selection Panel (Default Hidden) -->
+          <div id="invite-expanded-panel" class="space-y-3 pt-2.5 border-t border-[#f0f0f0] transition-all duration-300 hidden">
+            <div class="relative w-full">
+              <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#7a7a7a]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <circle cx="11" cy="11" r="8"/>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+              </div>
+              <input 
+                id="friend-search-input" 
+                type="search" 
+                oninput="filterFriends(this.value)" 
+                placeholder="Tìm bạn bè theo tên hoặc số điện thoại..." 
+                class="w-full h-10 pl-10 pr-4 text-[13px] font-normal bg-[#f5f5f7] border border-[#e0e0e0] rounded-full focus:bg-[#ffffff] focus:border-[#0071e3] outline-none text-[#1d1d1f]"
+              >
+            </div>
+
+            <div class="flex items-center justify-between text-[11px] text-[#7a7a7a]">
+              <span>Danh sách bạn bè gợi ý</span>
+              <span id="selected-friends-count" class="text-[#0066cc] font-semibold">0 bạn đã chọn</span>
+            </div>
+
+            <div id="friends-selection-list" class="space-y-1.5 max-h-[160px] overflow-y-auto no-scrollbar">
+              <!-- Friend 1 -->
+              <div 
+                data-name="bạn đồng hành b" 
+                data-phone="0912345678" 
+                onclick="toggleFriendItem(this)" 
+                class="friend-item p-2 rounded-[11px] border border-[#e0e0e0] bg-[#f5f5f7] hover:border-[#0066cc] flex items-center justify-between cursor-pointer apple-press"
+              >
+                <div class="flex items-center space-x-2.5">
+                  <div class="w-8 h-8 rounded-full bg-[#ffffff] border border-[#e0e0e0] flex items-center justify-center text-[12px] font-semibold text-[#1d1d1f]">
+                    B
+                  </div>
+                  <div>
+                    <p class="text-[13px] font-semibold text-[#1d1d1f]">Bạn đồng hành B</p>
+                    <p class="text-[11px] text-[#7a7a7a]">0912 345 678</p>
+                  </div>
+                </div>
+                <span class="friend-check text-[11px] font-normal text-[#7a7a7a]">+ Mời</span>
+              </div>
+
+              <!-- Friend 2 -->
+              <div 
+                data-name="bạn đồng hành c" 
+                data-phone="0987654321" 
+                onclick="toggleFriendItem(this)" 
+                class="friend-item p-2 rounded-[11px] border border-[#e0e0e0] bg-[#f5f5f7] hover:border-[#0066cc] flex items-center justify-between cursor-pointer apple-press"
+              >
+                <div class="flex items-center space-x-2.5">
+                  <div class="w-8 h-8 rounded-full bg-[#ffffff] border border-[#e0e0e0] flex items-center justify-center text-[12px] font-semibold text-[#1d1d1f]">
+                    C
+                  </div>
+                  <div>
+                    <p class="text-[13px] font-semibold text-[#1d1d1f]">Bạn đồng hành C</p>
+                    <p class="text-[11px] text-[#7a7a7a]">0987 654 321</p>
+                  </div>
+                </div>
+                <span class="friend-check text-[11px] font-normal text-[#7a7a7a]">+ Mời</span>
+              </div>
+
+              <!-- Friend 3 -->
+              <div 
+                data-name="bạn đồng hành d" 
+                data-phone="0903123456" 
+                onclick="toggleFriendItem(this)" 
+                class="friend-item p-2 rounded-[11px] border border-[#e0e0e0] bg-[#f5f5f7] hover:border-[#0066cc] flex items-center justify-between cursor-pointer apple-press"
+              >
+                <div class="flex items-center space-x-2.5">
+                  <div class="w-8 h-8 rounded-full bg-[#ffffff] border border-[#e0e0e0] flex items-center justify-center text-[12px] font-semibold text-[#1d1d1f]">
+                    D
+                  </div>
+                  <div>
+                    <p class="text-[13px] font-semibold text-[#1d1d1f]">Bạn đồng hành D</p>
+                    <p class="text-[11px] text-[#7a7a7a]">0903 123 456</p>
+                  </div>
+                </div>
+                <span class="friend-check text-[11px] font-normal text-[#7a7a7a]">+ Mời</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section 6: Lập kế hoạch cùng AI (PROMPT.MD: Mặc định TẮT) -->
+        <section class="bg-[#ffffff] rounded-[18px] p-4 border border-[#e0e0e0] space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-[#1d1d1f] font-semibold text-[14px]">Nhờ AI tối ưu lịch trình</h2>
+              <p class="text-[11px] text-[#7a7a7a] mt-0.5">Sắp xếp thứ tự các điểm dừng hợp lý</p>
+            </div>
+
+            <!-- Apple Style Toggle Switch (Default OFF) -->
+            <button 
+              type="button" 
+              id="toggle-ai-switch" 
+              onclick="toggleAiScheduler()" 
+              class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out bg-[#e0e0e0]" 
+              role="switch" 
+              aria-checked="false"
+            >
+              <span 
+                id="toggle-ai-thumb" 
+                class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-[#ffffff] shadow-sm ring-0 transition duration-200 ease-in-out translate-x-0"
+              ></span>
+            </button>
+          </div>
+
+          <p id="ai-off-hint" class="text-[12px] text-[#7a7a7a] leading-relaxed">
+            Bật để AI tự động sắp xếp điểm đến theo cung đường ngắn nhất.
+          </p>
+
+          <!-- Expanded AI Panel (Default Hidden) -->
+          <div id="ai-expanded-panel" class="space-y-3 pt-2.5 border-t border-[#f0f0f0] transition-all duration-300 hidden">
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between">
+                <label class="text-[11px] font-semibold text-[#7a7a7a] uppercase tracking-wider">Phong cách ưu tiên</label>
+                <span class="text-[10px] text-[#7a7a7a]">Chọn một hoặc nhiều</span>
+              </div>
+
+              <div class="flex flex-wrap gap-1.5">
+                <button type="button" onclick="togglePreferenceChip(this)" class="pref-chip px-3 py-1 rounded-full text-[12px] font-normal bg-[#0066cc] text-[#ffffff] apple-press">Nghỉ dưỡng thư giãn</button>
+                <button type="button" onclick="togglePreferenceChip(this)" class="pref-chip px-3 py-1 rounded-full text-[12px] font-normal bg-[#f5f5f7] text-[#1d1d1f] border border-[#e0e0e0] apple-press">Khám phá &amp; check-in</button>
+                <button type="button" onclick="togglePreferenceChip(this)" class="pref-chip px-3 py-1 rounded-full text-[12px] font-normal bg-[#0066cc] text-[#ffffff] apple-press">Ẩm thực bản địa</button>
+                <button type="button" onclick="togglePreferenceChip(this)" class="pref-chip px-3 py-1 rounded-full text-[12px] font-normal bg-[#f5f5f7] text-[#1d1d1f] border border-[#e0e0e0] apple-press">Gần gũi thiên nhiên</button>
+              </div>
+            </div>
+
+            <div class="space-y-1.5">
+              <label for="ai-prompt-input" class="text-[11px] font-semibold text-[#7a7a7a] uppercase tracking-wider">
+                Mô tả chi tiết mong muốn cho AI
+              </label>
+              <textarea 
+                id="ai-prompt-input" 
+                rows="2"
+                placeholder="Ví dụ: Thích đi cafe ngắm cảnh, ăn món đặc sản, chi phí vừa phải..."
+                class="w-full p-3 text-[12px] font-normal text-[#1d1d1f] bg-[#f5f5f7] border border-[#e0e0e0] rounded-[14px] focus:bg-[#ffffff] focus:border-[#0071e3] outline-none transition resize-none leading-relaxed"
+              >Thích khám phá danh lam thắng cảnh, quán cafe view đẹp, chi phí vừa phải, thưởng thức đặc sản địa phương.</textarea>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+    </div>
+
+    <!-- ==================== 4. FLOATING ACTION CTA (Chỉ hiển thị khi đã chọn điểm đến) ==================== -->
+    <div id="floating-cta-container" class="p-4 bg-[#ffffff] border-t border-[#e0e0e0] shrink-0 hidden">
+      <button 
+        id="btn-submit-trip"
+        type="button" 
+        onclick="submitTripForm()" 
+        class="w-full h-11 bg-[#0066cc] hover:bg-[#0071e3] text-[#ffffff] text-[14px] font-normal rounded-full flex items-center justify-center space-x-2 apple-press cursor-pointer"
+      >
+        <span id="btn-submit-text">Lưu chuyến đi &amp; Theo dõi hành trình</span>
+        <svg id="btn-submit-spinner" class="w-4 h-4 animate-spin hidden text-[#ffffff]" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="absolute top-12 left-4 right-4 z-50 transform -translate-y-16 opacity-0 transition-all duration-300 pointer-events-none bg-[#1d1d1f] text-[#ffffff] px-4 py-2.5 rounded-full text-[13px] font-normal flex items-center justify-between border border-[#333333]">
+      <span id="toast-text">Thông báo</span>
+      <span class="text-[#2997ff] text-[12px]">Xong</span>
+    </div>
+
+  </main>
+
+  <script>
+    function updateClock() {
+      const now = new Date();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const clockEl = document.getElementById('live-time');
+      if (clockEl) clockEl.textContent = `${hours}:${minutes}`;
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    function showToast(title, message) {
+      const toast = document.getElementById('toast');
+      const text = document.getElementById('toast-text');
+      if (toast && text) {
+        text.textContent = message || title;
+        toast.classList.remove('-translate-y-16', 'opacity-0');
+        toast.classList.add('translate-y-0', 'opacity-100');
+        setTimeout(() => {
+          toast.classList.remove('translate-y-0', 'opacity-100');
+          toast.classList.add('-translate-y-16', 'opacity-0');
+        }, 2200);
+      }
+    }
+
+    function goBack() {
+      if (document.getElementById('trip-features-container') && !document.getElementById('trip-features-container').classList.contains('hidden')) {
+        resetToDestinationSelection();
+        return;
+      }
+      if (window.history.length > 1) {
+        window.history.back();
+      } else {
+        window.location.href = 'quanlychuyendi.html';
+      }
+    }
+
+    // ==================== STATE MANAGEMENT ====================
+    let currentCityKey = null;
+    let currentDestinationName = '';
+    let currentCoords = null;
+    let selectedDayPlan = null;
+    let selectedDayPlanIndex = 0;
+    let currentDayPlans = [];
+    let previewMap = null;
+    let previewMarkers = null;
+    let previewRoute = null;
+    let previewRouteCasing = null;
+    let currentTripStops = [];
+
+    // Toggles state (PROMPT.MD: Mặc định tất cả đều TẮT SẴN)
+    let isCustomStopsEnabled = false;
+    let isInviteFriendsEnabled = false;
+    let isAiEnabled = false;
+
+    // ==================== OPENSTREETMAP PREVIEW ====================
+    function initOsmPreviewMap() {
+      if (previewMap) return;
+
+      const mapCoords = currentCoords || [16.0544, 108.2022];
+      previewMap = L.map('osm-preview-map', {
+        zoomControl: true,
+        attributionControl: true
+      }).setView(mapCoords, 12);
+
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 18,
+        subdomains: 'abcd',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>'
+      }).addTo(previewMap);
+
+      previewMarkers = L.layerGroup().addTo(previewMap);
+    }
+
+    // ==================== STAGE 1 LOGIC: CHỌN ĐỊA ĐIỂM ====================
+    let initialSearchTimeout = null;
+
+    function handleInitialOsmSearchInput(val) {
+      clearTimeout(initialSearchTimeout);
+      const dropdown = document.getElementById('osm-live-dropdown');
+      if (!val || val.trim().length < 1) {
+        dropdown.classList.add('hidden');
+        dropdown.innerHTML = '';
+        return;
+      }
+
+      initialSearchTimeout = setTimeout(async () => {
+        try {
+          const results = await TripsStore.searchOsmLocation(val);
+          if (results && results.length > 0) {
+            dropdown.innerHTML = '';
+            results.slice(0, 5).forEach(item => {
+              const opt = document.createElement('div');
+              opt.className = 'p-2 rounded-[10px] bg-[#ffffff] hover:bg-[#0066cc]/10 border border-[#e0e0e0] flex items-center justify-between cursor-pointer apple-press text-[12px]';
+              opt.innerHTML = `
+                <div class="min-w-0 pr-2">
+                  <span class="font-medium text-[#1d1d1f] block truncate">${item.city}</span>
+                  <span class="text-[10px] text-[#7a7a7a] block truncate">${item.display_name}</span>
+                </div>
+                <span class="text-[10px] text-[#0066cc] font-medium shrink-0">Chọn</span>
+              `;
+              opt.onclick = () => {
+                dropdown.classList.add('hidden');
+                document.getElementById('initial-destination-input').value = item.city;
+                selectDestinationAndLoad(item.cityKey || 'custom', item.display_name, item.city);
+              };
+              dropdown.appendChild(opt);
+            });
+            dropdown.classList.remove('hidden');
+          } else {
+            dropdown.classList.add('hidden');
+          }
+        } catch (e) {
+          dropdown.classList.add('hidden');
+        }
+      }, 300);
+    }
+
+    function showDestinationLoading(msg) {
+      const box = document.getElementById('destination-loading-state');
+      const text = document.getElementById('destination-loading-text');
+      const btn = document.getElementById('btn-confirm-destination');
+      if (box && text) {
+        text.textContent = msg || 'Đang kết nối OpenStreetMap...';
+        box.classList.remove('hidden');
+      }
+      if (btn) btn.disabled = true;
+    }
+
+    function hideDestinationLoading() {
+      const box = document.getElementById('destination-loading-state');
+      const btn = document.getElementById('btn-confirm-destination');
+      if (box) box.classList.add('hidden');
+      if (btn) btn.disabled = false;
+    }
+
+    async function submitDestinationSearch() {
+      const input = document.getElementById('initial-destination-input');
+      const query = (input.value || '').trim();
+      if (!query) {
+        showToast('Vui lòng nhập địa điểm', 'Hãy nhập địa danh bạn muốn đến');
+        input.focus();
+        return;
+      }
+
+      showDestinationLoading(`Đang tìm kiếm "${query}" trên OpenStreetMap...`);
+      try {
+        const dest = await TripsStore.resolveDestinationFromOsm(query);
+        if (dest) {
+          applyResolvedDestination(dest);
+        } else {
+          hideDestinationLoading();
+          showToast('Chưa tìm thấy', `Không tìm thấy tọa độ cho "${query}"`);
+        }
+      } catch (e) {
+        hideDestinationLoading();
+        showToast('Lỗi', 'Không thể kết nối OpenStreetMap');
+      }
+    }
+
+    async function selectDestinationAndLoad(cityKey, fullName, name) {
+      showDestinationLoading(`Đang tải dữ liệu OpenStreetMap cho ${name}...`);
+      try {
+        const dest = await TripsStore.resolveDestinationFromOsm(fullName || name);
+        if (dest) {
+          applyResolvedDestination(dest);
+        } else {
+          hideDestinationLoading();
+        }
+      } catch (e) {
+        hideDestinationLoading();
+      }
+    }
+
+    function applyResolvedDestination(dest) {
+      currentCityKey = dest.key || dest.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+      currentDestinationName = dest.fullName || dest.name;
+      currentCoords = dest.coords || [16.0544, 108.2022];
+
+      // Set destination header info
+      document.getElementById('active-destination-title').textContent = currentDestinationName;
+      document.getElementById('active-destination-coords-text').textContent = `Tọa độ OSM: ${currentCoords[0].toFixed(2)}, ${currentCoords[1].toFixed(2)}`;
+      document.getElementById('trip-title-input').value = `Khám phá ${dest.name}`;
+      // PROMPT.MD: Reset dates to 2 days (25/09 - 26/09) so calendar and day plans match!
+      selectedStartDate = new Date(2026, 8, 25);
+      selectedEndDate = new Date(2026, 8, 26);
+      calYear = 2026;
+      calMonth = 8;
+      updateDateSummary();
+      renderCustomCalendar();
+      updateDurationPresetButtons(2);
+
+      // Render day plans according to duration (2 days)
+      currentDayPlans = [];
+      syncDayPlansWithDuration(2);
+
+      // Render hot spots generated from OSM
+      renderHotSpots(dest.key || dest.name, 'all');
+
+      hideDestinationLoading();
+
+      // Show Stage 2, Hide Stage 1
+      document.getElementById('destination-select-stage').classList.add('hidden');
+      document.getElementById('trip-features-container').classList.remove('hidden');
+      document.getElementById('floating-cta-container').classList.remove('hidden');
+
+      // Scroll smoothly to top of content
+      document.getElementById('main-scroll-content').scrollTop = 0;
+
+      // Initialize / invalidate Leaflet map
+      setTimeout(() => {
+        initOsmPreviewMap();
+        if (previewMap) {
+          previewMap.invalidateSize();
+          previewMap.setView(currentCoords, 12);
+          updateOsmMapRoadRoute();
+        }
+      }, 150);
+
+      showToast('Đã chọn điểm đến', `Hành trình khám phá tại ${dest.name}`);
+    }
+
+    function resetToDestinationSelection() {
+      // Switch back to Stage 1
+      document.getElementById('trip-features-container').classList.add('hidden');
+      document.getElementById('floating-cta-container').classList.add('hidden');
+      document.getElementById('destination-select-stage').classList.remove('hidden');
+      document.getElementById('initial-destination-input').value = '';
+      document.getElementById('main-scroll-content').scrollTop = 0;
+      document.getElementById('initial-destination-input').focus();
+    }
+
+    // ==================== TOGGLE CONTROLS (PROMPT.MD: Mặc định tất cả đều TẮT) ====================
+
+    // 1. Toggle Địa điểm chuyến đi
+    function toggleCustomStops() {
+      isCustomStopsEnabled = !isCustomStopsEnabled;
+      const toggleSwitch = document.getElementById('toggle-custom-stops-switch');
+      const toggleThumb = document.getElementById('toggle-custom-stops-thumb');
+      const panel = document.getElementById('custom-stops-expanded-panel');
+      const hint = document.getElementById('custom-stops-off-hint');
+
+      if (isCustomStopsEnabled) {
+        toggleSwitch.classList.remove('bg-[#e0e0e0]');
+        toggleSwitch.classList.add('bg-[#0066cc]');
+        toggleThumb.classList.remove('translate-x-0');
+        toggleThumb.classList.add('translate-x-5');
+        panel.classList.remove('hidden');
+        if (hint) hint.classList.add('hidden');
+        showToast('Địa điểm chuyến đi', 'Đã mở danh sách tùy chỉnh địa điểm');
+      } else {
+        toggleSwitch.classList.remove('bg-[#0066cc]');
+        toggleSwitch.classList.add('bg-[#e0e0e0]');
+        toggleThumb.classList.remove('translate-x-5');
+        toggleThumb.classList.add('translate-x-0');
+        panel.classList.add('hidden');
+        if (hint) hint.classList.remove('hidden');
+      }
+    }
+
+    // 2. Toggle Thành viên tham gia
+    function toggleInviteFriends() {
+      isInviteFriendsEnabled = !isInviteFriendsEnabled;
+      const toggleSwitch = document.getElementById('toggle-invite-switch');
+      const toggleThumb = document.getElementById('toggle-invite-thumb');
+      const panel = document.getElementById('invite-expanded-panel');
+      const hint = document.getElementById('invite-off-hint');
+
+      if (isInviteFriendsEnabled) {
+        toggleSwitch.classList.remove('bg-[#e0e0e0]');
+        toggleSwitch.classList.add('bg-[#0066cc]');
+        toggleThumb.classList.remove('translate-x-0');
+        toggleThumb.classList.add('translate-x-5');
+        panel.classList.remove('hidden');
+        if (hint) hint.classList.add('hidden');
+        showToast('Mời bạn bè', 'Tìm bạn theo tên hoặc số điện thoại để mời vào chuyến');
+      } else {
+        toggleSwitch.classList.remove('bg-[#0066cc]');
+        toggleSwitch.classList.add('bg-[#e0e0e0]');
+        toggleThumb.classList.remove('translate-x-5');
+        toggleThumb.classList.add('translate-x-0');
+        panel.classList.add('hidden');
+        if (hint) hint.classList.remove('hidden');
+      }
+    }
+
+    // 3. Toggle Nhờ AI tối ưu lịch trình
+    function toggleAiScheduler() {
+      isAiEnabled = !isAiEnabled;
+      const toggleSwitch = document.getElementById('toggle-ai-switch');
+      const toggleThumb = document.getElementById('toggle-ai-thumb');
+      const panel = document.getElementById('ai-expanded-panel');
+      const hint = document.getElementById('ai-off-hint');
+
+      if (isAiEnabled) {
+        toggleSwitch.classList.remove('bg-[#e0e0e0]');
+        toggleSwitch.classList.add('bg-[#0066cc]');
+        toggleThumb.classList.remove('translate-x-0');
+        toggleThumb.classList.add('translate-x-5');
+        panel.classList.remove('hidden');
+        if (hint) hint.classList.add('hidden');
+        showToast('AI lập lịch trình', 'Nhập sở thích và yêu cầu để AI tối ưu hành trình');
+      } else {
+        toggleSwitch.classList.remove('bg-[#0066cc]');
+        toggleSwitch.classList.add('bg-[#e0e0e0]');
+        toggleThumb.classList.remove('translate-x-5');
+        toggleThumb.classList.add('translate-x-0');
+        panel.classList.add('hidden');
+        if (hint) hint.classList.remove('hidden');
+      }
+    }
+
+    // ==================== ROAD ROUTE & MAP LOGIC ====================
+    async function updateOsmMapRoadRoute() {
+      if (!previewMap || !previewMarkers) return;
+
+      previewMarkers.clearLayers();
+      if (previewRouteCasing) {
+        previewMap.removeLayer(previewRouteCasing);
+        previewRouteCasing = null;
+      }
+      if (previewRoute) {
+        previewMap.removeLayer(previewRoute);
+        previewRoute = null;
+      }
+
+      if (currentTripStops && currentTripStops.length > 0) {
+        currentTripStops.forEach((s, idx) => {
+          if (!s.lat || !s.lng) return;
+          const pinHtml = `
+            <div style="background: #0066cc; border: 2px solid #ffffff;" class="w-5 h-5 rounded-full flex items-center justify-center text-[#ffffff] font-semibold text-[10px]">
+              ${idx + 1}
+            </div>
+          `;
+          const icon = L.divIcon({ html: pinHtml, className: '', iconSize: [20, 20], iconAnchor: [10, 10] });
+          L.marker([s.lat, s.lng], { icon: icon }).bindPopup(`<b>${s.name}</b><br>${s.time || ''}`).addTo(previewMarkers);
+        });
+
+        if (currentTripStops.length > 1) {
+          const road = await TripsStore.getRoadRoute(currentTripStops);
+          if (previewRouteCasing) previewMap.removeLayer(previewRouteCasing);
+          if (previewRoute) previewMap.removeLayer(previewRoute);
+
+          previewRouteCasing = L.polyline(road.latLngs, {
+            color: '#ffffff',
+            weight: 5,
+            opacity: 0.85,
+            lineJoin: 'round',
+            lineCap: 'round'
+          }).addTo(previewMap);
+
+          previewRoute = L.polyline(road.latLngs, {
+            color: '#0066cc',
+            weight: 3.5,
+            opacity: 0.95,
+            lineJoin: 'round',
+            lineCap: 'round'
+          }).addTo(previewMap);
+
+          previewMap.fitBounds(previewRoute.getBounds(), { padding: [20, 20] });
+
+          const coordsLabel = document.getElementById('osm-map-coords-label');
+          if (coordsLabel) {
+            coordsLabel.textContent = road.distanceKm ? `Đường bộ: ${road.distanceKm} km • ~${road.durationMins}p` : 'Đường bộ OSM';
+          }
+        } else {
+          previewMap.setView([currentTripStops[0].lat, currentTripStops[0].lng], 13);
+        }
+      } else if (currentCoords) {
+        const pinHtml = `<div style="background: #0066cc; border: 2px solid #ffffff;" class="w-5 h-5 rounded-full flex items-center justify-center text-[#ffffff] text-[10px]">Vị trí</div>`;
+        const icon = L.divIcon({ html: pinHtml, className: '', iconSize: [20, 20], iconAnchor: [10, 10] });
+        L.marker(currentCoords, { icon: icon }).addTo(previewMarkers);
+        previewMap.setView(currentCoords, 12);
+      }
+    }
+
+    // ==================== GỢI Ý CHUYẾN ĐI & SYNC LỊCH TRÌNH ====================
+    function syncDayPlansWithDuration(targetDays) {
+      const daysCount = Math.max(1, targetDays || getTripDaysCount());
+      const basePlans = TripsStore.getDayPlans(currentCityKey || currentDestinationName) || [];
+
+      if (!currentDayPlans || currentDayPlans.length === 0) {
+        currentDayPlans = JSON.parse(JSON.stringify(basePlans));
+      }
+
+      // If fewer days than target, generate extra days
+      if (currentDayPlans.length < daysCount) {
+        const safeCity = currentDestinationName ? currentDestinationName.split(',')[0].trim() : 'Địa phương';
+        const lat = currentCoords ? currentCoords[0] : 16.0544;
+        const lng = currentCoords ? currentCoords[1] : 108.2022;
+        const allHot = TripsStore.getHotSpots(currentCityKey || currentDestinationName, 'all') || [];
+
+        while (currentDayPlans.length < daysCount) {
+          const d = currentDayPlans.length + 1;
+          const usedNames = new Set();
+          currentDayPlans.forEach(p => (p.stops || []).forEach(s => usedNames.add(s.name)));
+          const available = allHot.filter(s => !usedNames.has(s.name));
+
+          let dayStops = [];
+          if (available.length >= 2) {
+            dayStops = available.slice(0, 3).map((s, idx) => ({
+              id: `gen_stop_${d}_${idx}_${Date.now()}`,
+              name: s.name,
+              time: idx === 0 ? '08:30' : (idx === 1 ? '14:00' : '18:30'),
+              lat: s.lat,
+              lng: s.lng,
+              status: 'pending',
+              note: s.note || `Điểm dừng Ngày ${d}`,
+              category: s.category || 'nature'
+            }));
+          } else {
+            dayStops = [
+              {
+                id: `gen_${d}_1_${Date.now()}`,
+                name: `Thắng cảnh & Check-in Ngày ${d} (${safeCity})`,
+                time: '09:00',
+                lat: +(lat + 0.012 * d).toFixed(4),
+                lng: +(lng + 0.010 * d).toFixed(4),
+                status: 'pending',
+                note: `Khám phá các điểm mới mẻ tại ${safeCity}`,
+                category: 'nature'
+              },
+              {
+                id: `gen_${d}_2_${Date.now()}`,
+                name: `Ẩm thực & Cafe Ngày ${d} (${safeCity})`,
+                time: '15:30',
+                lat: +(lat - 0.015 * d).toFixed(4),
+                lng: +(lng + 0.018 * d).toFixed(4),
+                status: 'pending',
+                note: `Thư giãn và trải nghiệm ẩm thực bản địa`,
+                category: 'cafe'
+              }
+            ];
+          }
+
+          currentDayPlans.push({
+            dayNumber: d,
+            dayTitle: `Ngày ${d}: Khám phá mở rộng & ẩm thực ${safeCity}`,
+            duration: '1 ngày',
+            highlight: `Trải nghiệm các điểm đến mới mẻ, thư giãn và thưởng thức ẩm thực Ngày ${d}`,
+            badge: `Ngày ${d}`,
+            stops: dayStops
+          });
+        }
+      } else if (currentDayPlans.length > daysCount) {
+        currentDayPlans = currentDayPlans.slice(0, daysCount);
+      }
+
+      // Ensure day numbers and badges are sequential
+      currentDayPlans.forEach((p, idx) => {
+        p.dayNumber = idx + 1;
+        if (!p.badge || p.badge.startsWith('Khuyên dùng cho Ngày') || p.badge.startsWith('Ngày')) {
+          p.badge = `Ngày ${idx + 1}`;
+        }
+      });
+
+      if (selectedDayPlanIndex >= currentDayPlans.length) {
+        selectedDayPlanIndex = Math.max(0, currentDayPlans.length - 1);
+      }
+
+      selectedDayPlan = currentDayPlans[selectedDayPlanIndex] || null;
+      if (selectedDayPlan && selectedDayPlan.stops) {
+        currentTripStops = JSON.parse(JSON.stringify(selectedDayPlan.stops));
+      }
+
+      renderDayPlans();
+      renderActiveStopsList();
+      updateOsmMapRoadRoute();
+    }
+
+    function renderDayPlans() {
+      const container = document.getElementById('day-plans-container');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const countBadge = document.getElementById('day-plans-count-badge');
+      if (countBadge) countBadge.textContent = `${currentDayPlans.length} ngày`;
+
+      const addBtnLabel = document.getElementById('add-day-btn-label');
+      if (addBtnLabel) addBtnLabel.textContent = `+ Thêm ngày (Ngày ${currentDayPlans.length + 1})`;
+
+      if (!currentDayPlans || currentDayPlans.length === 0) {
+        container.innerHTML = '<p class="text-[12px] text-[#7a7a7a] italic">Chưa có lịch trình cho khu vực này.</p>';
+        return;
+      }
+
+      currentDayPlans.forEach((plan, idx) => {
+        const isSelected = (idx === selectedDayPlanIndex);
+
+        const card = document.createElement('article');
+        card.className = `p-3 rounded-[14px] border cursor-pointer apple-press transition-all ${
+          isSelected ? 'border-[#0066cc] bg-[#0066cc]/5' : 'border-[#e0e0e0] bg-[#ffffff] hover:border-[#0066cc]'
+        }`;
+
+        const stopsSummary = (plan.stops || []).map((s, i) => `${i + 1}. ${s.name}`).slice(0, 3).join(' • ');
+
+        card.innerHTML = `
+          <div class="flex items-start justify-between">
+            <div class="min-w-0 pr-2">
+              <div class="flex items-center space-x-1.5">
+                <span class="text-[10px] font-semibold text-[#0066cc]">${plan.badge || ('Ngày ' + plan.dayNumber)}</span>
+                <span class="text-[10px] text-[#7a7a7a]">• ${plan.duration || '1 ngày'}</span>
+              </div>
+              <h3 class="text-[13px] font-semibold text-[#1d1d1f] mt-0.5 truncate">${plan.dayTitle}</h3>
+              <p class="text-[11px] text-[#7a7a7a] mt-0.5 line-clamp-1">${plan.highlight || ''}</p>
+            </div>
+            <div class="flex items-center space-x-1 shrink-0">
+              <button 
+                type="button" 
+                onclick="event.stopPropagation(); applyDayPlanByIndex(${idx});" 
+                class="px-2.5 py-1 text-[11px] font-normal rounded-full apple-press ${
+                  isSelected ? 'bg-[#0066cc] text-[#ffffff]' : 'bg-[#f5f5f7] text-[#0066cc] border border-[#e0e0e0]'
+                }"
+              >
+                ${isSelected ? 'Đang xem' : 'Xem ngày này'}
+              </button>
+              ${currentDayPlans.length > 1 ? `
+                <button 
+                  type="button" 
+                  title="Xóa ngày này"
+                  aria-label="Xóa ngày ${plan.dayNumber}"
+                  onclick="event.stopPropagation(); removeDayFromTrip(${idx});" 
+                  class="w-7 h-7 rounded-full flex items-center justify-center text-[#7a7a7a] hover:text-[#ff3b30] hover:bg-[#ff3b30]/10 border border-[#e0e0e0] apple-press"
+                >
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                  </svg>
+                </button>
+              ` : ''}
+            </div>
+          </div>
+
+          <div class="mt-2 pt-1.5 border-t border-[#f0f0f0] flex items-center justify-between text-[10px] text-[#7a7a7a]">
+            <span class="truncate max-w-[240px]">${stopsSummary || 'Chưa có điểm dừng'}</span>
+            <span class="text-[#0066cc] shrink-0 font-semibold">${(plan.stops || []).length} điểm</span>
+          </div>
+        `;
+
+        card.onclick = () => applyDayPlanByIndex(idx);
+        container.appendChild(card);
+      });
+    }
+
+    function applyDayPlanByIndex(idx) {
+      if (!currentDayPlans[idx]) return;
+      selectedDayPlanIndex = idx;
+      selectedDayPlan = currentDayPlans[idx];
+      currentTripStops = JSON.parse(JSON.stringify(selectedDayPlan.stops || []));
+      document.getElementById('trip-title-input').value = selectedDayPlan.dayTitle;
+      renderDayPlans();
+      renderActiveStopsList();
+      renderHotSpots(currentCityKey, currentHotCategory);
+      updateOsmMapRoadRoute();
+      showToast(selectedDayPlan.dayTitle, `${selectedDayPlan.stops.length} điểm dừng trên bản đồ`);
+    }
+
+    function addNewDayToTrip() {
+      const nextCount = currentDayPlans.length + 1;
+      if (selectedStartDate) {
+        selectedEndDate = new Date(selectedStartDate.getTime() + (nextCount - 1) * 24 * 60 * 60 * 1000);
+      }
+      updateDateSummary();
+      renderCustomCalendar();
+      updateDurationPresetButtons(nextCount);
+      syncDayPlansWithDuration(nextCount);
+      selectedDayPlanIndex = nextCount - 1;
+      applyDayPlanByIndex(selectedDayPlanIndex);
+      showToast('Đã thêm Ngày ' + nextCount, 'Lịch trình đã tự động kéo dài thêm 1 ngày');
+    }
+
+    function removeDayFromTrip(idx) {
+      if (currentDayPlans.length <= 1) {
+        showToast('Không thể xóa', 'Chuyến đi cần có tối thiểu 1 ngày');
+        return;
+      }
+      currentDayPlans.splice(idx, 1);
+      const newCount = currentDayPlans.length;
+      if (selectedStartDate) {
+        selectedEndDate = new Date(selectedStartDate.getTime() + (newCount - 1) * 24 * 60 * 60 * 1000);
+      }
+      updateDateSummary();
+      renderCustomCalendar();
+      updateDurationPresetButtons(newCount);
+      syncDayPlansWithDuration(newCount);
+      if (selectedDayPlanIndex >= currentDayPlans.length) {
+        selectedDayPlanIndex = currentDayPlans.length - 1;
+      }
+      applyDayPlanByIndex(selectedDayPlanIndex);
+      showToast('Đã xóa ngày', 'Lịch trình và thời gian đã được rút ngắn tương ứng');
+    }
+
+    // ==================== HOT SPOTS CATALOG ====================
+    let currentHotCategory = 'all';
+
+    function filterHotSpots(category, btn) {
+      currentHotCategory = category;
+      document.querySelectorAll('.hot-cat-chip').forEach(b => {
+        b.className = 'hot-cat-chip px-2.5 py-1 rounded-full text-[11px] font-normal bg-[#f5f5f7] text-[#1d1d1f] border border-[#e0e0e0] shrink-0 apple-press';
+      });
+      btn.className = 'hot-cat-chip px-2.5 py-1 rounded-full text-[11px] font-normal bg-[#0066cc] text-[#ffffff] shrink-0 apple-press';
+      renderHotSpots(currentCityKey, category);
+    }
+
+    function renderHotSpots(cityKey, category) {
+      const container = document.getElementById('hot-spots-list');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const spots = TripsStore.getHotSpots(cityKey, category);
+      if (!spots || spots.length === 0) {
+        container.innerHTML = '<p class="text-[11px] text-[#7a7a7a] italic p-2">Không có điểm dừng nào trong danh mục này.</p>';
+        return;
+      }
+
+      spots.forEach(spot => {
+        const isAdded = currentTripStops.some(s => s.name === spot.name || s.id === spot.id);
+
+        const row = document.createElement('div');
+        row.className = `p-2 rounded-[11px] border flex items-center justify-between transition-all ${
+          isAdded ? 'border-[#0066cc] bg-[#0066cc]/5' : 'border-[#e0e0e0] bg-[#ffffff] hover:border-[#0066cc]'
+        }`;
+
+        row.innerHTML = `
+          <div class="min-w-0 pr-2">
+            <div class="flex items-center space-x-1.5">
+              <span class="text-[9px] px-1.5 py-0.5 rounded bg-[#f5f5f7] text-[#7a7a7a] border border-[#e0e0e0]">${spot.categoryLabel || 'Điểm hot'}</span>
+              <span class="text-[12px] font-semibold text-[#1d1d1f] truncate">${spot.name}</span>
+            </div>
+            <p class="text-[10px] text-[#7a7a7a] mt-0.5 truncate">${spot.note || ''}</p>
+          </div>
+
+          <button 
+            type="button" 
+            onclick="toggleHotSpot(${JSON.stringify(spot).replace(/"/g, '&quot;')})" 
+            class="h-7 px-2.5 rounded-full text-[11px] font-normal shrink-0 apple-press ${
+              isAdded 
+                ? 'bg-[#0066cc] text-[#ffffff]' 
+                : 'bg-[#f5f5f7] text-[#1d1d1f] border border-[#e0e0e0] hover:border-[#0066cc]'
+            }"
+          >
+            ${isAdded ? 'Đã thêm' : '+ Thêm'}
+          </button>
+        `;
+
+        container.appendChild(row);
+      });
+    }
+
+    function toggleHotSpot(spot) {
+      const existingIdx = currentTripStops.findIndex(s => s.name === spot.name);
+      if (existingIdx >= 0) {
+        currentTripStops.splice(existingIdx, 1);
+        showToast('Đã gỡ', `Đã xóa ${spot.name} khỏi hành trình`);
+      } else {
+        currentTripStops.push({
+          id: `spot_${Date.now()}`,
+          name: spot.name,
+          time: '14:00',
+          lat: spot.lat,
+          lng: spot.lng,
+          status: 'pending',
+          note: spot.note || 'Điểm ghé theo sở thích',
+          category: spot.category || 'custom'
+        });
+        showToast('Đã thêm', `Đã thêm ${spot.name} vào hành trình`);
+      }
+
+      onActiveStopsChanged();
+    }
+
+    function onActiveStopsChanged() {
+      if (currentDayPlans && currentDayPlans[selectedDayPlanIndex]) {
+        currentDayPlans[selectedDayPlanIndex].stops = JSON.parse(JSON.stringify(currentTripStops));
+        renderDayPlans();
+      }
+      renderActiveStopsList();
+      renderHotSpots(currentCityKey, currentHotCategory);
+      updateOsmMapRoadRoute();
+    }
+
+    // ==================== TỰ NHẬP ĐỊA ĐIỂM DỪNG BỔ SUNG ====================
+    async function addCustomLocationFromInput() {
+      const input = document.getElementById('custom-place-input');
+      const query = input.value.trim();
+      if (!query) return;
+
+      showToast('Đang tìm kiếm', `Đang tìm tọa độ OpenStreetMap cho "${query}"...`);
+      input.value = '';
+
+      try {
+        const results = await TripsStore.searchOsmPlaces(currentCityKey, query);
+        let targetLat = currentCoords ? currentCoords[0] : 16.0544;
+        let targetLng = currentCoords ? currentCoords[1] : 108.2022;
+        let placeName = query;
+        let placeNote = 'Địa điểm người dùng tự nhập';
+
+        if (results && results.length > 0) {
+          const first = results[0];
+          targetLat = first.lat;
+          targetLng = first.lng;
+          placeName = first.name || query;
+          placeNote = first.note || 'Tọa độ xác thực từ OpenStreetMap';
+        }
+
+        currentTripStops.push({
+          id: `custom_${Date.now()}`,
+          name: placeName,
+          time: '15:30',
+          lat: targetLat,
+          lng: targetLng,
+          status: 'pending',
+          note: placeNote,
+          category: 'custom'
+        });
+
+        showToast('Đã thêm thành công', `Đã thêm ${placeName} vào hành trình!`);
+        onActiveStopsChanged();
+      } catch (e) {
+        currentTripStops.push({
+          id: `custom_${Date.now()}`,
+          name: query,
+          time: '15:30',
+          lat: currentCoords ? currentCoords[0] : 16.0544,
+          lng: currentCoords ? currentCoords[1] : 108.2022,
+          status: 'pending',
+          note: 'Địa điểm tự chọn',
+          category: 'custom'
+        });
+        onActiveStopsChanged();
+      }
+    }
+
+    // ==================== DANH SÁCH CÁC TRẠM ĐÃ CHỌN ====================
+    function renderActiveStopsList() {
+      const container = document.getElementById('active-stops-list');
+      const counter = document.getElementById('selected-stops-counter');
+      if (!container) return;
+      container.innerHTML = '';
+
+      if (counter) counter.textContent = `${currentTripStops.length} điểm đã chọn`;
+
+      if (currentTripStops.length === 0) {
+        container.innerHTML = '<p class="text-[11px] text-[#7a7a7a] italic p-1">Chưa có điểm dừng nào. Hãy chọn từ danh sách hoặc tự nhập.</p>';
+        return;
+      }
+
+      currentTripStops.forEach((stop, idx) => {
+        const item = document.createElement('div');
+        item.className = 'px-2.5 py-1.5 rounded-[10px] bg-[#f5f5f7] border border-[#e0e0e0] flex items-center justify-between text-[11px]';
+        item.innerHTML = `
+          <div class="flex items-center space-x-2 min-w-0 pr-1">
+            <span class="w-4 h-4 rounded-full bg-[#0066cc] text-[#ffffff] text-[9px] font-semibold flex items-center justify-center shrink-0">
+              ${idx + 1}
+            </span>
+            <span class="font-medium text-[#1d1d1f] truncate">${stop.name}</span>
+            <span class="text-[10px] text-[#7a7a7a] shrink-0">${stop.time || ''}</span>
+          </div>
+
+          <button 
+            type="button" 
+            onclick="removeTripStop(${idx})" 
+            class="text-[#7a7a7a] hover:text-[#1d1d1f] px-1.5 py-0.5 rounded text-[11px] font-semibold apple-press shrink-0"
+            title="Xóa điểm này"
+          >
+            Gỡ
+          </button>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function removeTripStop(idx) {
+      const removed = currentTripStops.splice(idx, 1);
+      if (removed.length > 0) {
+        showToast('Đã xóa', `Đã gỡ ${removed[0].name}`);
+      }
+      onActiveStopsChanged();
+    }
+
+    function clearAllStops() {
+      currentTripStops = [];
+      onActiveStopsChanged();
+      showToast('Làm mới', 'Đã xóa toàn bộ điểm dừng');
+    }
+
+    // ==================== FRIEND INVITATION ====================
+    function toggleFriendItem(el) {
+      const isSelected = el.classList.contains('border-[#0066cc]');
+      const checkEl = el.querySelector('.friend-check');
+      if (isSelected) {
+        el.className = 'friend-item p-2 rounded-[11px] border border-[#e0e0e0] bg-[#f5f5f7] hover:border-[#0066cc] flex items-center justify-between cursor-pointer apple-press';
+        checkEl.className = 'friend-check text-[11px] font-normal text-[#7a7a7a]';
+        checkEl.textContent = '+ Mời';
+      } else {
+        el.className = 'friend-item p-2 rounded-[11px] border border-[#0066cc] bg-[#0066cc]/5 flex items-center justify-between cursor-pointer apple-press';
+        checkEl.className = 'friend-check text-[11px] font-semibold text-[#0066cc]';
+        checkEl.textContent = 'Đã chọn';
+      }
+      updateSelectedFriendsCount();
+    }
+
+    function updateSelectedFriendsCount() {
+      const selected = document.querySelectorAll('.friend-item.border-\\[\\#0066cc\\]').length;
+      document.getElementById('selected-friends-count').textContent = `${selected} bạn đã chọn`;
+    }
+
+    function filterFriends(query) {
+      const q = query.trim().toLowerCase();
+      const items = document.querySelectorAll('.friend-item');
+      items.forEach(item => {
+        const name = (item.dataset.name || '').toLowerCase();
+        const phone = (item.dataset.phone || '').toLowerCase();
+        if (!q || name.includes(q) || phone.includes(q)) {
+          item.style.display = 'flex';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+    }
+
+    // ==================== AI SCHEDULER ====================
+    function togglePreferenceChip(btn) {
+      if (btn.classList.contains('bg-[#0066cc]')) {
+        btn.className = 'pref-chip px-3 py-1 rounded-full text-[12px] font-normal bg-[#f5f5f7] text-[#1d1d1f] border border-[#e0e0e0] apple-press';
+      } else {
+        btn.className = 'pref-chip px-3 py-1 rounded-full text-[12px] font-normal bg-[#0066cc] text-[#ffffff] apple-press';
+      }
+    }
+
+    // ==================== CALENDAR & DURATION LOGIC ====================
+    let today = new Date();
+    let calYear = 2026;
+    let calMonth = 8;
+    let selectedStartDate = new Date(2026, 8, 25);
+    let selectedEndDate = new Date(2026, 8, 26);
+
+    function getVnDayIndex(date) {
+      const d = date.getDay();
+      return d === 0 ? 6 : d - 1;
+    }
+
+    function isSameDate(d1, d2) {
+      if (!d1 || !d2) return false;
+      return d1.getFullYear() === d2.getFullYear() &&
+             d1.getMonth() === d2.getMonth() &&
+             d1.getDate() === d2.getDate();
+    }
+
+    function isDateBetween(target, start, end) {
+      if (!target || !start || !end) return false;
+      const t = new Date(target.getFullYear(), target.getMonth(), target.getDate()).getTime();
+      const s = new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime();
+      const e = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime();
+      return t > s && t < e;
+    }
+
+    function formatDateDisplay(d) {
+      if (!d) return '--/--/----';
+      return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+    }
+
+    function getTripDaysCount() {
+      if (!selectedStartDate) return 1;
+      if (!selectedEndDate) return 1;
+      const diff = Math.round((selectedEndDate.getTime() - selectedStartDate.getTime()) / (1000 * 60 * 60 * 24));
+      return Math.max(1, diff + 1);
+    }
+
+    function updateDurationPresetButtons(days) {
+      for (let i = 1; i <= 4; i++) {
+        const btn = document.getElementById(`preset-btn-${i}`);
+        if (btn) {
+          if (i === days) {
+            btn.className = 'duration-preset-btn px-2.5 py-1 rounded-full text-[11px] font-normal bg-[#0066cc] text-[#ffffff] shrink-0 apple-press';
+          } else {
+            btn.className = 'duration-preset-btn px-2.5 py-1 rounded-full text-[11px] font-normal bg-[#f5f5f7] text-[#1d1d1f] border border-[#e0e0e0] shrink-0 apple-press';
+          }
+        }
+      }
+    }
+
+    function setPresetDuration(days) {
+      if (!selectedStartDate) {
+        selectedStartDate = new Date(2026, 8, 25);
+      }
+      selectedEndDate = new Date(selectedStartDate.getTime() + (days - 1) * 24 * 60 * 60 * 1000);
+      updateDateSummary();
+      renderCustomCalendar();
+      updateDurationPresetButtons(days);
+      syncDayPlansWithDuration(days);
+      showToast('Đã chọn thời gian', days === 1 ? '1 ngày' : `${days} ngày ${days - 1} đêm`);
+    }
+
+    function updateDateSummary() {
+      const summary = document.getElementById('date-summary-text');
+      const returnEl = document.getElementById('date-return-text');
+      const badge = document.getElementById('duration-badge');
+
+      if (!selectedStartDate) {
+        if (summary) summary.textContent = 'Khởi hành: Chưa chọn';
+        if (returnEl) returnEl.textContent = 'Trở về: Chưa chọn';
+        if (badge) {
+          badge.textContent = 'Chọn ngày';
+          badge.className = 'text-[11px] font-normal px-2.5 py-0.5 rounded-full bg-[#f5f5f7] text-[#7a7a7a] border border-[#e0e0e0]';
+        }
+        return;
+      }
+
+      if (summary) summary.textContent = `Khởi hành: ${formatDateDisplay(selectedStartDate)}`;
+      if (selectedEndDate) {
+        if (returnEl) returnEl.textContent = `Trở về: ${formatDateDisplay(selectedEndDate)}`;
+        const diff = Math.round((selectedEndDate - selectedStartDate) / (1000 * 60 * 60 * 24));
+        if (badge) {
+          badge.textContent = diff <= 0 ? '1 ngày' : `${diff + 1} ngày ${diff} đêm`;
+          badge.className = 'text-[11px] font-normal px-2.5 py-0.5 rounded-full bg-[#0066cc] text-[#ffffff]';
+        }
+      } else {
+        if (returnEl) returnEl.textContent = 'Trở về: Chọn ngày kết thúc';
+        if (badge) {
+          badge.textContent = '1 ngày';
+          badge.className = 'text-[11px] font-normal px-2.5 py-0.5 rounded-full bg-[#f5f5f7] text-[#0066cc] border border-[#e0e0e0]';
+        }
+      }
+    }
+
+    function renderCustomCalendar() {
+      const monthTitle = document.getElementById('calendar-month-title');
+      if (monthTitle) monthTitle.textContent = `Tháng ${calMonth + 1}, ${calYear}`;
+      const grid = document.getElementById('calendar-days-grid');
+      if (!grid) return;
+      grid.innerHTML = '';
+
+      const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+      const firstDayOffset = getVnDayIndex(new Date(calYear, calMonth, 1));
+
+      for (let i = 0; i < firstDayOffset; i++) {
+        const empty = document.createElement('div');
+        empty.className = 'h-8';
+        grid.appendChild(empty);
+      }
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const thisDate = new Date(calYear, calMonth, d);
+        const isStart = isSameDate(thisDate, selectedStartDate);
+        const isEnd = isSameDate(thisDate, selectedEndDate);
+        const isBetween = isDateBetween(thisDate, selectedStartDate, selectedEndDate);
+
+        const cell = document.createElement('div');
+        cell.className = 'relative flex items-center justify-center h-8';
+
+        if (isStart || isEnd) {
+          cell.innerHTML = `
+            <button type="button" onclick="selectCalDate(${calYear}, ${calMonth}, ${d})" class="w-7 h-7 rounded-full bg-[#0066cc] text-[#ffffff] font-semibold text-[12px] flex items-center justify-center apple-press">
+              ${d}
+            </button>
+          `;
+        } else if (isBetween) {
+          cell.className = 'relative flex items-center justify-center h-8 bg-[#0066cc]/10';
+          cell.innerHTML = `
+            <button type="button" onclick="selectCalDate(${calYear}, ${calMonth}, ${d})" class="w-full h-full text-[12px] text-[#0066cc] font-semibold flex items-center justify-center apple-press">
+              ${d}
+            </button>
+          `;
+        } else {
+          cell.innerHTML = `
+            <button type="button" onclick="selectCalDate(${calYear}, ${calMonth}, ${d})" class="w-7 h-7 rounded-full text-[12px] text-[#1d1d1f] hover:bg-[#f5f5f7] flex items-center justify-center apple-press">
+              ${d}
+            </button>
+          `;
+        }
+        grid.appendChild(cell);
+      }
+    }
+
+    function selectCalDate(y, m, d) {
+      const picked = new Date(y, m, d);
+      if (!selectedStartDate || (selectedStartDate && selectedEndDate)) {
+        selectedStartDate = picked;
+        selectedEndDate = null;
+      } else if (selectedStartDate && !selectedEndDate) {
+        if (picked >= selectedStartDate) {
+          selectedEndDate = picked;
+        } else {
+          selectedEndDate = selectedStartDate;
+          selectedStartDate = picked;
+        }
+        const days = getTripDaysCount();
+        updateDurationPresetButtons(days);
+        syncDayPlansWithDuration(days);
+        showToast('Thời gian chuyến đi', `${days} ngày (${formatDateDisplay(selectedStartDate)} - ${formatDateDisplay(selectedEndDate)})`);
+      }
+      updateDateSummary();
+      renderCustomCalendar();
+    }
+
+    function prevMonth() {
+      if (calMonth === 0) { calMonth = 11; calYear--; }
+      else { calMonth--; }
+      renderCustomCalendar();
+    }
+
+    function nextMonth() {
+      if (calMonth === 11) { calMonth = 0; calYear++; }
+      else { calMonth++; }
+      renderCustomCalendar();
+    }
+
+    // ==================== SUBMIT & SAVE TO LOCAL CACHE ====================
+    function submitTripForm() {
+      if (!currentCityKey && !currentDestinationName) {
+        showToast('Chưa chọn địa điểm', 'Vui lòng chọn địa điểm trước khi lưu');
+        resetToDestinationSelection();
+        return;
+      }
+
+      const titleInput = document.getElementById('trip-title-input').value.trim() || `Chuyến đi ${currentDestinationName}`;
+      const durationText = document.getElementById('duration-badge').textContent;
+
+      const selectedFriends = [];
+      if (isInviteFriendsEnabled) {
+        document.querySelectorAll('.friend-item.border-\\[\\#0066cc\\]').forEach(item => {
+          const name = item.querySelector('p.font-semibold').textContent;
+          const phone = item.dataset.phone || '';
+          selectedFriends.push({
+            name: name,
+            phone: phone,
+            avatar: name.charAt(name.length - 1).toUpperCase() || 'B',
+            online: true
+          });
+        });
+      }
+
+      const aiPromptText = isAiEnabled ? document.getElementById('ai-prompt-input').value.trim() : '';
+      const selectedPreferences = [];
+      if (isAiEnabled) {
+        document.querySelectorAll('.pref-chip.bg-\\[\\#0066cc\\]').forEach(c => {
+          selectedPreferences.push(c.textContent.trim());
+        });
+      }
+
+      const newTripData = {
+        title: titleInput,
+        destination: currentDestinationName,
+        city: currentDestinationName.split(',')[0].trim(),
+        cityKey: currentCityKey,
+        coords: currentCoords || [16.0544, 108.2022],
+        startDate: selectedStartDate ? formatDateDisplay(selectedStartDate) : '25/09/2026',
+        endDate: selectedEndDate ? formatDateDisplay(selectedEndDate) : '26/09/2026',
+        duration: durationText,
+        status: 'upcoming',
+        members: selectedFriends,
+        aiScheduled: isAiEnabled,
+        aiPrompt: aiPromptText,
+        aiPreferences: selectedPreferences,
+        stops: currentTripStops,
+        dayPlans: currentDayPlans
+      };
+
+      const btn = document.getElementById('btn-submit-trip');
+      const text = document.getElementById('btn-submit-text');
+      const spinner = document.getElementById('btn-submit-spinner');
+      
+      btn.disabled = true;
+      spinner.classList.remove('hidden');
+      text.textContent = isAiEnabled ? 'AI đang sắp xếp tuyến đường bộ...' : 'Đang lưu chuyến đi...';
+
+      setTimeout(() => {
+        const createdTrip = TripsStore.createTrip(newTripData);
+        showToast('Thành công', 'Đã lưu chuyến đi vào cache!');
+        setTimeout(() => {
+          window.location.href = `theodoichuyendi.html?id=${createdTrip.id}`;
+        }, 500);
+      }, 750);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      renderCustomCalendar();
+      updateDateSummary();
+
+      // Support ?city=... from explore page
+      const urlParams = new URLSearchParams(window.location.search);
+      const preCity = urlParams.get('city');
+      if (preCity && preCity.trim()) {
+        selectDestinationAndLoad('custom', preCity.trim(), preCity.trim());
+      } else {
+        const initInput = document.getElementById('initial-destination-input');
+        if (initInput) setTimeout(() => initInput.focus(), 300);
+      }
+    });
+  </script>
+</body>
+</html>
