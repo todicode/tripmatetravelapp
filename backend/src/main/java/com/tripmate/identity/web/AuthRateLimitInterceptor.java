@@ -69,7 +69,7 @@ public class AuthRateLimitInterceptor implements HandlerInterceptor {
             return "otp";
         }
         if (uri.endsWith("/register") || uri.endsWith("/login")
-                || uri.endsWith("/password-reset/request")
+                || uri.endsWith("/password-reset/request") || uri.endsWith("/change-password")
                 || uri.endsWith("/google") || uri.endsWith("/refresh")) {
             return "general";
         }

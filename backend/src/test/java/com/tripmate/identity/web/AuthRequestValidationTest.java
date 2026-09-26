@@ -1,6 +1,7 @@
 package com.tripmate.identity.web;
 
 import com.tripmate.identity.web.AuthRequests.RegisterRequest;
+import com.tripmate.identity.web.AuthRequests.ChangePasswordRequest;
 import com.tripmate.identity.web.AuthRequests.VerifyRegistrationRequest;
 import com.tripmate.identity.web.AuthRequests.ConfirmPasswordResetRequest;
 import com.tripmate.identity.web.AuthRequests.RequestPasswordResetRequest;
@@ -55,5 +56,12 @@ class AuthRequestValidationTest {
         assertTrue(validator.validate(new ConfirmPasswordResetRequest(UUID.randomUUID(), "123456",
                 "new-password")).isEmpty());
         assertFalse(validator.validate(new ConfirmPasswordResetRequest(null, "12ab", "short")).isEmpty());
+    }
+
+    @Test
+    void passwordChangeRequiresCurrentPasswordAndValidNewPassword() {
+        assertTrue(validator.validate(new ChangePasswordRequest("old-password", "new-password")).isEmpty());
+        assertFalse(validator.validate(new ChangePasswordRequest(" ", "short")).isEmpty());
+        assertFalse(validator.validate(new ChangePasswordRequest("old-password", "x".repeat(129))).isEmpty());
     }
 }

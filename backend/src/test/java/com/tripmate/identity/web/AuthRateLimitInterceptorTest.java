@@ -15,6 +15,18 @@ import static org.mockito.Mockito.when;
 class AuthRateLimitInterceptorTest {
 
     @Test
+    void limitsPasswordChangeAttempts() {
+        AuthRateLimitInterceptor interceptor = new AuthRateLimitInterceptor(Duration.ofMinutes(1), 1, 1);
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getRequestURI()).thenReturn("/api/v1/auth/change-password");
+        when(request.getRemoteAddr()).thenReturn("127.0.0.1");
+        assertTrue(interceptor.preHandle(request, mock(HttpServletResponse.class), new Object()));
+        assertThrows(RateLimitExceededException.class,
+                () -> interceptor.preHandle(request, mock(HttpServletResponse.class), new Object()));
+    }
+
+    @Test
     void limitsGeneralAuthRequestsAndProvidesRetryWindow() throws Exception {
         AuthRateLimitInterceptor interceptor = new AuthRateLimitInterceptor(Duration.ofMinutes(1), 2, 1);
         HttpServletRequest request = mock(HttpServletRequest.class);

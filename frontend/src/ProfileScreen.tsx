@@ -1,12 +1,13 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useState } from 'react';
+import SecurityScreen from './SecurityScreen';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
 type Props = {
   user: { displayName: string; email: string };
-  onExplore: () => void;
+  onChangePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   onTrips: () => void;
   onLogout: () => void;
 };
@@ -23,19 +24,20 @@ const colors = {
 
 const pending = (title: string) => Alert.alert(title, 'Giao diện này sẽ được bổ sung ở phần tiếp theo.');
 
-export default function ProfileScreen({ user, onExplore, onTrips, onLogout }: Props) {
+export default function ProfileScreen({ user, onChangePassword, onTrips, onLogout }: Props) {
+  const [security, setSecurity] = useState(false);
   const name = user.displayName?.trim() || user.email;
   const initial = name.charAt(0).toLocaleUpperCase('vi-VN');
   const menuItems: { label: string; icon: IconName; action: () => void }[] = [
     { label: 'Chuyến đi của tôi', icon: 'calendar-month-outline', action: onTrips },
     { label: 'Lời mời kết bạn', icon: 'account-outline', action: () => pending('Lời mời kết bạn') },
     { label: 'Điểm đến yêu thích', icon: 'heart-outline', action: () => pending('Điểm đến yêu thích') },
-    { label: 'Bản đồ OpenStreetMap đã qua', icon: 'compass-outline', action: onExplore },
     { label: 'Thông báo & nhắc nhở', icon: 'bell-outline', action: () => pending('Thông báo & nhắc nhở') },
-    { label: 'Quyền riêng tư & Bảo mật', icon: 'shield-outline', action: () => pending('Quyền riêng tư & Bảo mật') },
+    { label: 'Quyền riêng tư & Bảo mật', icon: 'shield-outline', action: () => setSecurity(true) },
     { label: 'Cài đặt giao diện & Hệ thống', icon: 'cog-outline', action: () => pending('Cài đặt giao diện & Hệ thống') },
   ];
 
+  if (security) return <SecurityScreen onBack={() => setSecurity(false)} onChangePassword={onChangePassword} />;
   return <View style={styles.screen}>
     <View style={styles.header}>
       <Text style={styles.headerTitle}>Cá nhân</Text>

@@ -1,6 +1,7 @@
 package com.tripmate.identity.web;
 
 import com.tripmate.identity.application.IdentityService;
+import com.tripmate.identity.web.AuthRequests.ChangePasswordRequest;
 import com.tripmate.identity.application.PasswordResetService;
 import com.tripmate.identity.web.AuthRequests.ConfirmPasswordResetRequest;
 import com.tripmate.identity.web.AuthRequests.RequestPasswordResetRequest;
@@ -116,6 +117,14 @@ public class AuthController {
         return ResponseEntity.noContent().header("Cache-Control", NO_STORE)
                 .header(RequestIdFilter.REQUEST_ID_HEADER,
                 requestId(httpRequest).toString()).build();
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<Void> changePassword(
+            @Valid @RequestBody ChangePasswordRequest request, HttpServletRequest httpRequest) {
+        identityService.changePassword(request);
+        return ResponseEntity.noContent().header("Cache-Control", NO_STORE)
+                .header(RequestIdFilter.REQUEST_ID_HEADER, requestId(httpRequest).toString()).build();
     }
 
     private UUID requestId(HttpServletRequest request) {

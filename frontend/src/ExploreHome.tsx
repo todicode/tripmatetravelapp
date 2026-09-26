@@ -64,7 +64,7 @@ function normalize(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
 }
 
-export default function ExploreHome({ user, onLogout }: { user: { displayName: string; email: string }; onLogout: () => void }) {
+export default function ExploreHome({ user, onLogout, onChangePassword }: { user: { displayName: string; email: string }; onLogout: () => void; onChangePassword: (currentPassword: string, newPassword: string) => Promise<void> }) {
   const [activeTab, setActiveTab] = useState<'explore' | 'trips' | 'profile' | 'chat'>('explore');
   const chatSession = useChatSession();
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -164,7 +164,7 @@ export default function ExploreHome({ user, onLogout }: { user: { displayName: s
   }
 
   return <View style={styles.root}>
-    {activeTab === 'chat' ? <ChatHome session={chatSession} user={user} trips={trips} onExit={() => setActiveTab('explore')} onTrip={(id) => setTripScreen({ kind: 'track', id })} /> : activeTab === 'profile' ? <ProfileScreen user={user} onExplore={() => setActiveTab('explore')} onTrips={() => setActiveTab('trips')} onLogout={onLogout} /> : activeTab === 'trips' ? <ManageTripsScreen trips={trips} onCreate={() => openCreate()} onTrack={(id) => setTripScreen({ kind: 'track', id })} /> : <>
+    {activeTab === 'chat' ? <ChatHome session={chatSession} user={user} trips={trips} onExit={() => setActiveTab('explore')} onTrip={(id) => setTripScreen({ kind: 'track', id })} /> : activeTab === 'profile' ? <ProfileScreen user={user} onTrips={() => setActiveTab('trips')} onLogout={onLogout} onChangePassword={onChangePassword} /> : activeTab === 'trips' ? <ManageTripsScreen trips={trips} onCreate={() => openCreate()} onTrack={(id) => setTripScreen({ kind: 'track', id })} /> : <>
     <View style={[styles.mapWrap, destination ? styles.mapSelected : styles.mapOverview]}>
       <WebView ref={mapRef} source={{ html: mapHtml, baseUrl: 'https://unpkg.com' }} originWhitelist={['*']}
         javaScriptEnabled domStorageEnabled scrollEnabled={false} style={styles.map}

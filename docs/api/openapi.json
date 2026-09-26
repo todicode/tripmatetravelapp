@@ -546,6 +546,66 @@
         ]
       }
     },
+    "/auth/change-password": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "changePassword",
+        "summary": "Change the authenticated user password",
+        "description": "Requires a valid bearer session and the current password. User identity is taken from the session. Rejects unchanged passwords. Saves a new hash and invalidates every device binding and refresh token atomically. Google accounts without a known local password receive PASSWORD_CHANGE_UNAVAILABLE. Uses the existing auth rate limit.",
+        "x-permission": "AUTHENTICATED",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Password changed. All access and refresh sessions are invalidated; sign in again.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "CURRENT_PASSWORD_INCORRECT, PASSWORD_UNCHANGED, PASSWORD_TOO_LONG, PASSWORD_CHANGE_UNAVAILABLE",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        }
+      }
+    },
     "/auth/logout": {
       "post": {
         "tags": [
@@ -8000,6 +8060,29 @@
           "installationId"
         ],
         "additionalProperties": false
+      },
+      "ChangePasswordRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "currentPassword",
+          "newPassword"
+        ],
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "format": "password",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "newPassword": {
+            "type": "string",
+            "format": "password",
+            "minLength": 8,
+            "maxLength": 128,
+            "description": "At most 72 UTF-8 bytes, the BCrypt input limit."
+          }
+        }
       },
       "RefreshRequest": {
         "type": "object",

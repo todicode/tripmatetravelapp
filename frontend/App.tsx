@@ -104,13 +104,14 @@ async function apiRequest<T>(
   serviceName: string,
   path: string,
   body: Record<string, unknown>,
+  accessToken?: string,
 ): Promise<T> {
   let response: Response;
 
   try {
     response = await fetch(`${baseUrl}${path}`, {
       body: JSON.stringify(body),
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
       method: 'POST',
     });
   } catch {
@@ -988,11 +989,29 @@ export default function App() {
     }
   };
 
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    if (!session) throw new Error('Cần đăng nhập lại.');
+    try {
+      await apiRequest<void>(authApiBaseUrl, 'Backend API', '/auth/change-password',
+        { currentPassword, newPassword }, session.accessToken);
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 401) {
+        setSession(null);
+        setActiveTab('login');
+        Alert.alert('Phiên đăng nhập đã hết hạn', 'Vui lòng đăng nhập lại để đổi mật khẩu.');
+      }
+      throw error;
+    }
+    setSession(null);
+    setActiveTab('login');
+    Alert.alert('Đổi mật khẩu thành công', 'Các phiên đăng nhập đã được đăng xuất. Hãy đăng nhập bằng mật khẩu mới.');
+  };
+
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
         <StatusBar style="dark" />
-        {session ? <ExploreHome user={session.user} onLogout={() => { void logout(); }} /> : (
+        {session ? <ExploreHome user={session.user} onLogout={() => { void logout(); }} onChangePassword={changePassword} /> : (
           <>
             <MapBackdrop />
             <KeyboardAvoidingView

@@ -46,6 +46,11 @@ public final class AuthRequests {
     public record RefreshRequest(@NotBlank @Size(max = 2048) String refreshToken) {
     }
 
+    public record ChangePasswordRequest(
+            @NotBlank @Size(max = 128) String currentPassword,
+            @NotBlank @Size(min = 8, max = 128) String newPassword) {
+    }
+
     public record RequestPasswordResetRequest(@NotBlank @Email @Size(max = 254) String email) {
     }
 
