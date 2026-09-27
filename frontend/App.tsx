@@ -21,6 +21,8 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import ExploreHome from './src/ExploreHome';
+import { ThemeProvider, useAppTheme } from './src/theme/AppTheme';
+import { ToastProvider } from './src/theme/Toast';
 
 type AuthTab = 'login' | 'register';
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
@@ -970,7 +972,8 @@ function AuthSheet({ activeTab, onChangeTab, onAuthenticated }: { activeTab: Aut
   );
 }
 
-export default function App() {
+function AppContent() {
+  const theme = useAppTheme();
   const [activeTab, setActiveTab] = useState<AuthTab>('login');
   const [session, setSession] = useState<SessionResponse | null>(null);
 
@@ -1009,8 +1012,8 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
-        <StatusBar style="dark" />
+      <SafeAreaView style={[styles.screen, session && { backgroundColor: theme.colors.pale }]} edges={['top', 'bottom']}>
+        <StatusBar style={session && theme.mode === 'dark' ? 'light' : 'dark'} />
         {session ? <ExploreHome user={session.user} onLogout={() => { void logout(); }} onChangePassword={changePassword} /> : (
           <>
             <MapBackdrop />
@@ -1033,6 +1036,8 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
+
+export default function App() { return <ThemeProvider><ToastProvider><AppContent /></ToastProvider></ThemeProvider>; }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },

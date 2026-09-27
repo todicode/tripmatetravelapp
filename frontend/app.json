@@ -4,7 +4,7 @@
     "slug": "tripmate",
     "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "android": {
       "package": "com.tripmate.app",
       "adaptiveIcon": {
@@ -13,7 +13,8 @@
     },
     "plugins": [
       "expo-asset",
-      "expo-secure-store"
+      "expo-secure-store",
+      ["expo-location", { "locationWhenInUsePermission": "Cho phép TripMate dùng vị trí để hiển thị địa điểm gần bạn." }]
     ]
   }
 }

@@ -6,6 +6,17 @@ Thư mục triển khai ứng dụng Android TripMate. Màn hình đăng nhập 
 
 Stack theo kế hoạch: React Native, TypeScript, Expo development build, Expo Router, TanStack Query và Zustand.
 
+## UI được port từ template_gui
+
+- Màn hình sau đăng nhập dùng component React Native và các hook ViewModel; giữ nguyên luồng auth và cấu trúc API hiện có.
+- Khám phá có tìm kiếm địa điểm, danh sách lưu theo tài khoản trên thiết bị và định vị khi người dùng cấp quyền. “Gần bạn” sắp xếp các địa điểm đã lưu theo khoảng cách.
+- Tạo chuyến đi hỗ trợ ngày cụ thể/linh hoạt, khách sạn không trùng đêm, lịch trình thủ công và gợi ý từ danh mục địa điểm. Màn hình lịch trình dùng chung cho chuyến đi mới/đã lưu, bản đồ 35%, nội dung 65%.
+- Theme sáng/tối và tùy chọn thông báo được lưu trên thiết bị. Bản đồ tiếp tục dùng WebView Leaflet/CARTO, tìm kiếm Photon và định tuyến OSRM; không gửi token auth đến các dịch vụ này.
+- Chưa có backend cho chuyến đi, chat, kết bạn, AI, cập nhật hồ sơ hoặc gửi thông báo. Chuyến đi và nội dung chat do người dùng tạo chỉ ở bộ nhớ phiên hiện tại; không chèn người dùng/tin nhắn mẫu và không mô phỏng AI. Hồ sơ hiển thị thông tin thật từ phiên đăng nhập, đổi mật khẩu/đăng xuất vẫn dùng API hiện có.
+- Có thêm AsyncStorage và expo-location: chạy `npm install`, sau đó `npm run android` để build lại development client. Chỉ tải lại JavaScript trên bản cài cũ sẽ thiếu native module.
+
+Kiểm tra: `npm run typecheck`, `node scripts/check-trips.cjs`, `node scripts/check-chat.cjs`, `npx expo export --platform android`. Cần thiết bị/emulator để nghiệm thu bố cục và gesture native.
+
 ## Tài liệu bắt đầu
 
 - [Kế hoạch, màn hình và phân công](../TRIPMATE_PLAN.md).

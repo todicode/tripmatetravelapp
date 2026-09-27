@@ -1,117 +1,30 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import SecurityScreen from './SecurityScreen';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import SettingsScreen from './SettingsScreen';
+import EditProfileScreen from './EditProfileScreen';
+import { Icon, useTripUi } from './trips/tripUi';
 
-type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
-
-type Props = {
-  user: { displayName: string; email: string };
-  onChangePassword: (currentPassword: string, newPassword: string) => Promise<void>;
-  onTrips: () => void;
-  onLogout: () => void;
-};
-
-const colors = {
-  blue: '#0066cc',
-  ink: '#1d1d1f',
-  muted: '#7a7a7a',
-  border: '#e0e0e0',
-  canvas: '#f5f5f7',
-  white: '#ffffff',
-  red: '#ff3b30',
-};
-
-const pending = (title: string) => Alert.alert(title, 'Giao diện này sẽ được bổ sung ở phần tiếp theo.');
-
-export default function ProfileScreen({ user, onChangePassword, onTrips, onLogout }: Props) {
+type Props = { user: { displayName: string; email: string }; onChangePassword: (currentPassword: string, newPassword: string) => Promise<void>; onTrips: () => void; onLogout: () => void; onRequests: () => void; onSavedPlaces: () => void; onDetailChange: (detail: boolean) => void; requestsCount?: number };
+export default function ProfileScreen({ user, onChangePassword, onLogout, onRequests, onSavedPlaces, onDetailChange, requestsCount = 0 }: Props) {
+  const { c, s } = useTripUi();
   const [security, setSecurity] = useState(false);
-  const name = user.displayName?.trim() || user.email;
-  const initial = name.charAt(0).toLocaleUpperCase('vi-VN');
-  const menuItems: { label: string; icon: IconName; action: () => void }[] = [
-    { label: 'Chuyến đi của tôi', icon: 'calendar-month-outline', action: onTrips },
-    { label: 'Lời mời kết bạn', icon: 'account-outline', action: () => pending('Lời mời kết bạn') },
-    { label: 'Điểm đến yêu thích', icon: 'heart-outline', action: () => pending('Điểm đến yêu thích') },
-    { label: 'Thông báo & nhắc nhở', icon: 'bell-outline', action: () => pending('Thông báo & nhắc nhở') },
-    { label: 'Quyền riêng tư & Bảo mật', icon: 'shield-outline', action: () => setSecurity(true) },
-    { label: 'Cài đặt giao diện & Hệ thống', icon: 'cog-outline', action: () => pending('Cài đặt giao diện & Hệ thống') },
-  ];
-
+  const [settings, setSettings] = useState(false);
+  const [editing, setEditing] = useState(false);
+  useEffect(() => { onDetailChange(security || settings || editing); return () => onDetailChange(false); }, [security, settings, editing, onDetailChange]);
   if (security) return <SecurityScreen onBack={() => setSecurity(false)} onChangePassword={onChangePassword} />;
-  return <View style={styles.screen}>
-    <View style={styles.header}>
-      <Text style={styles.headerTitle}>Cá nhân</Text>
-    </View>
-
-    <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} showsVerticalScrollIndicator={false}>
-      <View style={styles.userCard}>
-        <View style={styles.avatar}><Text style={styles.avatarText}>{initial}</Text></View>
-        <View style={styles.userDetails}>
-          <Text style={styles.userName} numberOfLines={1}>{name}</Text>
-          <Text style={styles.userEmail} numberOfLines={1}>{user.email}</Text>
-          <View style={styles.memberBadge}>
-            <MaterialCommunityIcons name="medal-outline" size={13} color={colors.blue} />
-            <Text style={styles.memberText}>Thành viên TripMate</Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.statsRow}>
-        {[
-          { label: 'Chuyến đi', value: '—' },
-          { label: 'Tỉnh thành', value: '—' },
-          { label: 'Km đường bộ', value: '—' },
-        ].map((item) => <View key={item.label} style={styles.statCard}>
-          <Text style={styles.statValue}>{item.value}</Text>
-          <Text style={styles.statLabel}>{item.label}</Text>
-        </View>)}
-      </View>
-
-      <View style={styles.menuCard}>
-        {menuItems.map((item, index) => <Pressable
-          key={item.label}
-          accessibilityRole="button"
-          onPress={item.action}
-          style={({ pressed }) => [styles.menuRow, index < menuItems.length - 1 && styles.menuDivider, pressed && styles.pressed]}
-        >
-          <View style={styles.menuIcon}><MaterialCommunityIcons name={item.icon} size={17} color={colors.blue} /></View>
-          <Text style={styles.menuLabel}>{item.label}</Text>
-          <MaterialCommunityIcons name="chevron-right" size={18} color={colors.muted} />
-        </Pressable>)}
-      </View>
-
-      <Pressable accessibilityRole="button" onPress={onLogout} style={({ pressed }) => [styles.logoutButton, pressed && styles.pressed]}>
-        <MaterialCommunityIcons name="logout" size={18} color={colors.red} />
-        <Text style={styles.logoutText}>Đăng xuất tài khoản</Text>
+  if (settings) return <SettingsScreen onBack={() => setSettings(false)} onSecurity={() => setSecurity(true)} />;
+  if (editing) return <EditProfileScreen user={user} onBack={() => setEditing(false)} />;
+  const name = user.displayName.trim() || user.email;
+  return <View style={s.screen}>
+    <View style={{ paddingHorizontal: 16, paddingVertical: 12, backgroundColor: c.chrome, minHeight: 68, justifyContent: 'center' }}><Text style={[s.title, { fontSize: 20, lineHeight: 26 }]}>Cá nhân</Text></View>
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, gap: 20 }}>
+      <Pressable accessibilityLabel="Chỉnh sửa hồ sơ cá nhân" onPress={() => setEditing(true)} style={({ pressed }) => [s.card, { alignItems: 'center', gap: 8 }, pressed && { opacity: 0.88 }]}>
+        <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: c.blue, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: c.onBlue, fontSize: 22, fontWeight: '600' }}>{name.slice(-1).toUpperCase()}</Text></View>
+        <Text numberOfLines={1} style={s.title}>{name}</Text><Text numberOfLines={1} style={s.small}>{user.email}</Text><View style={[s.row, { marginTop: 12 }]}><Icon name="pencil-outline" size={14} /><Text style={{ color: c.blue, fontSize: 14 }}>Chỉnh sửa hồ sơ</Text></View>
       </Pressable>
+      <View style={{ backgroundColor: c.white, borderRadius: 18, overflow: 'hidden' }}>{([{ label: 'Địa điểm đã lưu', icon: 'bookmark-outline', action: onSavedPlaces }, { label: 'Lời mời kết bạn', icon: 'account-outline', action: onRequests }, { label: 'Cài đặt', icon: 'cog-outline', action: () => setSettings(true) }] as const).map((item, index) => <Pressable key={item.label} onPress={item.action} style={({ pressed }) => [{ minHeight: 48, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: index < 2 ? 1 : 0, borderColor: c.border }, pressed && { backgroundColor: c.pale }]}><View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: c.primaryLight, alignItems: 'center', justifyContent: 'center' }}><Icon name={item.icon} size={16} /></View><Text style={[s.text, s.grow]}>{item.label}</Text>{item.label === 'Lời mời kết bạn' && requestsCount > 0 && <Text style={{ color: c.onBlue, fontSize: 12, fontWeight: '600', backgroundColor: c.blue, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12 }}>{requestsCount}</Text>}<Icon name="chevron-right" size={16} color={c.muted} /></Pressable>)}</View>
+      <Pressable onPress={onLogout} style={({ pressed }) => [{ minHeight: 48, borderRadius: 18, backgroundColor: c.white, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }, pressed && { opacity: 0.88 }]}><View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: `${c.red}1a`, alignItems: 'center', justifyContent: 'center' }}><Icon name="logout" size={16} color={c.red} /></View><Text style={{ fontSize: 14, color: c.red, fontWeight: '600' }}>Đăng xuất</Text></Pressable>
     </ScrollView>
   </View>;
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.canvas },
-  header: { height: 53, paddingHorizontal: 16, backgroundColor: colors.white, borderBottomWidth: 1, borderColor: colors.border, justifyContent: 'center' },
-  headerTitle: { color: colors.ink, fontSize: 17, fontWeight: '600' },
-  body: { flex: 1 },
-  bodyContent: { padding: 16, gap: 16, paddingBottom: 24 },
-  userCard: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14 },
-  avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.blue, borderWidth: 2, borderColor: colors.white, alignItems: 'center', justifyContent: 'center', elevation: 2 },
-  avatarText: { color: colors.white, fontSize: 18, fontWeight: '700' },
-  userDetails: { flex: 1, minWidth: 0, alignItems: 'flex-start' },
-  userName: { color: colors.ink, fontSize: 15, fontWeight: '600' },
-  userEmail: { color: colors.muted, fontSize: 11, marginTop: 2 },
-  memberBadge: { backgroundColor: '#e8f2fc', flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3, marginTop: 6 },
-  memberText: { color: colors.blue, fontSize: 10, fontWeight: '500' },
-  statsRow: { flexDirection: 'row', gap: 8 },
-  statCard: { flex: 1, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 12, alignItems: 'center' },
-  statValue: { color: colors.blue, fontSize: 18, fontWeight: '700' },
-  statLabel: { color: colors.muted, fontSize: 10, fontWeight: '500', marginTop: 2, textAlign: 'center' },
-  menuCard: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: 16, overflow: 'hidden' },
-  menuRow: { minHeight: 56, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  menuDivider: { borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  menuIcon: { width: 28, height: 28, borderRadius: 8, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center' },
-  menuLabel: { flex: 1, color: colors.ink, fontSize: 13, fontWeight: '500' },
-  pressed: { backgroundColor: colors.canvas },
-  logoutButton: { height: 44, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  logoutText: { color: colors.red, fontSize: 13, fontWeight: '600' },
-});

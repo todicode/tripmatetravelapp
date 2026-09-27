@@ -1,0 +1,360 @@
+@import "tailwindcss";
+@source "./";
+
+@theme {
+  --color-primary: #0066cc;
+  --color-primary-focus: #0071e3;
+  --color-primary-dark: #2997ff;
+  --color-primary-light: #f0f6ff;
+  --color-ink: #1d1d1f;
+  --color-ink-muted: #6e6e73;
+  --color-ink-subtle: #a1a1a6;
+  --color-parchment: #f5f5f7;
+  --color-canvas: #ffffff;
+  --color-chrome: #ffffff;
+  --color-avatar: #1d1d1f;
+  --color-create-button: #1d1d1f;
+  --color-create-hover: #2c2c2e;
+  --color-hairline: #e0e0e0;
+  --color-danger: #ff3b30;
+  --color-success: #34c759;
+  --color-warning: #ff9500;
+  --color-hotel: #8061c7;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+:root { color-scheme: light; }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-primary: #2997ff;
+  --color-primary-focus: #66b5ff;
+  --color-primary-light: #29394d;
+  --color-ink: #eeeef2;
+  --color-ink-muted: #aeb2bd;
+  --color-ink-subtle: #8e94a1;
+  --color-parchment: #191b20;
+  --color-canvas: #24272e;
+  --color-chrome: #191b20;
+  --color-avatar: #344356;
+  --color-create-button: #0066cc;
+  --color-create-hover: #0071e3;
+  --color-danger: #ff6961;
+  --color-hotel: #b29bea;
+  --color-hairline: #343841;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--color-ink);
+  background-color: var(--color-parchment);
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  touch-action: auto;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d2d2d7;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a6;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Apple Press Physics */
+.apple-press {
+  transition: transform 0.12s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.12s ease;
+  user-select: none;
+}
+.apple-press:active {
+  transform: scale(0.95);
+  opacity: 0.88;
+}
+
+/* iOS Screen Navigation Transitions */
+.screen-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #ffffff;
+}
+
+/* Push: new screen enters from right */
+@keyframes iosSlideInRight {
+  from {
+    transform: translate3d(100%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* Push: previous screen pushes left with slight dim */
+@keyframes iosSlideOutLeft {
+  from {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+  to {
+    transform: translate3d(-24%, 0, 0);
+    opacity: 0.82;
+  }
+}
+
+/* Pop: current screen slides away to right */
+@keyframes iosSlideOutRight {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(100%, 0, 0);
+  }
+}
+
+/* Pop: previous screen slides back from left */
+@keyframes iosSlideInLeft {
+  from {
+    transform: translate3d(-24%, 0, 0);
+    opacity: 0.82;
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}
+
+.anim-push-enter {
+  animation: iosSlideInRight 0.32s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  z-index: 20;
+}
+.anim-push-exit {
+  animation: iosSlideOutLeft 0.32s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  z-index: 10;
+  pointer-events: none;
+}
+.anim-pop-enter {
+  animation: iosSlideInLeft 0.32s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  z-index: 10;
+}
+.anim-pop-exit {
+  animation: iosSlideOutRight 0.32s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  z-index: 20;
+  pointer-events: none;
+}
+
+/* Crossfade for tab switches */
+.anim-tab-fade {
+  animation: tabFadeIn 0.2s ease-out forwards;
+}
+@keyframes tabFadeIn {
+  from {
+    opacity: 0.4;
+    transform: scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Slide Up Sheet */
+@keyframes slideUpSheet {
+  from {
+    transform: translate3d(0, 100%, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+.anim-sheet-up {
+  animation: slideUpSheet 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+@keyframes popupOut {
+  from { transform: translate3d(0, 0, 0); opacity: 1; }
+  to { transform: translate3d(0, 100%, 0); opacity: 0; }
+}
+@keyframes popupBackdropIn {
+  from { background-color: transparent; }
+  to { background-color: rgb(29 29 31 / 35%); }
+}
+@keyframes popupBackdropOut {
+  from { background-color: rgb(29 29 31 / 35%); }
+  to { background-color: transparent; }
+}
+.anim-popup-out { animation: popupOut 220ms ease-in both; }
+.anim-popup-backdrop-in { animation: popupBackdropIn 300ms ease-out both; }
+.anim-popup-backdrop-out { animation: popupBackdropOut 220ms ease-in both; }
+
+/* Keep modal gestures inside the overlay, including at either scroll edge. */
+[data-modal-layer] {
+  overscroll-behavior: contain;
+}
+[data-modal-layer] :is(.overflow-y-auto, .overflow-y-scroll) {
+  overscroll-behavior-y: contain;
+}
+
+/* Leaflet Container Fixes */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  font-family: inherit;
+}
+.leaflet-bar {
+  border: 1px solid var(--color-hairline) !important;
+  box-shadow: none !important;
+  border-radius: 10px !important;
+  overflow: hidden;
+}
+.leaflet-bar a {
+  background-color: var(--color-canvas) !important;
+  color: var(--color-ink) !important;
+}
+.leaflet-bar a:hover {
+  background-color: var(--color-parchment) !important;
+}
+
+/* Shared mobile chrome follows DESIGN.md; photography supplies the atmosphere. */
+.ui-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 9999px;
+  color: var(--color-primary);
+  background: var(--color-parchment);
+  cursor: pointer;
+}
+
+.ui-primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 11px 22px;
+  border-radius: 9999px;
+  color: #ffffff;
+  background: var(--color-primary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ui-primary-button:disabled { opacity: .4; cursor: not-allowed; }
+.screen-container :is(button, a, input, textarea, select):focus-visible {
+  outline: 2px solid var(--color-primary-focus);
+  outline-offset: 2px;
+}
+
+@keyframes tripStepDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.anim-trip-step-down { animation: tripStepDown 300ms ease-out both; }
+
+@keyframes createMenuIn {
+  from { opacity: 0; transform: translateY(32px) scale(.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes createMenuOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(24px) scale(.98); }
+}
+@keyframes createBackdropIn {
+  from { background-color: transparent; }
+  to { background-color: rgb(0 0 0 / 25%); }
+}
+@keyframes createBackdropOut {
+  from { background-color: rgb(0 0 0 / 25%); }
+  to { background-color: transparent; }
+}
+.anim-create-menu-in { animation: createMenuIn 280ms cubic-bezier(.2,.8,.2,1) both; }
+.anim-create-menu-out { animation: createMenuOut 180ms ease-in both; }
+.anim-create-backdrop-in { animation: createBackdropIn 280ms ease-out both; }
+.anim-create-backdrop-out { animation: createBackdropOut 180ms ease-in both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .screen-container, .screen-container *, .apple-press {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Keep itinerary/map instances mounted while the two views crossfade. */
+.trip-view {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 220ms ease, transform 220ms ease, visibility 0s 220ms;
+}
+.trip-view-left { transform: translateX(-12px); }
+.trip-view-right { transform: translateX(12px); }
+.trip-view-active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(0);
+  transition-delay: 0s;
+}
+@keyframes contentSwitch {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.anim-content-switch { animation: contentSwitch 180ms ease-out both; }
+
+@keyframes planRouteFlow { to { stroke-dashoffset: -56; } }
+.plan-route-flow { animation: planRouteFlow 2s linear infinite; }
+@keyframes planLoadingOut { to { opacity: 0; transform: translateY(-6px); } }
+.anim-plan-loading-out { animation: planLoadingOut 300ms ease-out both; }
+
+.trip-map { height: 35%; }
+.trip-panel { height: 65%; }
+.trip-panel-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 65%;
+  overflow: hidden;
+}
+.trip-panel-overlay [role="dialog"] { height: 100%; max-height: 100%; }
+
+.hotel-day-wheel {
+  overscroll-behavior-y: contain;
+  mask-image: linear-gradient(to bottom, transparent, black 22%, black 78%, transparent);
+}

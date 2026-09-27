@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { c, Header, Icon, s } from './trips/tripUi';
+import { Header, Icon, useTripUi } from './trips/tripUi';
 
 export default function SecurityScreen({ onBack, onChangePassword }: { onBack: () => void; onChangePassword: (currentPassword: string, newPassword: string) => Promise<void> }) {
+  const { c, s } = useTripUi();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');

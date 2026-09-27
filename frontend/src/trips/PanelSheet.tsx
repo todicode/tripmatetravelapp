@@ -1,0 +1,11 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Pressable, Text, View } from 'react-native';
+import { Icon, useTripUi } from './tripUi';
+import { useReducedMotion } from '../theme/useReducedMotion';
+/** This overlay stays inside its parent (the lower 65% of a trip). */
+export default function PanelSheet({ visible, title, onClose, children, height = '92%' }: { visible: boolean; title: string; onClose: () => void; children: React.ReactNode; height?: `${number}%` }) {
+  const { c } = useTripUi(); const reduced = useReducedMotion(); const [mounted, setMounted] = useState(visible); const progress = useRef(new Animated.Value(0)).current;
+  useEffect(() => { if (visible) setMounted(true); const animation = Animated.timing(progress, { toValue: visible ? 1 : 0, duration: reduced ? 0 : 220, useNativeDriver: true }); animation.start(({ finished }) => { if (finished && !visible) setMounted(false); }); return () => animation.stop(); }, [visible, reduced, progress]);
+  if (!mounted) return null;
+  return <View accessibilityViewIsModal style={{ position: 'absolute', inset: 0, justifyContent: 'flex-end', zIndex: 20 }}><Animated.View style={{ position: 'absolute', inset: 0, backgroundColor: '#00000040', opacity: progress }} /><Pressable accessibilityLabel="Đóng hộp thoại" onPress={onClose} style={{ position: 'absolute', inset: 0 }} /><Animated.View style={{ height, borderTopLeftRadius: 18, borderTopRightRadius: 18, backgroundColor: c.white, paddingHorizontal: 16, paddingBottom: 16, transform: [{ translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [80, 0] }) }], opacity: progress }}><View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: c.border, alignSelf: 'center', marginTop: 8, marginBottom: 12 }} /><View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 12 }}><Text style={{ flex: 1, fontSize: 24, lineHeight: 29, fontWeight: '600', color: c.ink }}>{title}</Text><Pressable accessibilityLabel="Đóng" onPress={onClose} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}><Icon name="close" size={20} color={c.muted} /></Pressable></View>{children}</Animated.View></View>;
+}
