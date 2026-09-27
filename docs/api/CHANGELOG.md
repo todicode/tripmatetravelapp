@@ -1,5 +1,11 @@
 # Contract changelog
 
+## Documentation corrections - 2026-09-27
+
+- Added the missing request example for `POST /auth/change-password` so the mock contract suite can exercise its existing schema. No endpoint or wire schema changed.
+- Reused the standard 400 response for password change, including its existing response envelope, request ID header and examples. Password change business errors continue to use 422 as implemented by the backend.
+- Corrected the README operation count to 73 and added the implementation roadmap based on the current UI and database design.
+
 ## 1.3.0 - 2026-09-24
 
 - Added `POST /auth/password-reset/request` for an existing active, verified account. It returns a reset ID and sends a six-digit email OTP; repeat requests respect the resend cooldown.
