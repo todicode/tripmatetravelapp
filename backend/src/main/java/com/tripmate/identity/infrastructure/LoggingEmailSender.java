@@ -17,4 +17,9 @@ public class LoggingEmailSender implements EmailSender {
     public void sendVerificationCode(String recipient, String otp, Instant expiresAt) {
         log.info("Development email verification recipient={} otp={} expiresAt={}", recipient, otp, expiresAt);
     }
+
+    @Override
+    public void sendPasswordResetCode(String recipient, String otp, Instant expiresAt) {
+        log.info("Development password reset recipient={} otp={} expiresAt={}", recipient, otp, expiresAt);
+    }
 }

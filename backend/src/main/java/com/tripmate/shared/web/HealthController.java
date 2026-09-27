@@ -19,6 +19,6 @@ public class HealthController {
         UUID requestId = value instanceof UUID uuid ? uuid : UUID.randomUUID();
         return ResponseEntity.ok(new ApiResponse<>(Map.of(
                 "status", "UP",
-                "contractVersion", "1.1.0"), requestId));
+                "contractVersion", "1.3.0"), requestId));
     }
 }

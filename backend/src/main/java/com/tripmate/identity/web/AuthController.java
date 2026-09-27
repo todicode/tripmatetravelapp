@@ -1,6 +1,11 @@
 package com.tripmate.identity.web;
 
 import com.tripmate.identity.application.IdentityService;
+import com.tripmate.identity.web.AuthRequests.ChangePasswordRequest;
+import com.tripmate.identity.application.PasswordResetService;
+import com.tripmate.identity.web.AuthRequests.ConfirmPasswordResetRequest;
+import com.tripmate.identity.web.AuthRequests.RequestPasswordResetRequest;
+import com.tripmate.identity.web.AuthResponses.PasswordResetChallengeResponse;
 import com.tripmate.identity.web.AuthRequests.CancelRegistrationRequest;
 import com.tripmate.identity.web.AuthRequests.GoogleAuthRequest;
 import com.tripmate.identity.web.AuthRequests.LoginRequest;
@@ -30,9 +35,11 @@ public class AuthController {
     private static final String NO_STORE = "private, no-store";
 
     private final IdentityService identityService;
+    private final PasswordResetService passwordResetService;
 
-    public AuthController(IdentityService identityService) {
+    public AuthController(IdentityService identityService, PasswordResetService passwordResetService) {
         this.identityService = identityService;
+        this.passwordResetService = passwordResetService;
     }
 
     @PostMapping("/register")
@@ -74,6 +81,22 @@ public class AuthController {
                 .body(new ApiResponse<>(identityService.login(request), requestId(httpRequest)));
     }
 
+    @PostMapping("/password-reset/request")
+    public ResponseEntity<ApiResponse<PasswordResetChallengeResponse>> requestPasswordReset(
+            @Valid @RequestBody RequestPasswordResetRequest request, HttpServletRequest httpRequest) {
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .header("Cache-Control", NO_STORE)
+                .body(new ApiResponse<>(passwordResetService.requestReset(request), requestId(httpRequest)));
+    }
+
+    @PostMapping("/password-reset/confirm")
+    public ResponseEntity<Void> confirmPasswordReset(
+            @Valid @RequestBody ConfirmPasswordResetRequest request, HttpServletRequest httpRequest) {
+        passwordResetService.confirmReset(request);
+        return ResponseEntity.noContent().header("Cache-Control", NO_STORE)
+                .header(RequestIdFilter.REQUEST_ID_HEADER, requestId(httpRequest).toString()).build();
+    }
+
     @PostMapping("/google")
     public ResponseEntity<ApiResponse<SessionResponse>> google(
             @Valid @RequestBody GoogleAuthRequest request, HttpServletRequest httpRequest) {
@@ -94,6 +117,14 @@ public class AuthController {
         return ResponseEntity.noContent().header("Cache-Control", NO_STORE)
                 .header(RequestIdFilter.REQUEST_ID_HEADER,
                 requestId(httpRequest).toString()).build();
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<Void> changePassword(
+            @Valid @RequestBody ChangePasswordRequest request, HttpServletRequest httpRequest) {
+        identityService.changePassword(request);
+        return ResponseEntity.noContent().header("Cache-Control", NO_STORE)
+                .header(RequestIdFilter.REQUEST_ID_HEADER, requestId(httpRequest).toString()).build();
     }
 
     private UUID requestId(HttpServletRequest request) {

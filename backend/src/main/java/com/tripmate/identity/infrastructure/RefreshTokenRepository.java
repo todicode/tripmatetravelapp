@@ -23,4 +23,8 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshTokenEntity
 
     @Query("select token from RefreshTokenEntity token where token.user.id = :userId and token.device.id = :deviceId and token.revokedAt is null")
     List<RefreshTokenEntity> findActiveByUserAndDevice(@Param("userId") UUID userId, @Param("deviceId") UUID deviceId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select token from RefreshTokenEntity token where token.user.id = :userId and token.revokedAt is null")
+    List<RefreshTokenEntity> findUnrevokedByUserIdForUpdate(@Param("userId") UUID userId);
 }

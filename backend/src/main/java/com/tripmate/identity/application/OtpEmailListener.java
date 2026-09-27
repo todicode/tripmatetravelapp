@@ -27,4 +27,13 @@ public class OtpEmailListener {
             log.error("Could not send verification email for challenge {}", event.verificationId(), exception);
         }
     }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void sendPasswordResetOtp(PasswordResetEmailRequested event) {
+        try {
+            emailSender.sendPasswordResetCode(event.recipient(), event.otp(), event.expiresAt());
+        } catch (RuntimeException exception) {
+            log.error("Could not send password reset email for challenge {}", event.resetId(), exception);
+        }
+    }
 }

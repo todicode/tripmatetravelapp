@@ -1,0 +1,374 @@
+{
+  "format": "React web reference — not React Native code",
+  "validation": {
+    "webBuild": "passed",
+    "logicTests": 23,
+    "browserVisualCheck": false
+  },
+  "excluded": [
+    "login",
+    "register",
+    "personal environment files",
+    "legacy HTML/JS",
+    "unused CreateTripScreen",
+    "build outputs"
+  ],
+  "files": [
+    {
+      "path": ".env.example",
+      "sha256": "07867e2f6bf31623e71b04919819e926380f2c201c84442384e955efc085c7ba"
+    },
+    {
+      "path": ".gitignore",
+      "sha256": "55669bb275a96ebf0c52026c0ef1d32eced21ee3a7ef3e6fca849769d71cfade"
+    },
+    {
+      "path": "DESIGN.md",
+      "sha256": "83fbc614443a9b3d7569e9956a43e7b8740f9d0f939f58b8154f7a7cec3002b2"
+    },
+    {
+      "path": "index.html",
+      "sha256": "65e1e8294e613aada919afbfcc6340e6c1874dd780ee7b5f21b20c3548036b6d"
+    },
+    {
+      "path": "package.json",
+      "sha256": "e7731e51425e1324e4d96e90629c92a769a1e732571fb41928daf5791c6004e3"
+    },
+    {
+      "path": "public/favicon.svg",
+      "sha256": "a395456857d62e132e92c22f5f9a2a6482730a1732f89be7f1c9b1f6846dc7c9"
+    },
+    {
+      "path": "public/images/explore-travel-desk.webp",
+      "sha256": "0803843cdbb82723f9ea46b27337c0165f74e2201e42be979891e7b363399a98"
+    },
+    {
+      "path": "README.md",
+      "sha256": "10216996af341f296d47f148991e943eeb16ada86cd5e9f002b5d05abad71711"
+    },
+    {
+      "path": "references/chuyen_di/chi_tiet_chuyen_di.png",
+      "sha256": "0cceb11eb74bd1c0f8578395eddf730595a2855d8c94d636ebd26b42e41f81b7"
+    },
+    {
+      "path": "references/chuyen_di/khi_bam_vao_dia_diem_trong_chuyen_di.png",
+      "sha256": "9508deb6ba1dbf34e8434e4198ea315a71cfea11528ee6bb05b55fc6d21434ed"
+    },
+    {
+      "path": "references/chuyen_di/khi_chuyen_qua_itenerary.png",
+      "sha256": "b8c09c5a6d0ed61958335dc3ddbaf4d4de82ff0d34eadc4b9d7b62c6717fc721"
+    },
+    {
+      "path": "references/kham_pha/image.png",
+      "sha256": "ca193f7699f657997c2ff7514400481f5268d6f994c9e4ccf45a41e49b3b3bc2"
+    },
+    {
+      "path": "references/kham_pha/thong_tin_dia_diem.png",
+      "sha256": "50a2536cd60eff0877141155695c0ff846820d3d29b0a5aa759808703488b7bd"
+    },
+    {
+      "path": "references/tao_chuyen_di/1.png",
+      "sha256": "b7eb5dd702e4201b4475e3d581db99d8b7f84bb68bf8fee795dc1c4dcec122a9"
+    },
+    {
+      "path": "references/tao_chuyen_di/2.png",
+      "sha256": "896724c2780ed50393a0659aa301cf2804a97f8c0a5f1cbe71416ebd4a008626"
+    },
+    {
+      "path": "references/tao_chuyen_di/3.png",
+      "sha256": "6d240814c48486122603f2505ace5c8f74537eec3aa61afa23de5bdce6689d83"
+    },
+    {
+      "path": "references/tao_chuyen_di/4.png",
+      "sha256": "e48908ee17b938d5672c6330df4f23e61117b517d20e5768f225b764b1343db8"
+    },
+    {
+      "path": "references/tao_chuyen_di/5.png",
+      "sha256": "8dca5b347e5a3ad72602a9445ca675818dc784899f79d6b9f7261d46e6e508b8"
+    },
+    {
+      "path": "references/tao_chuyen_di/6.png",
+      "sha256": "7a033c9b6f91a30d43e4a9652ac115cfa4e81cdccc80120e9ca762797b76a9de"
+    },
+    {
+      "path": "references/tao_chuyen_di/7.png",
+      "sha256": "391eecc0c7ab16e3ce8c65297ea72fbccdfdda8e0ac4fd4ab7a2e1febb69047f"
+    },
+    {
+      "path": "references/tao_chuyen_di/8.png",
+      "sha256": "1d8540dad8f4a56270e97518d8c9c635ffd3741f61a425e15daa7b1e3f72553a"
+    },
+    {
+      "path": "references/tao_chuyen_di/image copy 2.png",
+      "sha256": "a7f375bccc86620e1faaefd7f525de3e1d22a5fbadc163e13fb88decc3993fb8"
+    },
+    {
+      "path": "references/tao_chuyen_di/image copy 3.png",
+      "sha256": "965e9dc36abecd1e4132621210a0a92ddb38671f06bed2c98b5e459272792026"
+    },
+    {
+      "path": "references/tao_chuyen_di/image copy.png",
+      "sha256": "37cdfae48434315c44fe065dcdebc33a5745064ea14a01dd3fb7f82f6193632e"
+    },
+    {
+      "path": "references/tao_chuyen_di/image.png",
+      "sha256": "8a2913de54a1a68dcce9aa012fa29369ab01ae45fdf90254cddf601d65c312e8"
+    },
+    {
+      "path": "references/tin_nhan/image copy.png",
+      "sha256": "b3e5eb4917dbbbfd646e874fdb2333d29ba9087598aaba7e2a56d56bcd3fe2f2"
+    },
+    {
+      "path": "references/tin_nhan/image.png",
+      "sha256": "ea33307102c38ffa32a5c0ede63ecfdd37050b8eb15cebc8f8f344e75263aec8"
+    },
+    {
+      "path": "src/App.jsx",
+      "sha256": "f31d5114da797f9d3bd6dcdb8825d6d5562cd97ce969df300d8005d4943cbe83"
+    },
+    {
+      "path": "src/components/BottomNav.jsx",
+      "sha256": "d43431c3e708fe766b8700649ae3f32ca58c2a8d3ea1ad6a66a7727cef2aa729"
+    },
+    {
+      "path": "src/components/ChatPersonProfile.jsx",
+      "sha256": "ef6d9901104aaf51716587684726a19e6f8cbcefdc375742631e6bc10d7e0f65"
+    },
+    {
+      "path": "src/components/ChatTripPin.jsx",
+      "sha256": "ef4b68e2f9afba32c9b0e714bd33497587b76a56406e35476703369b694fa572"
+    },
+    {
+      "path": "src/components/CreateMenu.jsx",
+      "sha256": "9c5c1e7df06c2ed45fe9862a9094fffd13e5d78ee49938d566a51af07ae42b0b"
+    },
+    {
+      "path": "src/components/FilterPills.jsx",
+      "sha256": "935d33a2f6da3896f8b0075497d7b6336f3ab7a177a83fcb16e02e9bbefb5193"
+    },
+    {
+      "path": "src/components/HorizontalScroll.jsx",
+      "sha256": "f23c6af73c5c62f13c03638f70a744cf0f3414be742f2ccc1bef5ff510d39181"
+    },
+    {
+      "path": "src/components/HotelDayWheel.jsx",
+      "sha256": "a15d18a16f34e02219111c43696718ff013becf1ba0ad96c7097589f19e85407"
+    },
+    {
+      "path": "src/components/HotelStaySummary.jsx",
+      "sha256": "d802721cbf4fb8a6704ccab99825101282b6800baa6bc43f670bf6b2ccc828d0"
+    },
+    {
+      "path": "src/components/PlaceDetailsSheet.jsx",
+      "sha256": "1f5eff61ff46380c34d8011a238fb2ff3d2f5fdb37efc049c3aa5bf7548df2c8"
+    },
+    {
+      "path": "src/components/PlannerMap.jsx",
+      "sha256": "84bdbe8640a1a1430e7cd75035ac0e25785be6e87e28af95d4defe06c25c67db"
+    },
+    {
+      "path": "src/components/PlannerPlacePicker.jsx",
+      "sha256": "aaa0cff5e620695856ab325d2ff6c25efa16e8455ca8627c73b415563cd5ee69"
+    },
+    {
+      "path": "src/components/SavedListDialog.jsx",
+      "sha256": "18ccc59baf10e8857a3b38dea62035ee34fd12583c49d81b32e0372a0190db8c"
+    },
+    {
+      "path": "src/components/ScreenHeader.jsx",
+      "sha256": "215ddaf3f13dafd46e0408906a15104070c41d6eb756a7257e8e83b4d126a1e9"
+    },
+    {
+      "path": "src/components/StablePopup.jsx",
+      "sha256": "23f08fd9dc6fee3e4b9e78716897c8ed2dcb7e6662f8f5137f58af19766dd72a"
+    },
+    {
+      "path": "src/components/StatusBar.jsx",
+      "sha256": "27f555107dafee404678a4998eb577c9cae023fa7d3ebe2805e6c8f6b99e0146"
+    },
+    {
+      "path": "src/components/Toast.jsx",
+      "sha256": "14e2f4931bd778b4952079fe6cd388391987b4854b67e1be65647e0642fdab41"
+    },
+    {
+      "path": "src/components/TripDatePicker.jsx",
+      "sha256": "65afdcf142381f031e637bc30704d811eefe6f7bcd5645ef5c73ed6ad0680588"
+    },
+    {
+      "path": "src/components/TripMembers.jsx",
+      "sha256": "1cf8e378849f95a89f9ca7a06b9caf19c38333f2fede212164a0214478a20437"
+    },
+    {
+      "path": "src/components/TripPlanLoading.jsx",
+      "sha256": "ac44b731d453af00e13cb5833028377e1b6e69e0431a4969895530d0a7a9b404"
+    },
+    {
+      "path": "src/components/TripUtilities.jsx",
+      "sha256": "335cbcafac88a25b22a528def0684b6bfea408f75d8cf0e61dd703878de41e26"
+    },
+    {
+      "path": "src/context/NavContext.jsx",
+      "sha256": "35c0e8b9aeea651431a36fbd6fde90dad5eeaffa9351baec745390f0c1d3d843"
+    },
+    {
+      "path": "src/index.css",
+      "sha256": "4d94e6991a91103e1f8a0538f4b33ab9832190579b67463f78446ce58e026431"
+    },
+    {
+      "path": "src/main.jsx",
+      "sha256": "45c9cdeae93e3d60a515123178e21f30754dc849662fc1ab767bd831ff1592bd"
+    },
+    {
+      "path": "src/map/basemap.js",
+      "sha256": "9f17d47fceb83ea49db02e3ed4ce8d78bac8e9ee36191f494780d0f205bbb3f9"
+    },
+    {
+      "path": "src/screens/AddFriendScreen.jsx",
+      "sha256": "1ff116af77f806e8a5cfd99c9bf504ba3b25e14f7e6ca8b9b40cf203c1b791e1"
+    },
+    {
+      "path": "src/screens/ChatListScreen.jsx",
+      "sha256": "1c8949ac9a6695fe7724f3e5bcb003d6154dbebd988419199298939355b32334"
+    },
+    {
+      "path": "src/screens/CreateGroupScreen.jsx",
+      "sha256": "d9089f9d583161f762f84baf126a77639d02e3b9188c74d93814f3c5d66eb7f9"
+    },
+    {
+      "path": "src/screens/EditProfileScreen.jsx",
+      "sha256": "6ef3ef7bb7cf8ac5067c91abfb18fa3fc533168a2d2d98ddd13dfd653053b3d4"
+    },
+    {
+      "path": "src/screens/ExploreScreen.jsx",
+      "sha256": "861f0755a8bae875ce31039bba69c694b028128894b5215e83b4ac7daf18efbc"
+    },
+    {
+      "path": "src/screens/FriendChatScreen.jsx",
+      "sha256": "99d82193d4a8fad949d26c49c86c7c58ee601bb9554913c9c7b9fe7dc408d43b"
+    },
+    {
+      "path": "src/screens/FriendRequestsScreen.jsx",
+      "sha256": "03a7c7aa7580cfbdb2c7cef5a1a232bb18d18adaa63da8a72dccc0bf75d45be1"
+    },
+    {
+      "path": "src/screens/GroupChatScreen.jsx",
+      "sha256": "2f07d283d215739aef9bfd91d2038ddb0402392769b4c76dedfc1abaa07ce2ea"
+    },
+    {
+      "path": "src/screens/HotelSetupScreen.jsx",
+      "sha256": "b27687cccfe514f53f9f4fcb4f442949c4f8e230037d87ab6aeda806c595096f"
+    },
+    {
+      "path": "src/screens/ManageTripsScreen.jsx",
+      "sha256": "2892931a16f51226bbda535350e8e81c45c3d21812080294f203a01b3e85f1c1"
+    },
+    {
+      "path": "src/screens/ManualPlannerScreen.jsx",
+      "sha256": "087fd38431a0e2ba69eb058e44873da4f9350f0a8858307d6b28a60aeb588119"
+    },
+    {
+      "path": "src/screens/ProfileScreen.jsx",
+      "sha256": "ed61dc3079b1a227b366d0768dcc84e874687ef21d5aed81fd046a53f5a7d384"
+    },
+    {
+      "path": "src/screens/SamplePlanScreen.jsx",
+      "sha256": "554910e8d88a65f1d6a5c6beac9cb856dcebe41fa444a128564345b3dd96495d"
+    },
+    {
+      "path": "src/screens/SettingsScreen.jsx",
+      "sha256": "9fe129e8671fb2d107155231c6211be92aa10435c92f69b4e959521fde6c1438"
+    },
+    {
+      "path": "src/screens/TrackTripScreen.jsx",
+      "sha256": "97bee367e156fcf8612f5f8c0ed679a4488c2198a24d887bc7d2288ed629c24d"
+    },
+    {
+      "path": "src/screens/TripSetupScreen.jsx",
+      "sha256": "50195185c0d26093f6db9000fa793ae782067fa71521881e16d6c5b157f73fa3"
+    },
+    {
+      "path": "src/store/chatPeople.js",
+      "sha256": "87e392a784c7e951d9226f97eb54369a76985cfe1288f1d9e5f4dd8027004430"
+    },
+    {
+      "path": "src/store/chatPeople.test.js",
+      "sha256": "c6d423167bf27f30458e85ffeecd9d6b7e38eb948d719ccf1a25a39024d347df"
+    },
+    {
+      "path": "src/store/chatPins.js",
+      "sha256": "8ac95ed6cd996834f94d9806a02c580254c2e624dcf0af039426bc88e945d7b9"
+    },
+    {
+      "path": "src/store/chatPins.test.js",
+      "sha256": "8bbdc10fb87f5eacaf93b14ba944fe1f2c2748dd9378316293de05a4e32e4c29"
+    },
+    {
+      "path": "src/store/profile.js",
+      "sha256": "ccf277c1039946e65f4e873a40a8d7919a36fe9b7e76498746ea09ff3287f953"
+    },
+    {
+      "path": "src/store/profile.test.js",
+      "sha256": "35ddbbed8c4394fbb6fcf2ce6b678881d33d73f42e31ae0ff316bd51f624114b"
+    },
+    {
+      "path": "src/store/savedSpots.js",
+      "sha256": "1a777f05008ba0f7cae0f4e7091c96748a875b2974a96fb0f314bb7309f5057f"
+    },
+    {
+      "path": "src/store/theme.js",
+      "sha256": "610b3122ac55fae8332bb1c0aa352c6cfa02a2482fd71879c3388b428428f934"
+    },
+    {
+      "path": "src/store/theme.test.js",
+      "sha256": "b1208ca97694b10b68bac470a2ba87e4705717679ac02945cdced5ffe0dbf5ed"
+    },
+    {
+      "path": "src/store/tripsStore.js",
+      "sha256": "1935f5139f55bab5258c9da5fd98f6de38c9cbb4c8ce578ad97a3e71e15a8899"
+    },
+    {
+      "path": "src/utils/hotelStays.js",
+      "sha256": "e8dae43876ab115f926e17e615e41a6b77b13c0f015816074a7b12756add7da7"
+    },
+    {
+      "path": "src/utils/hotelStays.test.js",
+      "sha256": "7d88dc0a9e323c589f88d3da27eb2b7096058e5941a8f7f08e03e63d8395dcbc"
+    },
+    {
+      "path": "src/utils/manualPlanner.js",
+      "sha256": "f66e511bcd16e25e5f2e36cc17fe32ffbddb7dc2e807f20cfddf21aecba88ce1"
+    },
+    {
+      "path": "src/utils/manualPlanner.test.js",
+      "sha256": "7b933c6bd066e43da1d6b3f8b7ceaa62c3706f43969386b8474deec56b19f521"
+    },
+    {
+      "path": "src/utils/samplePlan.js",
+      "sha256": "5db562c9546e73fa0ab4d807ffa3c44cd2e526a45fb33d5c559e9edf481736c7"
+    },
+    {
+      "path": "src/utils/samplePlan.test.js",
+      "sha256": "47344e06fe0d6edc26c567edf5a42338fe7cbfd74f6f5dbfaa753c54819925ad"
+    },
+    {
+      "path": "src/utils/tripMembers.js",
+      "sha256": "9f9527756074afe35b5421fda437b1cd9e70dd17840ce594d2e39578fc438358"
+    },
+    {
+      "path": "src/utils/tripMembers.test.js",
+      "sha256": "a002b63be24f084d3c2e6a3cefa9dcc07e51f9bf94f06d98a9364396640c51a4"
+    },
+    {
+      "path": "src/utils/tripSetup.js",
+      "sha256": "1010cb6a8607280bdaca940e60c5ac52b354a1ad2d15eab249fed73ce37c03a1"
+    },
+    {
+      "path": "src/utils/tripSetup.test.js",
+      "sha256": "c827d184e4db4c3ea5e224353fa3b45a475ca794560b020ef9a6c9090875c7fc"
+    },
+    {
+      "path": "vite.config.js",
+      "sha256": "aeb25ba97f3ca22526e77b5626fd40bf9a8fd8311d68b5eb285e2a40c6f41cb5"
+    }
+  ]
+}

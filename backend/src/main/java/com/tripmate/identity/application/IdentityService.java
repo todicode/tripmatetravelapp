@@ -14,6 +14,7 @@ import com.tripmate.identity.infrastructure.UserRepository;
 import com.tripmate.identity.security.AuthenticatedUser;
 import com.tripmate.identity.security.JwtTokenService;
 import com.tripmate.identity.web.AuthRequests.GoogleAuthRequest;
+import com.tripmate.identity.web.AuthRequests.ChangePasswordRequest;
 import com.tripmate.identity.web.AuthRequests.LoginRequest;
 import com.tripmate.identity.web.AuthRequests.RefreshRequest;
 import com.tripmate.identity.web.AuthRequests.RegisterRequest;
@@ -270,6 +271,47 @@ public class IdentityService {
         UserEntity user = userRepository.findById(authenticatedUser.userId())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "Không tìm thấy tài khoản."));
         return toProfile(user);
+    }
+
+    @Transactional
+    public void changePassword(ChangePasswordRequest request) {
+        AuthenticatedUser principal = authenticatedUser();
+        if (request.newPassword().getBytes(StandardCharsets.UTF_8).length > 72) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "PASSWORD_TOO_LONG",
+                    "Mật khẩu mới vượt quá giới hạn 72 byte UTF-8. Hãy dùng mật khẩu ngắn hơn.");
+        }
+        UserEntity user = userRepository.findByIdForUpdate(principal.userId())
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Cần đăng nhập lại."));
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "ACCOUNT_DISABLED", "Tài khoản đã bị khóa.");
+        }
+        List<DeviceEntity> devices = deviceRepository.findByUserIdForUpdate(user.getId());
+        boolean validSession = devices.stream().anyMatch(device -> device.getId().equals(principal.deviceId())
+                && device.getBindingVersion() == principal.bindingVersion());
+        if (!validSession) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Phiên đăng nhập không còn hợp lệ.");
+        }
+        if (request.currentPassword().getBytes(StandardCharsets.UTF_8).length > 72
+                || !passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            if (authIdentityRepository.existsByUserIdAndProvider(user.getId(), GOOGLE_PROVIDER)) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "PASSWORD_CHANGE_UNAVAILABLE",
+                        "Nếu chỉ đăng nhập bằng Google, hãy đổi mật khẩu trong tài khoản Google. Nếu đã đặt mật khẩu TripMate, hãy nhập đúng mật khẩu hiện tại.");
+            }
+            throw new ApiException(HttpStatus.BAD_REQUEST, "CURRENT_PASSWORD_INCORRECT", "Mật khẩu hiện tại không đúng.");
+        }
+        if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "PASSWORD_UNCHANGED", "Mật khẩu mới phải khác mật khẩu hiện tại.");
+        }
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        userRepository.save(user);
+        for (DeviceEntity device : devices) {
+            device.unbind();
+            deviceRepository.save(device);
+        }
+        for (RefreshTokenEntity token : refreshTokenRepository.findUnrevokedByUserIdForUpdate(user.getId())) {
+            token.revoke();
+            refreshTokenRepository.save(token);
+        }
     }
 
     @Transactional

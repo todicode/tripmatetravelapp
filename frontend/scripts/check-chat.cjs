@@ -1,0 +1,33 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const ts = require('typescript');
+function readModel(file, requireModule) {
+  const source = fs.readFileSync(path.resolve(__dirname, '../src', file), 'utf8');
+  const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } });
+  const context = { exports: {}, require: requireModule };
+  vm.runInNewContext(compiled.outputText, context);
+  return context.exports;
+}
+const trips = readModel('trips/tripModel.ts');
+const chat = readModel('chat/chatModel.ts', id => { assert.equal(id, '../trips/tripModel'); return trips; });
+const conversations = chat.initialConversations();
+assert.equal(conversations.length, 0);
+const original = chat.createGroup('Test', []);
+assert.equal(chat.appendMessage(original, '   '), original);
+const sent = chat.appendMessage(original, '  Xin chào  ');
+assert.equal(sent.messages.length, original.messages.length + 1);
+assert.equal(sent.messages.at(-1).text, 'Xin chào');
+assert.equal(sent.messages.at(-1).isMe, true);
+assert.equal(original.messages.length, 0);
+assert.throws(() => chat.createGroup('   ', []), /tên nhóm/);
+const group = chat.createGroup('  Nhóm mới  ', ['f1', 'f1', 'f2'], 'real-trip');
+assert.equal(group.name, 'Nhóm mới');
+assert.equal(group.members.length, 2);
+assert.equal(group.tripId, 'real-trip');
+assert.equal(group.messages.length, 0);
+assert.ok(chat.matchesFriend({ name: 'Test Name', phone: '0123456789' }, 'test name'));
+assert.ok(chat.matchesFriend({ name: 'Test Name', phone: '0123456789' }, '0123456789'));
+assert.equal(chat.matchesFriend({ name: 'Test Name', phone: '0123456789' }, 'unknown'), false);
+console.log('Chat checks passed: message isolation, blank validation, unique IDs, member deduplication, trip links and search.');

@@ -124,4 +124,8 @@ public class UserEntity {
     public void setStatus(UserStatus status) {
         this.status = status;
     }
+
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
 }

@@ -13,6 +13,10 @@ public final class AuthResponses {
                                                 Instant resendAvailableAt) {
     }
 
+    public record PasswordResetChallengeResponse(UUID resetId, Instant expiresAt,
+                                                 Instant resendAvailableAt) {
+    }
+
     public record SessionResponse(String accessToken, String tokenType, long expiresIn,
                                   String refreshToken, Instant refreshExpiresAt,
                                   UUID deviceId, ProfileResponse user) {
