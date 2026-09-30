@@ -1,5 +1,11 @@
 # Contract changelog
 
+## Auth completion - 2026-09-30
+
+- Registration, password reset and password change enforce the BCrypt limit of 72 UTF-8 bytes in addition to 8–128 characters. Oversized new passwords return `422 PASSWORD_TOO_LONG` before hashing or consuming an OTP; oversized login passwords return `401 INVALID_CREDENTIALS`.
+- Mobile remembers refresh credentials in SecureStore when requested, restores sessions, shares concurrent refresh requests and retries protected requests at most once after `401`. The current backend emits `UNAUTHORIZED` for expired or invalid access tokens, so the client supports this code as well as token-expiry responses. Refresh failure with `401` clears the session; transient failures remain retryable.
+- Registration/reset resend controls now respect `resendAvailableAt` and server retry windows. No new endpoint or database migration.
+
 ## Documentation corrections - 2026-09-27
 
 - Added the missing request example for `POST /auth/change-password` so the mock contract suite can exercise its existing schema. No endpoint or wire schema changed.

@@ -88,6 +88,23 @@ class IdentityServiceTest {
     }
 
     @Test
+    void oversizedRegistrationPasswordDoesNotStoreChallengeOrSendEmail() {
+        ApiException error = assertThrows(ApiException.class, () -> service.startRegistration(
+                new RegisterRequest("an@example.test", "ệ".repeat(25), UUID.randomUUID(), "An", "+84901234567")));
+        assertEquals("PASSWORD_TOO_LONG", error.getCode());
+        verify(pendingRegistrationRepository, never()).save(any());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void oversizedLoginPasswordReturnsInvalidCredentials() {
+        ApiException error = assertThrows(ApiException.class, () -> service.login(
+                new LoginRequest("an@example.test", "a".repeat(73), UUID.randomUUID())));
+        assertEquals("INVALID_CREDENTIALS", error.getCode());
+        verify(passwordEncoder, never()).matches(any(), any());
+    }
+
+    @Test
     void startRegistrationStoresPasswordHashAndPublishesOtpWithoutReturningCode() {
         UUID installationId = UUID.randomUUID();
         when(userRepository.existsByEmail("an@example.test")).thenReturn(false);

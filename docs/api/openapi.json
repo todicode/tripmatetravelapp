@@ -8002,6 +8002,7 @@
             "example": "TripMate2026!",
             "minLength": 8,
             "maxLength": 128,
+            "description": "At most 72 UTF-8 bytes (BCrypt limit); password is never trimmed.",
             "writeOnly": true
           },
           "installationId": {
@@ -8047,6 +8048,7 @@
             "example": "TripMate2026!",
             "minLength": 8,
             "maxLength": 128,
+            "description": "At most 72 UTF-8 bytes (BCrypt limit); password is never trimmed.",
             "writeOnly": true
           },
           "installationId": {
@@ -12442,6 +12444,7 @@
             "type": "string",
             "minLength": 8,
             "maxLength": 128,
+            "description": "At most 72 UTF-8 bytes (BCrypt limit); password is never trimmed.",
             "writeOnly": true
           }
         },

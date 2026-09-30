@@ -58,6 +58,16 @@ class PasswordResetServiceTest {
     }
 
     @Test
+    void oversizedPasswordDoesNotConsumeResetChallenge() {
+        ApiException error = assertThrows(ApiException.class, () -> service.confirmReset(
+                new ConfirmPasswordResetRequest(UUID.randomUUID(), "123456", "ệ".repeat(25))));
+        assertEquals("PASSWORD_TOO_LONG", error.getCode());
+        verify(challengeRepository, never()).save(any());
+        verify(userRepository, never()).save(any());
+        verify(passwordEncoder, never()).encode(any());
+    }
+
+    @Test
     void unknownEmailDoesNotSendCode() {
         ApiException error = assertThrows(ApiException.class,
                 () -> service.requestReset(new RequestPasswordResetRequest("missing@example.test")));

@@ -92,6 +92,7 @@ public class IdentityService {
 
     @Transactional
     public RegistrationChallengeResponse startRegistration(RegisterRequest request) {
+        PasswordPolicy.validate(request.password());
         String email = normalizeEmail(request.email());
         if (userRepository.existsByEmail(email)) {
             throw new ApiException(HttpStatus.CONFLICT, "EMAIL_ALREADY_REGISTERED",
@@ -188,6 +189,7 @@ public class IdentityService {
 
     @Transactional
     public SessionResponse login(LoginRequest request) {
+        if (request.password().getBytes(StandardCharsets.UTF_8).length > 72) throw invalidCredentials();
         String email = normalizeEmail(request.email());
         UserEntity user = userRepository.findByEmail(email)
                 .orElseThrow(() -> invalidCredentials());
@@ -276,10 +278,7 @@ public class IdentityService {
     @Transactional
     public void changePassword(ChangePasswordRequest request) {
         AuthenticatedUser principal = authenticatedUser();
-        if (request.newPassword().getBytes(StandardCharsets.UTF_8).length > 72) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "PASSWORD_TOO_LONG",
-                    "Mật khẩu mới vượt quá giới hạn 72 byte UTF-8. Hãy dùng mật khẩu ngắn hơn.");
-        }
+        PasswordPolicy.validate(request.newPassword());
         UserEntity user = userRepository.findByIdForUpdate(principal.userId())
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Cần đăng nhập lại."));
         if (user.getStatus() != UserStatus.ACTIVE) {

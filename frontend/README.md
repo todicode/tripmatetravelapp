@@ -17,7 +17,19 @@ Stack theo kế hoạch: React Native, TypeScript, Expo development build, Expo 
 
 Kiểm tra: `npm run typecheck`, `node scripts/check-trips.cjs`, `node scripts/check-chat.cjs`, `npx expo export --platform android`. Cần thiết bị/emulator để nghiệm thu bố cục và gesture native.
 
-## Tài liệu bắt đầu
+## Phiên đăng nhập
+
+- “Ghi nhớ tôi” lưu refresh token và thời hạn trong SecureStore; access token chỉ ở bộ nhớ. Bỏ chọn thì phiên chỉ tồn tại trong lần chạy app. Đăng ký thành công mặc định ghi nhớ phiên.
+- Khi mở app, refresh token đã lưu được đổi lấy phiên mới. Lỗi mạng hiển thị nút thử lại; token hết hạn/bị thu hồi đưa về đăng nhập.
+- `src/auth/session.ts` điều phối refresh một lần cho các request đồng thời, tự refresh trước khi access token hết hạn và thử lại đúng một lần khi API xác thực trả `401`. Các API cần đăng nhập mới phải đi qua `SessionManager.request`, không tự gửi token cũ.
+- `useSessionViewModel` nối SecureStore, vòng đời ứng dụng, đăng xuất và đổi mật khẩu. Đăng xuất luôn đóng phiên cục bộ; nếu máy chủ không thể xác nhận thu hồi, UI thông báo lỗi. Đổi mật khẩu thành công xóa phiên cục bộ và yêu cầu đăng nhập lại.
+- Đăng ký/reset/đổi mật khẩu dùng giới hạn 8–128 ký tự và tối đa 72 byte UTF-8. Hai luồng OTP hiển thị thời gian chờ gửi lại theo phản hồi máy chủ.
+
+Kiểm thử tự động: `npm run test:auth`, `npm run typecheck`, và `backend/mvnw.cmd test`.
+
+Nghiệm thu trên thiết bị với backend và email thật: đăng ký OTP (sai/hết hạn/gửi lại), Google, ghi nhớ bật/tắt rồi force-stop/mở lại, access token hết hạn, mở lại khi mất mạng rồi thử lại, logout, reset/đổi mật khẩu và thử phiên cũ trên thiết bị thứ hai. Các bài test tự động không thay thế kiểm tra Google SDK, SecureStore native và email thực tế.
+
+## Tài liệu tham khảo
 
 - [Kế hoạch, màn hình và phân công](../TRIPMATE_PLAN.md).
 - [Lựa chọn công nghệ và chốt phiên bản](../docs/TECHNOLOGY_DECISIONS.md).
