@@ -8,6 +8,7 @@
     "android": "node scripts/run-android.cjs",
     "typecheck": "tsc --noEmit",
     "test:auth": "node --test scripts/check-auth.cjs",
+    "test:profile": "node --test scripts/check-profile.cjs",
     "ios": "expo run:ios"
   },
   "dependencies": {

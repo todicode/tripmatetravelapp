@@ -56,7 +56,7 @@ Tất cả đường dẫn REST dưới đây tính từ `/api/v1`.
 | `GET /users/me` | Đọc hồ sơ tài khoản hiện tại | identity |
 | `GET /health` | Kiểm tra dịch vụ | shared/system |
 
-`PATCH /users/me`, API friends/trips/places/chat/notifications và các nhóm tiếp theo **chưa có controller/service tương ứng** trong backend đã kiểm tra. Ví dụ trong mock server không phải implementation.
+`PATCH /users/me` đã triển khai slice sửa tên ngày 2026-10-01, có frontend MVVM và tests HTTP/PostgreSQL. Avatar/interests chưa hỗ trợ. API friends/trips/places/chat/notifications và các nhóm tiếp theo **chưa có controller/service tương ứng** trong backend đã kiểm tra. Ví dụ trong mock server không phải implementation.
 
 Các bảng identity đã có migration: `app_users`, `user_devices`, `refresh_tokens`, `pending_registrations`, `auth_identities`, `password_reset_challenges`.
 
@@ -64,7 +64,7 @@ Các bảng identity đã có migration: `app_users`, `user_devices`, `refresh_t
 
 | Mục UI | Hiện tại | Phần còn thiếu |
 | --- | --- | --- |
-| Cá nhân | Tên/email từ tài khoản đăng nhập | PATCH hồ sơ, upload avatar |
+| Cá nhân | GET hồ sơ, PATCH tên, state dùng chung và form MVVM | Upload avatar, interests; kiểm thử UI native thủ công |
 | Chuyến đi/lịch trình | State trong phiên app | CRUD trip, itinerary, quyền, version, tải lại |
 | Khách sạn | Dữ liệu gắn trong model chuyến đi | Bảng và contract lưu nơi nghỉ |
 | Chi phí/checklist | Mảng trong chuyến đi của phiên | Bảng và API ghi/đọc/sửa/xóa |
@@ -447,7 +447,7 @@ Không cần làm hết 73 endpoint trong một commit. Mỗi nhóm bàn giao đ
 
 ## Kế hoạch hồ sơ cá nhân sau auth
 
-Triển khai theo [PROFILE_IMPLEMENTATION_PLAN.md](PROFILE_IMPLEMENTATION_PLAN.md), tuần tự HS-01 đến HS-06. Slice đầu chỉ cập nhật `displayName`; email chỉ đọc, avatar/interests để sau. HS-01 đã đối chiếu contract; HS-02 đến HS-06 chưa triển khai.
+Đã triển khai theo [PROFILE_IMPLEMENTATION_PLAN.md](PROFILE_IMPLEMENTATION_PLAN.md), HS-01 đến HS-06. Slice đầu chỉ cập nhật `displayName`; email chỉ đọc, avatar/interests để sau. Backend 57 tests gồm PostgreSQL thật, frontend auth/profile/form tests, TypeScript, OpenAPI, Android build và Metro export pass. Chưa thao tác UI trực tiếp trên emulator/device; checklist còn lại nằm trong kế hoạch.
 
 Quy tắc slice: PATCH `/users/me` nhận tên được trim, 1–100 Unicode code point, giữ dấu và chữ hoa/thường. JSON sai cú pháp trả 400 `INVALID_REQUEST`; object rỗng, sai kiểu/null, field lạ và field chưa hỗ trợ (kể cả `avatarMediaId: null`) trả 422 `VALIDATION_ERROR` kèm details. Kiểm tra toàn bộ payload trước mutation. Thành công trả profile đầy đủ; không đổi session/remember-me. Schema OpenAPI vẫn mô tả phạm vi đích rộng hơn; ví dụ có interests chưa phải payload được implementation slice này hỗ trợ.
 
@@ -463,4 +463,4 @@ Quy tắc slice: PATCH `/users/me` nhận tên được trim, 1–100 Unicode co
 - [ ] API lỗi/mạng lỗi giữ draft và không báo thành công giả.
 - [ ] OpenAPI/examples và tài liệu trạng thái implementation được cập nhật đúng mức đã hoàn thành.
 
-**Tài liệu này chưa triển khai API mới, chưa chạy migration và chưa thay đổi UI hay DB.** Những đề xuất bổ sung cần được đưa vào contract trước khi code nhóm tương ứng.
+**Ngoài auth và slice sửa tên đã ghi rõ ở trên, các nhóm API còn lại vẫn là kế hoạch.** Những đề xuất bổ sung cần được đưa vào contract trước khi code nhóm tương ứng. Slice sửa tên dùng schema hiện có, không thêm migration.

@@ -19,6 +19,7 @@ const { ProfileStore } = load('profile/profileStore.ts');
 const { displayNameError } = load('profile/profileModel.ts');
 const { createProfileApi } = load('profile/profileApi.ts');
 const { EditProfileModel } = load('profile/editProfileModel.ts');
+const { SessionManager, ApiRequestError } = load('auth/session.ts');
 const profile = (name = 'An', id = 'a') => ({ id, displayName: name, email: `${id}@example.test`,
   avatarMediaId: null, phone: null, interestCodes: [], createdAt: '2026-10-01T00:00:00Z', updatedAt: '2026-10-01T00:00:00Z' });
 function deferred() { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; }
@@ -57,6 +58,50 @@ test('name validation trims whitespace and counts code points', () => {
   assert.equal(displayNameError('😀'.repeat(100)), null);
   assert.ok(displayNameError('😀'.repeat(101)));
   assert.equal(displayNameError(' Nguyễn An '), null);
+});
+
+test('PATCH refresh retry preserves method and remember preference', async () => {
+  let writes = 0, patches = 0;
+  const session = { accessToken: 'old', refreshToken: 'refresh', expiresIn: 900,
+    refreshExpiresAt: new Date(Date.now() + 86400000).toISOString(), user: profile() };
+  const manager = new SessionManager(async (path, body, token, method) => {
+    if (path === '/auth/refresh') return { ...session, accessToken: 'new' };
+    assert.equal(method, 'PATCH'); patches++;
+    if (token === 'old') throw new ApiRequestError('ACCESS_TOKEN_EXPIRED', 'Expired', 401);
+    return profile(body.displayName);
+  }, { read: async () => null, write: async () => writes++, remove: async () => {} }, () => {});
+  await manager.accept(session, false);
+  const store = new ProfileStore(createProfileApi(manager.request.bind(manager), 'a'), profile());
+  await store.save('B'); assert.equal(patches, 2); assert.equal(writes, 0); assert.equal(store.getSnapshot().user.displayName, 'B');
+});
+test('late token refresh cannot overwrite saved profile', async () => {
+  let now = Date.now(); const pending = deferred(); const started = deferred();
+  const session = { accessToken: 'old', refreshToken: 'refresh', expiresIn: 900,
+    refreshExpiresAt: new Date(now + 86400000).toISOString(), user: profile() };
+  const manager = new SessionManager(async path => {
+    if (path === '/auth/refresh') { started.resolve(); return pending.promise; }
+    return profile('B');
+  }, { read: async () => null, write: async () => {}, remove: async () => {} }, () => {}, () => now);
+  await manager.accept(session);
+  const store = new ProfileStore(createProfileApi(manager.request.bind(manager), 'a'), profile());
+  await store.save('B'); now += 900000;
+  const refresh = manager.ensureFresh(); await started.promise;
+  pending.resolve({ ...session, accessToken: 'new', user: profile('Old') }); await refresh;
+  assert.equal(store.getSnapshot().user.displayName, 'B');
+});
+test('account switch rejects a late PATCH without updating either account', async () => {
+  const pending = deferred(), started = deferred();
+  const session = { accessToken: 'old', refreshToken: 'refresh', expiresIn: 900,
+    refreshExpiresAt: new Date(Date.now() + 86400000).toISOString(), user: profile() };
+  const manager = new SessionManager(async () => { started.resolve(); return pending.promise; },
+    { read: async () => null, write: async () => {}, remove: async () => {} }, () => {});
+  await manager.accept(session);
+  const store = new ProfileStore(createProfileApi(manager.request.bind(manager), 'a'), profile());
+  const saving = store.save('Changed'); await started.promise;
+  await manager.clear(); await manager.accept({ ...session, user: profile('B', 'b') });
+  const other = new ProfileStore(createProfileApi(manager.request.bind(manager), 'b'), profile('B', 'b'));
+  pending.resolve(profile('Changed')); await assert.rejects(saving);
+  assert.equal(store.getSnapshot().user.displayName, 'An'); assert.equal(other.getSnapshot().user.displayName, 'B');
 });
 test('profile adapter uses PATCH and rejects responses for another account', async () => {
   const api = createProfileApi(async (path, body, method) => {

@@ -1,10 +1,10 @@
 # Kế hoạch triển khai hồ sơ cá nhân sau đăng nhập
 
-Cập nhật: 2026-10-01. Trạng thái: **HS-01 đến HS-05 hoàn tất; tiếp theo HS-06**.
+Cập nhật: 2026-10-01. Trạng thái: **HS-01 đến HS-06 đã triển khai và kiểm thử tự động; còn nghiệm thu UI native thủ công**.
 
 ## 1. Đọc trước khi tiếp tục session mới
 
-Người dùng đã chọn làm **tên hiển thị trước, avatar sau**. Luồng tiếp theo là **Cá nhân → Chỉnh sửa hồ sơ → Sửa tên → Lưu → Hiển thị tên mới**. Người dùng yêu cầu chia nhỏ task để tránh mất context; yêu cầu mới nhất là lưu kế hoạch này trước khi code.
+Người dùng đã chọn làm **tên hiển thị trước, avatar sau**. Luồng là **Cá nhân → Chỉnh sửa hồ sơ → Sửa tên → Lưu → Hiển thị tên mới**. Người dùng đã yêu cầu triển khai, chia task/commit và tự chuyển task sau kiểm thử. Không triển khai lại các task đã xong; xem bảng handoff và phần nghiệm thu còn lại.
 
 Đọc tài liệu này cùng [Coding standards](../CODING_STANDARDS.md), [Roadmap tổng](IMPLEMENTATION_ROADMAP.md), [Team rules](TEAM_RULES.md) và [OpenAPI](openapi.json). Kiểm tra `git status`, `git log` và code thực tế trước khi bắt đầu; các đường dẫn dưới đây là mốc khảo sát, không thay thế việc đọc code.
 
@@ -74,7 +74,7 @@ Mỗi task một commit theo Conventional Commits, cập nhật tiến độ và
 | HS-03 | Transport PATCH, profile type/API adapter, state hồ sơ dùng chung theo tài khoản | GET/POST/auth không hồi quy; chặn response cũ và refresh ghi đè tên mới | Hoàn tất; 22 frontend tests và TypeScript pass |
 | HS-04 | `useProfileViewModel`, nối GET vào màn Cá nhân và nguồn tên dùng chung | Loading/error/retry hoạt động; logout/đổi account không lẫn dữ liệu | Hoàn tất code; TypeScript và 22 tests pass; UI native chờ HS-06 |
 | HS-05 | `useEditProfileViewModel`, nối màn sửa tên vào PATCH, bảo toàn UI teammate | Validation, submitting, giữ draft, back confirmation, thông báo thành công đúng thực tế | Hoàn tất code; 25 tests và TypeScript pass |
-| HS-06 | Kiểm thử tích hợp/hồi quy, checklist API và UI, cập nhật bàn giao | Ghi rõ các test đã chạy và phần manual/native chưa chạy; đủ bằng chứng lưu server | Chưa làm |
+| HS-06 | Kiểm thử tích hợp/hồi quy, checklist API và UI, cập nhật bàn giao | Ghi rõ các test đã chạy và phần manual/native chưa chạy; đủ bằng chứng lưu server | Hoàn tất kiểm thử tự động và tài liệu; UI native manual chưa chạy |
 
 Gợi ý tiêu đề commit: `docs(profile): add name update contract notes`, `feat(identity): add profile name updates`, `feat(profile): add authenticated profile state`, `feat(profile): load current user profile`, `feat(profile): add display name editing`, `test(profile): verify profile update flow`.
 
@@ -127,7 +127,7 @@ Bổ sung test profile vào cơ chế test phù hợp sau khi đọc `frontend/s
 
 ## 7. Handoff và bảo toàn workspace
 
-HS-01 đã đối chiếu OpenAPI và TEAM_RULES, bổ sung mức hỗ trợ vào roadmap. Chưa sửa code hồ sơ. Điểm tiếp tục: **HS-02**. Độ dài tính theo Unicode code point, không phải UTF-16 code unit. Field lạ phải trả 422 theo TEAM_RULES.
+Đã triển khai backend và frontend. Độ dài tính theo Unicode code point, không phải UTF-16 code unit. Field lạ trả 422 theo TEAM_RULES. Điểm tiếp tục là nghiệm thu thủ công UI ở mục 8; không bắt đầu lại HS-01. Avatar/interests và chuyến đi vẫn ngoài scope đợt này.
 
 `git status` ngày 2026-10-01 có các thay đổi cũ không thuộc feature này:
 
@@ -141,9 +141,52 @@ Sau mỗi task, cập nhật bảng dưới để session sau tiếp tục từ 
 | Task | Commit | File/hành vi đã đổi | Test đã chạy và kết quả | Còn thiếu/blocker | Task tiếp theo |
 | --- | --- | --- | --- | --- | --- |
 | HS-01 | `8f160d6` | Kế hoạch và mức hỗ trợ trong roadmap | Đối chiếu contract/TEAM_RULES; không đổi schema | Không | HS-02 |
-| HS-02 | `a17e92b` | PATCH, validation payload, transaction và tests | Maven suite pass; chưa kiểm tra PostgreSQL thật | DB thực tế sẽ kiểm tra HS-06 | HS-03 |
+| HS-02 | `a17e92b` | PATCH, validation payload, transaction và tests | Maven suite pass; PostgreSQL được xác minh tại HS-06 | Không | HS-03 |
 | HS-03 | `e7b1584` | PATCH transport, adapter kiểm tra account, store độc lập refresh | 22 auth/profile tests và TypeScript pass | Không | HS-04 |
 | HS-04 | `510b503` | Provider theo account, GET/loading/error/retry, tên dùng chung | 22 frontend tests và TypeScript pass | Native UI chưa thao tác | HS-05 |
-| HS-05 | Commit `feat(profile): add display name editing` | Form ViewModel, PATCH, giữ draft, confirmation/back, avatar chưa hỗ trợ | 25 frontend tests và TypeScript pass | Native UI chưa thao tác | HS-06 |
+| HS-05 | `2e301df` | Form ViewModel, PATCH, giữ draft, confirmation/back, avatar chưa hỗ trợ | 25 frontend tests và TypeScript pass | Native UI chưa thao tác | HS-06 |
+| HS-06 | Commit `test(profile): verify profile update flow` | Test HTTP/JWT/PostgreSQL, refresh/account races, script test:profile, bàn giao | 57 backend tests; auth/profile tests, TypeScript, OpenAPI, Android debug, Metro export pass | Nghiệm thu native UI thủ công | Mục 8 |
 
 Câu mở đầu có thể dùng ở session mới: “Đọc `docs/api/PROFILE_IMPLEMENTATION_PLAN.md`, kiểm tra trạng thái repo và tiếp tục task chưa hoàn tất đầu tiên; giữ MVVM và chia commit theo task.”
+
+## 8. Kết quả bàn giao và cách kiểm thử lại
+
+Ngày 2026-10-01:
+
+- Backend: **57 tests, 0 failures, 0 errors, 0 skipped**, gồm 2 integration tests dùng HTTP server thật, JWT và PostgreSQL 17 riêng. Xác minh PATCH → đọc DB/GET → refresh → login lại; installation thứ hai thấy tên mới; account khác giữ nguyên; validation không ghi một phần; không token/token sai bị từ chối; lưu được 100 Unicode code point.
+- Frontend: **29 tests pass** (18 auth/transport và 11 profile/form), kiểm tra PATCH trên transport, retry sau refresh, remember-me, response cũ, account switch, dirty/back, duplicate submit và giữ draft khi lỗi. Chạy `node --test scripts/check-auth.cjs scripts/check-profile.cjs` hoặc `npm run test:auth` và `npm run test:profile`.
+- TypeScript: `node node_modules/typescript/bin/tsc --noEmit` pass.
+- OpenAPI: 73 operations, 138 schemas, 1745 examples/parameters và 6 negative checks pass; không đổi schema.
+- Android debug `app:assembleDebug` x86_64 pass; Metro `expo export --platform android` pass, 765 modules. Các artifact kiểm tra nằm trong build directory/thư mục tạm, không commit.
+- **Chưa thao tác UI native trên emulator/device**: chưa xác nhận bàn phím, layout thực tế, dialog Android Back, đóng/mở app và chuyển tài khoản trên thiết bị. Build/bundle và unit tests không thay thế các kiểm tra này. Checklist mục 6 giữ nguyên để phục vụ nghiệm thu đầy đủ.
+
+### Chạy integration test trên DB tạm riêng
+
+Không trỏ integration test vào DB người dùng. Lệnh dưới tạo container tự xóa khi dừng, cổng chỉ bind localhost; cần Docker chạy và JDK 26. Chờ `pg_isready` báo accepting connections trước khi chạy Maven.
+
+```powershell
+# Tại root; không dùng lại tên container nếu đã có container khác cùng tên.
+docker run --rm -d --name tripmate-profile-check -e POSTGRES_HOST_AUTH_METHOD=trust -e POSTGRES_DB=tripmate_profile_test -p 127.0.0.1:55439:5432 postgres:17
+docker exec tripmate-profile-check pg_isready -U postgres -d tripmate_profile_test
+
+# Trong backend/
+$env:PROFILE_TEST_DATABASE_URL = 'jdbc:postgresql://127.0.0.1:55439/tripmate_profile_test'
+.\mvnw.cmd test -q '-DargLine=-Duser.timezone=UTC'
+Remove-Item Env:PROFILE_TEST_DATABASE_URL
+
+# Dừng đúng container tạm vừa tạo khi xong
+docker stop tripmate-profile-check
+```
+
+Không có biến `PROFILE_TEST_DATABASE_URL`, suite integration sẽ skip; unit/HTTP standalone tests vẫn chạy. Dùng UTC cho JVM test vì PostgreSQL image hiện tại không nhận alias `Asia/Saigon` của JVM Windows. Test tạo account ngẫu nhiên trong DB tạm, không gửi email và không dùng credential thật.
+
+### Nghiệm thu trên app và API
+
+1. Khởi động backend bằng quy trình hiện có trong `scripts/run-backend.ps1`, frontend bằng `npm run android` trong `frontend/`; kiểm tra base URL của app trỏ đúng backend.
+2. Đăng nhập → Cá nhân → Chỉnh sửa hồ sơ. Nhập `  Nguyễn Bình  `, lưu; tên hiển thị là `Nguyễn Bình`. Email chỉ đọc, avatar ghi rõ chưa hỗ trợ.
+3. Thử tên trống, hơn 100 ký tự, double tap, back khi có draft và khi đang lưu. Tắt kết nối hoặc dừng backend: draft còn nguyên, không báo thành công.
+4. Đóng/mở app, đăng nhập lại, đổi account rồi quay lại. Kiểm tra cả lựa chọn nhớ đăng nhập bật/tắt; không lẫn tên giữa accounts. Thiết bị/installation khác vào Cá nhân để tải lại tên.
+5. Trong Postman: lấy access token qua login; GET `/api/v1/users/me`, PATCH cùng URL với Bearer token và JSON `{ "displayName": "Nguyễn Bình" }`, sau đó GET lại. Mong đợi 200, envelope `{data, requestId}`; field khác giữ nguyên.
+6. PATCH tên trống, quá dài, field `userId`, `interestCodes`, hoặc `avatarMediaId: null` phải trả 422 và không cập nhật tên; JSON sai cú pháp trả 400; thiếu token trả 401.
+
+Sau khi nghiệm thu native UI, đánh dấu các checklist tương ứng. Chỉ bắt đầu kế hoạch catalog/tạo chuyến đi thủ công khi người dùng yêu cầu luồng tiếp theo.
