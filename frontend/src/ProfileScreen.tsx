@@ -16,7 +16,7 @@ export default function ProfileScreen({ user, onChangePassword, onLogout, onRequ
   useEffect(() => { onDetailChange(security || settings || editing); return () => onDetailChange(false); }, [security, settings, editing, onDetailChange]);
   if (security) return <SecurityScreen onBack={() => setSecurity(false)} onChangePassword={onChangePassword} />;
   if (settings) return <SettingsScreen onBack={() => setSettings(false)} onSecurity={() => setSecurity(true)} />;
-  if (editing) return <EditProfileScreen user={user} onBack={() => setEditing(false)} />;
+  if (editing) return <EditProfileScreen onBack={() => setEditing(false)} />;
   const name = user.displayName.trim() || user.email;
   return <View style={s.screen}>
     <View style={{ paddingHorizontal: 16, paddingVertical: 12, backgroundColor: c.chrome, minHeight: 68, justifyContent: 'center' }}><Text style={[s.title, { fontSize: 20, lineHeight: 26 }]}>Cá nhân</Text></View>

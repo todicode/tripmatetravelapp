@@ -1,6 +1,6 @@
 # Kế hoạch triển khai hồ sơ cá nhân sau đăng nhập
 
-Cập nhật: 2026-10-01. Trạng thái: **HS-01 đến HS-04 hoàn tất; tiếp theo HS-05**.
+Cập nhật: 2026-10-01. Trạng thái: **HS-01 đến HS-05 hoàn tất; tiếp theo HS-06**.
 
 ## 1. Đọc trước khi tiếp tục session mới
 
@@ -73,7 +73,7 @@ Mỗi task một commit theo Conventional Commits, cập nhật tiến độ và
 | HS-02 | DTO/controller/service cập nhật tên trong module identity; validation và transaction | PATCH lưu đúng actor, GET đọc lại được, lỗi không gây cập nhật một phần; backend tests pass | Hoàn tất; backend suite pass, HTTP/validation/service tests |
 | HS-03 | Transport PATCH, profile type/API adapter, state hồ sơ dùng chung theo tài khoản | GET/POST/auth không hồi quy; chặn response cũ và refresh ghi đè tên mới | Hoàn tất; 22 frontend tests và TypeScript pass |
 | HS-04 | `useProfileViewModel`, nối GET vào màn Cá nhân và nguồn tên dùng chung | Loading/error/retry hoạt động; logout/đổi account không lẫn dữ liệu | Hoàn tất code; TypeScript và 22 tests pass; UI native chờ HS-06 |
-| HS-05 | `useEditProfileViewModel`, nối màn sửa tên vào PATCH, bảo toàn UI teammate | Validation, submitting, giữ draft, back confirmation, thông báo thành công đúng thực tế | Chưa làm |
+| HS-05 | `useEditProfileViewModel`, nối màn sửa tên vào PATCH, bảo toàn UI teammate | Validation, submitting, giữ draft, back confirmation, thông báo thành công đúng thực tế | Hoàn tất code; 25 tests và TypeScript pass |
 | HS-06 | Kiểm thử tích hợp/hồi quy, checklist API và UI, cập nhật bàn giao | Ghi rõ các test đã chạy và phần manual/native chưa chạy; đủ bằng chứng lưu server | Chưa làm |
 
 Gợi ý tiêu đề commit: `docs(profile): add name update contract notes`, `feat(identity): add profile name updates`, `feat(profile): add authenticated profile state`, `feat(profile): load current user profile`, `feat(profile): add display name editing`, `test(profile): verify profile update flow`.
@@ -143,6 +143,7 @@ Sau mỗi task, cập nhật bảng dưới để session sau tiếp tục từ 
 | HS-01 | `8f160d6` | Kế hoạch và mức hỗ trợ trong roadmap | Đối chiếu contract/TEAM_RULES; không đổi schema | Không | HS-02 |
 | HS-02 | `a17e92b` | PATCH, validation payload, transaction và tests | Maven suite pass; chưa kiểm tra PostgreSQL thật | DB thực tế sẽ kiểm tra HS-06 | HS-03 |
 | HS-03 | `e7b1584` | PATCH transport, adapter kiểm tra account, store độc lập refresh | 22 auth/profile tests và TypeScript pass | Không | HS-04 |
-| HS-04 | Commit `feat(profile): load current user profile` | Provider theo account, GET/loading/error/retry, tên dùng chung | 22 frontend tests và TypeScript pass | Native UI chưa thao tác | HS-05 |
+| HS-04 | `510b503` | Provider theo account, GET/loading/error/retry, tên dùng chung | 22 frontend tests và TypeScript pass | Native UI chưa thao tác | HS-05 |
+| HS-05 | Commit `feat(profile): add display name editing` | Form ViewModel, PATCH, giữ draft, confirmation/back, avatar chưa hỗ trợ | 25 frontend tests và TypeScript pass | Native UI chưa thao tác | HS-06 |
 
 Câu mở đầu có thể dùng ở session mới: “Đọc `docs/api/PROFILE_IMPLEMENTATION_PLAN.md`, kiểm tra trạng thái repo và tiếp tục task chưa hoàn tất đầu tiên; giữ MVVM và chia commit theo task.”
