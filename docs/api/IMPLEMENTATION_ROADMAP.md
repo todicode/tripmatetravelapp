@@ -445,6 +445,12 @@ Gói đầu tiên nên gồm:
 
 Không cần làm hết 73 endpoint trong một commit. Mỗi nhóm bàn giao đủ: migration, DTO đúng contract, service/controller, quyền, test và tích hợp UI. Media avatar có thể làm song song trong lịch phát triển của nhóm, không phải điều kiện bắt buộc cho tạo trip thủ công.
 
+## Kế hoạch hồ sơ cá nhân sau auth
+
+Triển khai theo [PROFILE_IMPLEMENTATION_PLAN.md](PROFILE_IMPLEMENTATION_PLAN.md), tuần tự HS-01 đến HS-06. Slice đầu chỉ cập nhật `displayName`; email chỉ đọc, avatar/interests để sau. HS-01 đã đối chiếu contract; HS-02 đến HS-06 chưa triển khai.
+
+Quy tắc slice: PATCH `/users/me` nhận tên được trim, 1–100 Unicode code point, giữ dấu và chữ hoa/thường. JSON sai cú pháp trả 400 `INVALID_REQUEST`; object rỗng, sai kiểu/null, field lạ và field chưa hỗ trợ (kể cả `avatarMediaId: null`) trả 422 `VALIDATION_ERROR` kèm details. Kiểm tra toàn bộ payload trước mutation. Thành công trả profile đầy đủ; không đổi session/remember-me. Schema OpenAPI vẫn mô tả phạm vi đích rộng hơn; ví dụ có interests chưa phải payload được implementation slice này hỗ trợ.
+
 ## 17. Checklist bàn giao một nhóm API
 
 - [ ] Contract được chốt; phần đề xuất mới không bị nhầm thành API hiện có.
