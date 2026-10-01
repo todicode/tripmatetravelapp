@@ -64,7 +64,7 @@ Các bảng identity đã có migration: `app_users`, `user_devices`, `refresh_t
 
 | Mục UI | Hiện tại | Phần còn thiếu |
 | --- | --- | --- |
-| Cá nhân | GET hồ sơ, PATCH tên, state dùng chung và form MVVM | Upload avatar, interests; kiểm thử UI native thủ công |
+| Cá nhân | GET hồ sơ, PATCH tên/avatar, upload private, state và form MVVM | Cấu hình R2 thật, nghiệm thu UI native; interests |
 | Chuyến đi/lịch trình | State trong phiên app | CRUD trip, itinerary, quyền, version, tải lại |
 | Khách sạn | Dữ liệu gắn trong model chuyến đi | Bảng và contract lưu nơi nghỉ |
 | Chi phí/checklist | Mảng trong chuyến đi của phiên | Bảng và API ghi/đọc/sửa/xóa |
@@ -463,4 +463,6 @@ Quy tắc slice: PATCH `/users/me` nhận tên được trim, 1–100 Unicode co
 - [ ] API lỗi/mạng lỗi giữ draft và không báo thành công giả.
 - [ ] OpenAPI/examples và tài liệu trạng thái implementation được cập nhật đúng mức đã hoàn thành.
 
-**Ngoài auth và slice sửa tên đã ghi rõ ở trên, các nhóm API còn lại vẫn là kế hoạch.** Những đề xuất bổ sung cần được đưa vào contract trước khi code nhóm tương ứng. Slice sửa tên dùng schema hiện có, không thêm migration.
+**Cập nhật avatar 2026-10-01:** đã triển khai upload/download private, quota/cleanup, PATCH gắn/xóa ảnh và picker/crop/preview theo [AVATAR_IMPLEMENTATION_PLAN.md](AVATAR_IMPLEMENTATION_PLAN.md), có migration V3. Các mô tả slice chỉ nhận tên ở trên là lịch sử; hiện `avatarMediaId` UUID/null được hỗ trợ. Còn cấu hình R2 thật và nghiệm thu UI native theo [R2_AVATAR_SETUP.md](R2_AVATAR_SETUP.md).
+
+**Ngoài auth, sửa tên và avatar, các nhóm API còn lại vẫn là kế hoạch.** Những đề xuất bổ sung cần được đưa vào contract trước khi code nhóm tương ứng.

@@ -2,6 +2,8 @@
 
 Cập nhật: 2026-10-01. Trạng thái: **HS-01 đến HS-06 đã triển khai và kiểm thử tự động; còn nghiệm thu UI native thủ công**.
 
+**Cập nhật tiếp nối:** avatar đã được triển khai theo [AVATAR_IMPLEMENTATION_PLAN.md](AVATAR_IMPLEMENTATION_PLAN.md). Các mô tả avatar chưa hỗ trợ/422 bên dưới là lịch sử của slice sửa tên; hiện PATCH nhận `avatarMediaId` hợp lệ hoặc null. Interests vẫn chưa hỗ trợ. Xem kế hoạch avatar để tiếp tục cấu hình R2 và nghiệm thu thiết bị.
+
 ## 1. Đọc trước khi tiếp tục session mới
 
 Người dùng đã chọn làm **tên hiển thị trước, avatar sau**. Luồng là **Cá nhân → Chỉnh sửa hồ sơ → Sửa tên → Lưu → Hiển thị tên mới**. Người dùng đã yêu cầu triển khai, chia task/commit và tự chuyển task sau kiểm thử. Không triển khai lại các task đã xong; xem bảng handoff và phần nghiệm thu còn lại.
