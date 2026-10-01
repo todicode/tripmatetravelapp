@@ -406,7 +406,8 @@ class IdentityServiceTest {
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
                 new AuthenticatedUser(userId, UUID.randomUUID(), 1L), null, AuthorityUtils.NO_AUTHORITIES));
         try {
-            ProfileResponse response = service.updateDisplayName("Nguyễn An");
+            var profiles = new ProfileService(userRepository, org.mockito.Mockito.mock(com.tripmate.media.api.AvatarMedia.class), service);
+            ProfileResponse response = profiles.update(new com.tripmate.identity.web.ProfileUpdateRequest("Nguyễn An", false, null));
             assertEquals(userId, response.id());
             assertEquals("Nguyễn An", service.getCurrentProfile().displayName());
             assertEquals("an@example.test", response.email());
@@ -421,8 +422,9 @@ class IdentityServiceTest {
     @Test
     void rejectsProfileUpdateWithoutAuthentication() {
         SecurityContextHolder.clearContext();
+        var profiles = new ProfileService(userRepository, org.mockito.Mockito.mock(com.tripmate.media.api.AvatarMedia.class), service);
         assertEquals(HttpStatus.UNAUTHORIZED,
-                assertThrows(ApiException.class, () -> service.updateDisplayName("An")).getStatus());
+                assertThrows(ApiException.class, () -> profiles.update(new com.tripmate.identity.web.ProfileUpdateRequest("An", false, null))).getStatus());
         org.mockito.Mockito.verifyNoInteractions(userRepository);
     }
 

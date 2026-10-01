@@ -1,6 +1,7 @@
 package com.tripmate.identity.web;
 
 import com.tripmate.identity.application.IdentityService;
+import com.tripmate.identity.application.ProfileService;
 import com.tripmate.identity.web.AuthResponses.ProfileResponse;
 import com.tripmate.shared.web.ApiResponse;
 import com.tripmate.shared.web.RequestIdFilter;
@@ -19,9 +20,11 @@ import java.util.UUID;
 public class UserController {
 
     private final IdentityService identityService;
+    private final ProfileService profileService;
 
-    public UserController(IdentityService identityService) {
+    public UserController(IdentityService identityService, ProfileService profileService) {
         this.identityService = identityService;
+        this.profileService = profileService;
     }
 
     @PatchMapping(consumes = "application/json")
@@ -31,7 +34,7 @@ public class UserController {
         Object requestId = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
         UUID id = requestId instanceof UUID uuid ? uuid : UUID.randomUUID();
         return ResponseEntity.ok().header("Cache-Control", "private, no-store")
-                .body(new ApiResponse<>(identityService.updateDisplayName(update.displayName()), id));
+                .body(new ApiResponse<>(profileService.update(update), id));
     }
 
     @GetMapping

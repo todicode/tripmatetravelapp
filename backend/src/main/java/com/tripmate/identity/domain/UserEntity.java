@@ -109,6 +109,8 @@ public class UserEntity {
         return avatarMediaId;
     }
 
+    public void setAvatarMediaId(UUID avatarMediaId) { this.avatarMediaId = avatarMediaId; }
+
     public UserStatus getStatus() {
         return status;
     }

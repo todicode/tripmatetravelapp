@@ -11,15 +11,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class UserControllerTest {
     @Test void rejectsMalformedAndInvalidBodiesBeforeCallingService() throws Exception {
         IdentityService service = mock(IdentityService.class);
-        var mvc = MockMvcBuilders.standaloneSetup(new UserController(service))
+        var profileService = mock(com.tripmate.identity.application.ProfileService.class);
+        var mvc = MockMvcBuilders.standaloneSetup(new UserController(service, profileService))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
         mvc.perform(patch("/api/v1/users/me").contentType("application/json").content("{"))
                 .andExpect(status().isBadRequest());
         for (String body : new String[]{"null", "[]", "{}", "{\"displayName\":123}",
-                "{\"displayName\":\"An\",\"avatarMediaId\":null}", "{\"userId\":\"other\"}"}) {
+                "{\"displayName\":\"An\",\"avatarMediaId\":123}", "{\"userId\":\"other\"}"}) {
             mvc.perform(patch("/api/v1/users/me").contentType("application/json").content(body))
                     .andExpect(status().isUnprocessableEntity());
         }
-        verifyNoInteractions(service);
+        verifyNoInteractions(service, profileService);
     }
 }
