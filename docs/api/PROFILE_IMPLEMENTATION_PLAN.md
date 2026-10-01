@@ -1,6 +1,6 @@
 # Kế hoạch triển khai hồ sơ cá nhân sau đăng nhập
 
-Cập nhật: 2026-10-01. Trạng thái: **HS-01, HS-02 hoàn tất; tiếp theo HS-03**.
+Cập nhật: 2026-10-01. Trạng thái: **HS-01 đến HS-03 hoàn tất; tiếp theo HS-04**.
 
 ## 1. Đọc trước khi tiếp tục session mới
 
@@ -71,7 +71,7 @@ Mỗi task một commit theo Conventional Commits, cập nhật tiến độ và
 | --- | --- | --- | --- |
 | HS-01 | Đối chiếu `ProfileUpdate`, operation và quy tắc lỗi; tài liệu hóa slice chỉ sửa tên, liên kết kế hoạch với roadmap | Phạm vi hỗ trợ và input bị từ chối rõ ràng, contract validator pass nếu đổi contract | Hoàn tất; không đổi schema OpenAPI |
 | HS-02 | DTO/controller/service cập nhật tên trong module identity; validation và transaction | PATCH lưu đúng actor, GET đọc lại được, lỗi không gây cập nhật một phần; backend tests pass | Hoàn tất; backend suite pass, HTTP/validation/service tests |
-| HS-03 | Transport PATCH, profile type/API adapter, state hồ sơ dùng chung theo tài khoản | GET/POST/auth không hồi quy; chặn response cũ và refresh ghi đè tên mới | Chưa làm |
+| HS-03 | Transport PATCH, profile type/API adapter, state hồ sơ dùng chung theo tài khoản | GET/POST/auth không hồi quy; chặn response cũ và refresh ghi đè tên mới | Hoàn tất; 22 frontend tests và TypeScript pass |
 | HS-04 | `useProfileViewModel`, nối GET vào màn Cá nhân và nguồn tên dùng chung | Loading/error/retry hoạt động; logout/đổi account không lẫn dữ liệu | Chưa làm |
 | HS-05 | `useEditProfileViewModel`, nối màn sửa tên vào PATCH, bảo toàn UI teammate | Validation, submitting, giữ draft, back confirmation, thông báo thành công đúng thực tế | Chưa làm |
 | HS-06 | Kiểm thử tích hợp/hồi quy, checklist API và UI, cập nhật bàn giao | Ghi rõ các test đã chạy và phần manual/native chưa chạy; đủ bằng chứng lưu server | Chưa làm |
@@ -141,6 +141,7 @@ Sau mỗi task, cập nhật bảng dưới để session sau tiếp tục từ 
 | Task | Commit | File/hành vi đã đổi | Test đã chạy và kết quả | Còn thiếu/blocker | Task tiếp theo |
 | --- | --- | --- | --- | --- | --- |
 | HS-01 | `8f160d6` | Kế hoạch và mức hỗ trợ trong roadmap | Đối chiếu contract/TEAM_RULES; không đổi schema | Không | HS-02 |
-| HS-02 | Commit `feat(identity): add profile name updates` | PATCH, validation payload, transaction và tests | Maven suite pass; chưa kiểm tra PostgreSQL thật | DB thực tế sẽ kiểm tra HS-06 | HS-03 |
+| HS-02 | `a17e92b` | PATCH, validation payload, transaction và tests | Maven suite pass; chưa kiểm tra PostgreSQL thật | DB thực tế sẽ kiểm tra HS-06 | HS-03 |
+| HS-03 | Commit `feat(profile): add authenticated profile state` | PATCH transport, adapter kiểm tra account, store độc lập refresh | 22 auth/profile tests và TypeScript pass | Ghép provider vào UI ở HS-04 | HS-04 |
 
 Câu mở đầu có thể dùng ở session mới: “Đọc `docs/api/PROFILE_IMPLEMENTATION_PLAN.md`, kiểm tra trạng thái repo và tiếp tục task chưa hoàn tất đầu tiên; giữ MVVM và chia commit theo task.”

@@ -6,6 +6,7 @@ export async function apiRequest<T>(
   path: string,
   body?: Record<string, unknown>,
   accessToken?: string,
+  method?: 'GET' | 'POST' | 'PATCH',
 ): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20_000);
@@ -15,7 +16,7 @@ export async function apiRequest<T>(
       body: JSON.stringify(body),
       signal: controller.signal,
       headers: { 'Content-Type': 'application/json', ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
-      method: body === undefined ? 'GET' : 'POST',
+      method: method ?? (body === undefined ? 'GET' : 'POST'),
     });
     if (response.status === 204) return undefined as T;
     const payload = await response.json().catch(() => null) as {

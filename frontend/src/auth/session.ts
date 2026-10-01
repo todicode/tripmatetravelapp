@@ -16,7 +16,9 @@ export class ApiRequestError extends Error {
   }
 }
 
-export type AuthTransport = <T>(path: string, body?: Record<string, unknown>, token?: string) => Promise<T>;
+export type HttpMethod = 'GET' | 'POST' | 'PATCH';
+export type AuthTransport = <T>(path: string, body?: Record<string, unknown>, token?: string, method?: HttpMethod) => Promise<T>;
+export type AuthorizedRequest = <T>(path: string, body?: Record<string, unknown>, method?: HttpMethod) => Promise<T>;
 type Storage = { read(): Promise<string | null>; write(value: string): Promise<void>; remove(): Promise<void> };
 const expired = () => new ApiRequestError('SESSION_EXPIRED', 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.', 401);
 
@@ -148,11 +150,12 @@ export class SessionManager {
     return this.expiresAt <= this.now() + 30_000 ? this.refresh() : this.current;
   }
 
-  async request<T>(path: string, body?: Record<string, unknown>): Promise<T> {
+  async request<T>(path: string, body?: Record<string, unknown>, method?: HttpMethod): Promise<T> {
     const generation = this.generation;
     let session = await this.ensureFresh();
     try {
-      const result = await this.transport<T>(path, body, session.accessToken);
+      if (generation !== this.generation) throw expired();
+      const result = await this.transport<T>(path, body, session.accessToken, method);
       if (generation !== this.generation) throw expired();
       return result;
     } catch (error) {
@@ -160,7 +163,8 @@ export class SessionManager {
       // A concurrent request may already have rotated the token.
       session = this.current && this.current.accessToken !== session.accessToken ? this.current : await this.refresh();
       try {
-        const result = await this.transport<T>(path, body, session.accessToken);
+        if (generation !== this.generation) throw expired();
+        const result = await this.transport<T>(path, body, session.accessToken, method);
         if (generation !== this.generation) throw expired();
         return result;
       } catch (retryError) {
