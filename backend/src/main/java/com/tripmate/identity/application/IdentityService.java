@@ -276,6 +276,19 @@ public class IdentityService {
     }
 
     @Transactional
+    public ProfileResponse updateDisplayName(String displayName) {
+        AuthenticatedUser principal = authenticatedUser();
+        UserEntity user = userRepository.findByIdForUpdate(principal.userId())
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "Không tìm thấy tài khoản."));
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "ACCOUNT_DISABLED", "Tài khoản đã bị khóa.");
+        }
+        user.setDisplayName(displayName);
+        userRepository.saveAndFlush(user);
+        return toProfile(user);
+    }
+
+    @Transactional
     public void changePassword(ChangePasswordRequest request) {
         AuthenticatedUser principal = authenticatedUser();
         PasswordPolicy.validate(request.newPassword());

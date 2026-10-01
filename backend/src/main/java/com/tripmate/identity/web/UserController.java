@@ -7,6 +7,8 @@ import com.tripmate.shared.web.RequestIdFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -20,6 +22,16 @@ public class UserController {
 
     public UserController(IdentityService identityService) {
         this.identityService = identityService;
+    }
+
+    @PatchMapping(consumes = "application/json")
+    public ResponseEntity<ApiResponse<ProfileResponse>> updateProfile(@RequestBody(required = false) Object body,
+                                                                      HttpServletRequest request) {
+        ProfileUpdateRequest update = ProfileUpdateRequest.parse(body);
+        Object requestId = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
+        UUID id = requestId instanceof UUID uuid ? uuid : UUID.randomUUID();
+        return ResponseEntity.ok().header("Cache-Control", "private, no-store")
+                .body(new ApiResponse<>(identityService.updateDisplayName(update.displayName()), id));
     }
 
     @GetMapping

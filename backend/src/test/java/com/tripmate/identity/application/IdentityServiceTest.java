@@ -396,6 +396,36 @@ class IdentityServiceTest {
         }
     }
 
+    @Test
+    void updatesOnlyAuthenticatedUsersNameAndReadsItBackWithoutRevokingSession() {
+        UUID userId = UUID.randomUUID();
+        UserEntity user = new UserEntity(userId, "an@example.test", "hash", "An", "+84901234567", "TM-A", Instant.now());
+        UserEntity other = new UserEntity(UUID.randomUUID(), "b@example.test", "hash-b", "B", null, "TM-B", Instant.now());
+        when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+                new AuthenticatedUser(userId, UUID.randomUUID(), 1L), null, AuthorityUtils.NO_AUTHORITIES));
+        try {
+            ProfileResponse response = service.updateDisplayName("Nguyễn An");
+            assertEquals(userId, response.id());
+            assertEquals("Nguyễn An", service.getCurrentProfile().displayName());
+            assertEquals("an@example.test", response.email());
+            assertEquals("+84901234567", response.phone());
+            assertEquals("hash", user.getPasswordHash());
+            assertEquals("B", other.getDisplayName());
+            verify(userRepository).saveAndFlush(user);
+            org.mockito.Mockito.verifyNoInteractions(deviceRepository, refreshTokenRepository);
+        } finally { SecurityContextHolder.clearContext(); }
+    }
+
+    @Test
+    void rejectsProfileUpdateWithoutAuthentication() {
+        SecurityContextHolder.clearContext();
+        assertEquals(HttpStatus.UNAUTHORIZED,
+                assertThrows(ApiException.class, () -> service.updateDisplayName("An")).getStatus());
+        org.mockito.Mockito.verifyNoInteractions(userRepository);
+    }
+
     private PendingRegistrationEntity pending(UUID id, String otp, Instant expiresAt) {
         return new PendingRegistrationEntity(id, "an@example.test", "bcrypt-hash", "Nguyen An",
                 "+84901234567", UUID.randomUUID(), sha256(otp), expiresAt, Instant.now().minusSeconds(1));
