@@ -1,5 +1,5 @@
 import { ApiRequestError, AuthorizedRequest } from '../auth/session';
-import { Profile } from './profileModel';
+import { AvatarDraft, Profile } from './profileModel';
 
 function parseProfile(value: unknown, userId: string): Profile {
   if (!value || typeof value !== 'object') throw invalidProfile();
@@ -17,8 +17,22 @@ const invalidProfile = () => new ApiRequestError('INVALID_RESPONSE', 'Pháº£n há»
 export function createProfileApi(request: AuthorizedRequest, userId: string) {
   return {
     get: async () => parseProfile(await request<unknown>('/users/me'), userId),
-    update: async (displayName: string) => parseProfile(
-      await request<unknown>('/users/me', { displayName }, 'PATCH'), userId),
+    update: async (displayName: string, avatarMediaId?: string | null) => parseProfile(
+      await request<unknown>('/users/me', { displayName, ...(avatarMediaId !== undefined ? { avatarMediaId } : {}) }, 'PATCH'), userId),
+    upload: async (file: AvatarDraft): Promise<string> => {
+      const media = await request<{ id?: unknown; uploaderId?: unknown; status?: unknown; purpose?: unknown }>('/media', { purpose: 'AVATAR' }, 'POST', { file });
+      if (typeof media?.id !== 'string' || media.uploaderId !== userId || media.status !== 'READY' || media.purpose !== 'AVATAR') throw invalidProfile();
+      return media.id;
+    },
+    image: async (id: string): Promise<string> => {
+      const blob = await request<Blob>(`/media/${encodeURIComponent(id)}/thumbnail`, undefined, 'GET', { responseType: 'blob' });
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(invalidProfile());
+        reader.onerror = () => reject(invalidProfile());
+        reader.readAsDataURL(blob);
+      });
+    },
   };
 }
 export type ProfileApi = ReturnType<typeof createProfileApi>;

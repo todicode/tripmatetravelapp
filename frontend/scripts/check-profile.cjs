@@ -34,6 +34,47 @@ test('form validates normalized changes and confirms unsaved navigation', () => 
   form.setName(' '); assert.equal(form.canSave, false);
   form.setName('a'.repeat(101)); assert.equal(form.canSave, false);
 });
+
+const avatarFile = { uri: 'file:///cache/avatar.jpg', name: 'avatar.jpg', type: 'image/jpeg' };
+test('avatar draft uploads only on save and reuses READY ID when PATCH fails', async () => {
+  let uploads = 0, patches = 0, saved = 0;
+  const form = new EditProfileModel('An', async (name, id) => {
+    patches++; assert.equal(id, 'media-id'); if (patches === 1) throw Error('Offline'); return true;
+  }, () => saved++, () => {}, {
+    pick: async () => avatarFile, upload: async () => { uploads++; return 'media-id'; }, release: async () => {}, hasAvatar: false,
+  });
+  await form.chooseAvatar(); assert.equal(uploads, 0); assert.equal(form.canSave, true);
+  await form.save(); assert.equal(saved, 0); assert.equal(form.getSnapshot().draftAvatar, avatarFile);
+  await form.save(); assert.equal(uploads, 1); assert.equal(patches, 2); assert.equal(saved, 1);
+});
+test('removing an existing avatar sends explicit null; cancel picker preserves draft', async () => {
+  let chosen = avatarFile, sent = 'unset';
+  const form = new EditProfileModel('An', async (name, id) => { sent = id; return true; }, () => {}, () => {}, {
+    pick: async () => chosen, upload: async () => 'new', release: async () => {}, hasAvatar: true,
+  });
+  await form.chooseAvatar(); chosen = null; await form.chooseAvatar();
+  assert.equal(form.getSnapshot().draftAvatar, avatarFile);
+  await form.removeAvatar(); assert.equal(form.getSnapshot().removeAvatar, true);
+  await form.save(); assert.equal(sent, null);
+});
+test('late picker and upload after unmount release draft and never PATCH', async () => {
+  const pick = deferred(), upload = deferred(); let releases = 0, patches = 0;
+  const dependencies = { pick: () => pick.promise, upload: () => upload.promise, release: async () => releases++, hasAvatar: false };
+  const form = new EditProfileModel('An', async () => { patches++; return true; }, () => {}, () => {}, dependencies);
+  const choosing = form.chooseAvatar(); assert.equal(form.requestBack(), 'blocked'); form.setActive(false);
+  pick.resolve(avatarFile); await choosing; assert.ok(releases > 0); assert.equal(patches, 0);
+  const second = new EditProfileModel('An', async () => { patches++; return true; }, () => {}, () => {}, { ...dependencies, pick: async () => avatarFile });
+  await second.chooseAvatar(); const saving = second.save(); second.setActive(false); upload.resolve('id'); await saving;
+  assert.equal(patches, 0);
+});
+test('stale avatar downloads cannot restore an image after removal', async () => {
+  const image = deferred();
+  const store = new ProfileStore({ get: async () => ({ ...profile(), avatarMediaId: 'old' }),
+    image: () => image.promise, update: async () => profile() }, profile());
+  await store.load(); await store.save('An', null); image.resolve('data:image/jpeg;base64,old');
+  await Promise.resolve(); await Promise.resolve();
+  assert.equal(store.getSnapshot().avatarUri, null); assert.equal(store.getSnapshot().profile.avatarMediaId, null);
+});
 test('form blocks back and double submit until server confirms success', async () => {
   const pending = deferred(); let calls = 0; const events = [];
   const form = new EditProfileModel('An', () => { calls++; return pending.promise; }, () => events.push('saved'), () => events.push('back'));

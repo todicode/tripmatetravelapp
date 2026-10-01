@@ -1,4 +1,5 @@
 export type ProfileUser = { id: string; displayName: string; email: string };
+export type AvatarDraft = { uri: string; name: string; type: string };
 export type Profile = ProfileUser & {
   avatarMediaId: string | null;
   phone?: string | null;

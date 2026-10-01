@@ -201,6 +201,24 @@ test('API adapter handles empty 204 and preserves HTTP status from an HTML error
     error => error.status === 503 && error.code === 'REQUEST_FAILED');
 });
 
+test('multipart transport lets native fetch set boundary and authenticates binary downloads', async () => {
+  class NativeFormData { entries = []; append(key, value) { this.entries.push([key, value]); } }
+  const api = load('api.ts', { require: () => ({ ApiRequestError }), AbortController, setTimeout, clearTimeout, FormData: NativeFormData,
+    fetch: async (url, options) => {
+      assert.equal(options.headers.Authorization, 'Bearer token');
+      if (url.endsWith('/media')) {
+        assert.equal(options.headers['Content-Type'], undefined);
+        assert.equal(options.body.entries[0][0], 'purpose'); assert.equal(options.body.entries[1][0], 'file');
+        return new Response(JSON.stringify({ data: { id: 'media' } }));
+      }
+      return new Response('binary', { headers: { 'Content-Type': 'image/jpeg' } });
+    },
+  }).apiRequest;
+  await api('https://example.test', 'API', '/media', { purpose: 'AVATAR' }, 'token', 'POST', { file: { uri: 'file://avatar.jpg', name: 'avatar.jpg', type: 'image/jpeg' } });
+  const blob = await api('https://example.test', 'API', '/media/id/thumbnail', undefined, 'token', 'GET', { responseType: 'blob' });
+  assert.equal(await blob.text(), 'binary');
+});
+
 test('API adapter reads retry hints and rejects malformed success payloads', async () => {
   const response = new Response(JSON.stringify({ error: { code: 'OTP_RESEND_TOO_SOON', context: { retryAfterSeconds: 42 } } }), { status: 429 });
   await assert.rejects(apiWith(response)('https://example.test', 'API', '/resend', {}), error => error.retryAfterSeconds === 42);

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect } from 'react';
-import { ActivityIndicator, Alert, BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, BackHandler, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Header, Icon, useTripUi } from './trips/tripUi';
 import { useToast } from './theme/Toast';
 import { useEditProfileViewModel } from './profile/useEditProfileViewModel';
@@ -9,7 +9,7 @@ export default function EditProfileScreen({ onBack }: { onBack: () => void }) {
   const toast = useToast();
   const form = useEditProfileViewModel(onBack, () => toast('Đã cập nhật hồ sơ'));
   const handleBack = useCallback(() => {
-    if (form.requestBack() === 'confirm') Alert.alert('Bỏ thay đổi?', 'Tên vừa nhập chưa được lưu.', [
+    if (form.requestBack() === 'confirm') Alert.alert('Bỏ thay đổi?', 'Các thay đổi hồ sơ chưa được lưu.', [
       { text: 'Tiếp tục sửa', style: 'cancel' },
       { text: 'Bỏ thay đổi', style: 'destructive', onPress: form.discard },
     ]);
@@ -23,11 +23,14 @@ export default function EditProfileScreen({ onBack }: { onBack: () => void }) {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled">
         <View style={[s.card, { alignItems: 'center', padding: 20, gap: 12 }]}>
-          <View accessibilityLabel="Ảnh đại diện" style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: c.blue, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: c.onBlue, fontSize: 24, fontWeight: '600' }}>{Array.from(form.name.trim()).slice(-1).join('').toUpperCase()}</Text>
+          <Pressable accessibilityLabel="Thay ảnh đại diện" disabled={form.isSaving || form.isPicking} onPress={() => { void form.chooseAvatar(); }} style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: c.blue, alignItems: 'center', justifyContent: 'center' }}>
+            {form.avatarUri ? <Image source={{ uri: form.avatarUri }} style={{ width: 80, height: 80, borderRadius: 40 }} /> : <Text style={{ color: c.onBlue, fontSize: 24, fontWeight: '600' }}>{Array.from(form.name.trim()).slice(-1).join('').toUpperCase()}</Text>}
             <View style={{ position: 'absolute', bottom: -4, right: -4, width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: c.border, backgroundColor: c.white, alignItems: 'center', justifyContent: 'center' }}><Icon name="camera-outline" size={16} color={c.muted} /></View>
-          </View>
-          <Text style={s.small}>Thay ảnh đại diện sẽ được hỗ trợ sau.</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" disabled={form.isSaving || form.isPicking} onPress={() => { void form.chooseAvatar(); }} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={s.link}>{form.isPicking ? 'Đang chọn ảnh…' : 'Thay ảnh đại diện'}</Text></Pressable>
+          {form.canRemoveAvatar && <Pressable accessibilityRole="button" disabled={form.isSaving || form.isPicking} onPress={() => Alert.alert('Xóa ảnh đại diện?', 'Ảnh sẽ được xóa khi bạn lưu thay đổi.', [
+            { text: 'Hủy', style: 'cancel' }, { text: 'Xóa ảnh', style: 'destructive', onPress: () => { void form.removeAvatar(); } },
+          ])} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: c.red }}>Xóa ảnh đại diện</Text></Pressable>}
         </View>
         <View style={[s.card, { gap: 16 }]}>
           <Text style={[s.title, { fontSize: 14 }]}>Tên hiển thị</Text>

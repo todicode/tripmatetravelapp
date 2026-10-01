@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-import { ApiRequestError, HttpMethod, SessionManager, SessionResponse } from './session';
+import { ApiRequestError, HttpMethod, RequestOptions, SessionManager, SessionResponse } from './session';
 import { apiRequest } from './api';
 
 export function useSessionViewModel(baseUrl: string) {
@@ -11,8 +11,8 @@ export function useSessionViewModel(baseUrl: string) {
   const [sessionError, setSessionError] = useState<string | null>(null);
   const loggingOut = useRef(false);
   const [manager] = useState(() => new SessionManager(
-    <T,>(path: string, body?: Record<string, unknown>, token?: string, method?: HttpMethod) =>
-      apiRequest<T>(baseUrl, 'Backend API', path, body, token, method),
+    <T,>(path: string, body?: Record<string, unknown>, token?: string, method?: HttpMethod, options?: RequestOptions) =>
+      apiRequest<T>(baseUrl, 'Backend API', path, body, token, method, options),
     {
       read: () => SecureStore.getItemAsync('authRefreshSession'),
       write: value => SecureStore.setItemAsync('authRefreshSession', value),
@@ -76,8 +76,8 @@ export function useSessionViewModel(baseUrl: string) {
     finally { setRestoring(false); }
   };
 
-  const request = useCallback(<T,>(path: string, body?: Record<string, unknown>, method?: HttpMethod) =>
-    manager.request<T>(path, body, method), [manager]);
+  const request = useCallback(<T,>(path: string, body?: Record<string, unknown>, method?: HttpMethod, options?: RequestOptions) =>
+    manager.request<T>(path, body, method, options), [manager]);
 
   return { session, request, restoring, restoreError, sessionError, restoreSession,
     authenticate, logout, changePassword, discardSavedSession };

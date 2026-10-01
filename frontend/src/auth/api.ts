@@ -1,4 +1,4 @@
-import { ApiRequestError } from './session';
+import { ApiRequestError, RequestOptions } from './session';
 
 export async function apiRequest<T>(
   baseUrl: string,
@@ -7,18 +7,31 @@ export async function apiRequest<T>(
   body?: Record<string, unknown>,
   accessToken?: string,
   method?: 'GET' | 'POST' | 'PATCH',
+  options?: RequestOptions,
 ): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20_000);
+  const timeout = setTimeout(() => controller.abort(), options?.file ? 90_000 : 20_000);
 
   try {
+    let requestBody: string | FormData | undefined = JSON.stringify(body);
+    if (options?.file) {
+      const form = new FormData();
+      Object.entries(body ?? {}).forEach(([key, value]) => form.append(key, String(value)));
+      // React Native's FormData accepts a native file descriptor rather than a browser Blob.
+      form.append('file', options.file as unknown as Blob);
+      requestBody = form;
+    }
     const response = await fetch(`${baseUrl}${path}`, {
-      body: JSON.stringify(body),
+      body: requestBody,
       signal: controller.signal,
-      headers: { 'Content-Type': 'application/json', ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
+      headers: { ...(options?.file ? {} : { 'Content-Type': 'application/json' }), ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
       method: method ?? (body === undefined ? 'GET' : 'POST'),
     });
     if (response.status === 204) return undefined as T;
+    if (response.ok && options?.responseType === 'blob') {
+      if (!response.headers.get('Content-Type')?.startsWith('image/')) throw new ApiRequestError('INVALID_RESPONSE', 'Phản hồi ảnh không hợp lệ.', 0);
+      return await response.blob() as T;
+    }
     const payload = await response.json().catch(() => null) as {
       data?: T;
       error?: { code?: string; message?: string; context?: { retryAfterSeconds?: number } };
