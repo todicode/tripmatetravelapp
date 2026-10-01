@@ -54,6 +54,11 @@ public class GlobalExceptionHandler {
                 "Content-Type is not supported.", List.of(), Map.of(), request);
     }
 
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    ResponseEntity<ApiErrorResponse> handleUploadSize(HttpServletRequest request) {
+        return response(HttpStatus.PAYLOAD_TOO_LARGE, "FILE_TOO_LARGE", "Ảnh tối đa 10 MB.", List.of(), Map.of(), request);
+    }
+
     @ExceptionHandler(RateLimitExceededException.class)
     ResponseEntity<ApiErrorResponse> handleRateLimit(RateLimitExceededException exception,
                                                      HttpServletRequest request) {

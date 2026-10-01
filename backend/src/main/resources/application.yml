@@ -1,4 +1,8 @@
 spring:
+  servlet:
+    multipart:
+      max-file-size: 10000000B
+      max-request-size: 10100000B
   application:
     name: tripmate-backend
   datasource:
@@ -35,6 +39,11 @@ server:
   port: ${SERVER_PORT:8080}
 
 tripmate:
+  media:
+    endpoint: ${R2_ENDPOINT:}
+    bucket: ${R2_BUCKET:}
+    access-key: ${R2_ACCESS_KEY_ID:}
+    secret-key: ${R2_SECRET_ACCESS_KEY:}
   security:
     jwt-secret: ${JWT_SECRET:change-me-in-local-environment-to-a-long-random-secret}
     access-token-ttl: ${ACCESS_TOKEN_TTL:15m}

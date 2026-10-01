@@ -1,5 +1,12 @@
 # Contract changelog
 
+## 1.3.1 - 2026-10-01
+
+- Added the avatar implementation slice: multipart upload, protected metadata/content/thumbnail, orphan deletion and atomic profile avatar attachment/removal. CHAT and friend/trip visibility remain unimplemented; avatar access currently requires ownership.
+- Avatar images accept JPEG/PNG/WebP up to 10,000,000 bytes and 40,000,000 pixels, then normalize to square JPEG up to 1024px and a thumbnail up to 256px. Response MIME and dimensions describe the normalized object.
+- Media content/thumbnail operations document `503 SERVICE_UNAVAILABLE` for storage failures. Public wire schemas otherwise remain unchanged.
+- Flyway V3 introduces avatar media metadata, ownership FK and global quota reservation. R2 remains private; storage configuration and manual acceptance steps are in `R2_AVATAR_SETUP.md`.
+
 ## Auth completion - 2026-09-30
 
 - Registration, password reset and password change enforce the BCrypt limit of 72 UTF-8 bytes in addition to 8–128 characters. Oversized new passwords return `422 PASSWORD_TOO_LONG` before hashing or consuming an OTP; oversized login passwords return `401 INVALID_CREDENTIALS`.

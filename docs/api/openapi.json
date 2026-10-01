@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "TripMate API Contract",
-    "version": "1.3.0",
-    "description": "Contract-first TripMate API for the Spring backend and mobile React Native client. Version 1.3.0 adds email OTP password reset. This JSON is the canonical wire format; examples use fixture data. Rules: docs/api/TEAM_RULES.md. Realtime: x-realtime. Bigint values are sent as strings."
+    "version": "1.3.1",
+    "description": "Contract-first TripMate API for the Spring backend and mobile React Native client. Version 1.3.1 documents avatar image normalization and media storage availability errors. This JSON is the canonical wire format; examples use fixture data. Rules: docs/api/TEAM_RULES.md. Realtime: x-realtime. Bigint values are sent as strings."
   },
   "servers": [
     {
@@ -5554,7 +5554,7 @@
         ],
         "operationId": "uploadMedia",
         "summary": "Upload một ảnh/PDF qua backend",
-        "description": "Upload đồng bộ, 201 chỉ khi READY. Không gửi binary/base64 trong JSON; multipart boundary do HTTP client tạo. Backend stream vào R2 riêng tư, validate magic bytes, chuẩn hóa ảnh, reserve quota 2.000.000.000 byte tính cả thumbnail/PENDING. Không trả object key/signed URL. Timeout upload: không tự giả định đã có mediaId.",
+        "description": "Upload đồng bộ, 201 chỉ khi READY. Không gửi binary/base64 trong JSON; multipart boundary do HTTP client tạo. Backend stream vào R2 riêng tư, validate magic bytes, chuẩn hóa ảnh, reserve quota 2.000.000.000 byte tính cả thumbnail/PENDING. Không trả object key/signed URL. Timeout upload: không tự giả định đã có mediaId. AVATAR: ảnh đầu vào tối đa 40.000.000 pixel; chuẩn hóa JPEG vuông tối đa 1024x1024, thumbnail tối đa 256x256 và loại bỏ metadata. MIME trong response là định dạng đã chuẩn hóa.",
         "x-permission": "AUTHENTICATED",
         "responses": {
           "201": {
@@ -5939,6 +5939,9 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "parameters": [
@@ -6042,6 +6045,9 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "parameters": [
