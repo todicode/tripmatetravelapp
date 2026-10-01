@@ -123,6 +123,13 @@ if ($localEmailSettings.Count -gt 0) {
 }
 
 Write-Host "Using JDK: $javaHome" -ForegroundColor Cyan
+if (Test-Path -LiteralPath $backendEnvFile) {
+    foreach ($line in Get-Content -LiteralPath $backendEnvFile) {
+        if ($line -match '^\s*(R2_ENDPOINT|R2_BUCKET|R2_ACCESS_KEY_ID|R2_SECRET_ACCESS_KEY)\s*=(.*)$') {
+            [Environment]::SetEnvironmentVariable($Matches[1], $Matches[2].Trim().Trim('"').Trim("'"), 'Process')
+        }
+    }
+}
 Write-Host 'Starting local PostgreSQL...' -ForegroundColor Cyan
 & docker compose `
     --env-file $databaseEnvFile `

@@ -14,6 +14,7 @@
     "plugins": [
       "expo-asset",
       "expo-secure-store",
+      ["expo-image-picker", { "photosPermission": "Cho phép TripMate chọn ảnh đại diện từ thư viện.", "cameraPermission": false, "microphonePermission": false }],
       ["expo-location", { "locationWhenInUsePermission": "Cho phép TripMate dùng vị trí để hiển thị địa điểm gần bạn." }]
     ]
   }
