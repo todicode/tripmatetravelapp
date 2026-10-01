@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import ExploreHome from './src/ExploreHome';
+import { ProfileProvider } from './src/profile/ProfileProvider';
 import { ThemeProvider, useAppTheme } from './src/theme/AppTheme';
 import { ToastProvider } from './src/theme/Toast';
 import { ApiRequestError, SessionResponse } from './src/auth/session';
@@ -934,7 +935,7 @@ function AuthSheet({ activeTab, onChangeTab, onAuthenticated }: { activeTab: Aut
 function AppContent() {
   const theme = useAppTheme();
   const [activeTab, setActiveTab] = useState<AuthTab>('login');
-  const { session, restoring, restoreError, sessionError, restoreSession, authenticate,
+  const { session, request, restoring, restoreError, sessionError, restoreSession, authenticate,
     logout, changePassword: updatePassword, discardSavedSession } = useSessionViewModel(authApiBaseUrl);
   useEffect(() => { if (!session) setActiveTab('login'); }, [session]);
 
@@ -963,7 +964,9 @@ function AppContent() {
           </>}
         </View> : session ? <>
           <InlineError message={sessionError} />
-          <ExploreHome user={session.user} onLogout={() => { void logout(); }} onChangePassword={changePassword} />
+          <ProfileProvider key={session.user.id} user={session.user} request={request}>
+            <ExploreHome onLogout={() => { void logout(); }} onChangePassword={changePassword} />
+          </ProfileProvider>
         </> : (
           <>
             <MapBackdrop />

@@ -12,8 +12,10 @@ import { Icon, useTripUi } from './trips/tripUi';
 import CreateMenu from './CreateMenu';
 import { useToast } from './theme/Toast';
 import ScreenTransition from './theme/ScreenTransition';
+import { useProfileState } from './profile/ProfileProvider';
 
-export default function ExploreHome({ user, onLogout, onChangePassword }: { user: { displayName: string; email: string }; onLogout: () => void; onChangePassword: (currentPassword: string, newPassword: string) => Promise<void> }) {
+export default function ExploreHome({ onLogout, onChangePassword }: { onLogout: () => void; onChangePassword: (currentPassword: string, newPassword: string) => Promise<void> }) {
+  const { user } = useProfileState();
   const { c, s } = useTripUi();
   const toast = useToast();
   const { tab, setTab, trips, setTrips, lists, route, setRoute, menu, setMenu, exploreAction, setExploreAction, profileDetail, setProfileDetail, chat, openCreate, changeLists, savePlace } = useHomeViewModel({ user, notify: toast });

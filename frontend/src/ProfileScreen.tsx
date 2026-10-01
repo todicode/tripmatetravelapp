@@ -4,10 +4,12 @@ import SecurityScreen from './SecurityScreen';
 import SettingsScreen from './SettingsScreen';
 import EditProfileScreen from './EditProfileScreen';
 import { Icon, useTripUi } from './trips/tripUi';
+import { useProfileViewModel } from './profile/useProfileViewModel';
 
 type Props = { user: { displayName: string; email: string }; onChangePassword: (currentPassword: string, newPassword: string) => Promise<void>; onTrips: () => void; onLogout: () => void; onRequests: () => void; onSavedPlaces: () => void; onDetailChange: (detail: boolean) => void; requestsCount?: number };
 export default function ProfileScreen({ user, onChangePassword, onLogout, onRequests, onSavedPlaces, onDetailChange, requestsCount = 0 }: Props) {
   const { c, s } = useTripUi();
+  const { isLoading, errorMessage, profile, retry } = useProfileViewModel();
   const [security, setSecurity] = useState(false);
   const [settings, setSettings] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -19,7 +21,9 @@ export default function ProfileScreen({ user, onChangePassword, onLogout, onRequ
   return <View style={s.screen}>
     <View style={{ paddingHorizontal: 16, paddingVertical: 12, backgroundColor: c.chrome, minHeight: 68, justifyContent: 'center' }}><Text style={[s.title, { fontSize: 20, lineHeight: 26 }]}>Cá nhân</Text></View>
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, gap: 20 }}>
-      <Pressable accessibilityLabel="Chỉnh sửa hồ sơ cá nhân" onPress={() => setEditing(true)} style={({ pressed }) => [s.card, { alignItems: 'center', gap: 8 }, pressed && { opacity: 0.88 }]}>
+      {isLoading && <Text accessibilityLiveRegion="polite" style={s.small}>Đang tải hồ sơ…</Text>}
+      {!!errorMessage && <View style={s.card}><Text accessibilityRole="alert" style={s.error}>{errorMessage}</Text><Pressable accessibilityRole="button" onPress={() => { void retry(); }} style={s.button}><Text style={s.buttonText}>Thử lại</Text></Pressable></View>}
+      <Pressable accessibilityLabel="Chỉnh sửa hồ sơ cá nhân" disabled={!profile || isLoading} accessibilityState={{ disabled: !profile || isLoading }} onPress={() => setEditing(true)} style={({ pressed }) => [s.card, { alignItems: 'center', gap: 8 }, (!profile || isLoading) && { opacity: 0.6 }, pressed && { opacity: 0.88 }]}>
         <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: c.blue, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: c.onBlue, fontSize: 22, fontWeight: '600' }}>{name.slice(-1).toUpperCase()}</Text></View>
         <Text numberOfLines={1} style={s.title}>{name}</Text><Text numberOfLines={1} style={s.small}>{user.email}</Text><View style={[s.row, { marginTop: 12 }]}><Icon name="pencil-outline" size={14} /><Text style={{ color: c.blue, fontSize: 14 }}>Chỉnh sửa hồ sơ</Text></View>
       </Pressable>
