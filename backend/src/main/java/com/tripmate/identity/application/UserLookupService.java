@@ -5,6 +5,7 @@ import com.tripmate.identity.domain.UserStatus;
 import com.tripmate.identity.infrastructure.UserRepository;
 import com.tripmate.shared.security.AuthenticatedActor;
 import com.tripmate.shared.web.ApiException;
+import com.tripmate.social.api.RelationshipLookup;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -16,8 +17,11 @@ import java.util.UUID;
 @Service
 public class UserLookupService {
     private final UserRepository users;
+    private final RelationshipLookup relationships;
 
-    public UserLookupService(UserRepository users) { this.users = users; }
+    public UserLookupService(UserRepository users, RelationshipLookup relationships) {
+        this.users = users; this.relationships = relationships;
+    }
 
     @Transactional(readOnly = true)
     public LookupResult byPhone(String phone) {
@@ -44,8 +48,9 @@ public class UserLookupService {
 
     private LookupResult result(UserEntity user, UUID actorId) {
         if (user.getStatus() != UserStatus.ACTIVE) throw notFound();
+        var relationship = relationships.between(actorId, user.getId());
         return new LookupResult(new UserSummary(user.getId(), user.getDisplayName(), user.getAvatarMediaId()),
-                user.getId().equals(actorId) ? "SELF" : "NONE", null);
+                relationship.status(), relationship.pendingRequestId());
     }
 
     private UUID actorId() {

@@ -5,6 +5,7 @@ import com.tripmate.identity.domain.UserStatus;
 import com.tripmate.identity.infrastructure.UserRepository;
 import com.tripmate.identity.security.AuthenticatedUser;
 import com.tripmate.shared.web.ApiException;
+import com.tripmate.social.api.RelationshipLookup;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -20,7 +21,8 @@ import static org.mockito.Mockito.*;
 
 class UserLookupServiceTest {
     private final UserRepository users = mock(UserRepository.class);
-    private final UserLookupService lookup = new UserLookupService(users);
+    private final RelationshipLookup relationships = mock(RelationshipLookup.class);
+    private final UserLookupService lookup = new UserLookupService(users, relationships);
 
     @AfterEach void clearSecurity() { SecurityContextHolder.clearContext(); }
 
@@ -29,6 +31,8 @@ class UserLookupServiceTest {
         UserEntity target = user(UUID.randomUUID());
         when(users.findByPhoneLookup("0901234567")).thenReturn(Optional.of(target));
         when(users.findByFriendCode("TM-ABC12345")).thenReturn(Optional.of(target));
+        when(relationships.between(any(), eq(target.getId())))
+                .thenReturn(new RelationshipLookup.Relationship("NONE", null));
 
         var byPhone = lookup.byPhone("+84 901 234 567");
         var byCode = lookup.byFriendCode(" tm-abc12345 ");
@@ -43,6 +47,8 @@ class UserLookupServiceTest {
         UserEntity target = user(UUID.randomUUID());
         authenticate(target.getId());
         when(users.findByFriendCode("TM-ABC12345")).thenReturn(Optional.of(target));
+        when(relationships.between(target.getId(), target.getId()))
+                .thenReturn(new RelationshipLookup.Relationship("SELF", null));
         assertEquals("SELF", lookup.byFriendCode("TM-ABC12345").relationship());
         target.setStatus(UserStatus.DISABLED);
         assertEquals("USER_NOT_FOUND", assertThrows(ApiException.class,

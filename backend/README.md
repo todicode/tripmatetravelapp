@@ -71,9 +71,11 @@ With `EMAIL_MODE=log`, the backend logs the recipient, expiry and OTP for local 
 
 For local Gmail SMTP, run `./scripts/setup-gmail-smtp.ps1` from the repository root in PowerShell. It prompts once for a Gmail App Password and saves the sender address and password in the Git-ignored `personal/gmail-smtp.env`. Later `./scripts/run-backend.ps1` calls automatically load that file and enable Gmail SMTP. Use `-Email address@gmail.com` for another sender, or `-Replace` to rotate the stored App Password. Do not commit or share the file. If the file is absent, the backend helper retains `EMAIL_MODE=log` and prints development OTP codes to its terminal.
 
-## User lookup
+## Friend API
 
-Authenticated `GET /api/v1/users/lookup-by-phone?phone=...` and `GET /api/v1/users/lookup?friendCode=...` return only user ID, display name, avatar media ID and a relationship placeholder. `GET /api/v1/users/me/friend-code` returns the current user's code and QR payload. Lookup is rate limited per user. Phone numbers are unique after formatting and Vietnam `+84`/`0` normalization, but are not SMS verified. Flyway V5 will reject existing normalized duplicates; inspect and resolve them before deployment. Friend requests are not implemented yet.
+Authenticated `GET /api/v1/users/lookup-by-phone?phone=...` and `GET /api/v1/users/lookup?friendCode=...` return only user ID, display name, avatar media ID, and current relationship (`NONE`, `SELF`, `FRIEND`, `INCOMING_PENDING`, or `OUTGOING_PENDING`). `GET /api/v1/users/me/friend-code` returns the current user's code and QR payload. Phone numbers are unique after formatting and Vietnam `+84`/`0` normalization, but are not SMS verified. Flyway V5 rejects existing normalized duplicates; resolve them before deployment.
+
+`POST /api/v1/friend-requests` takes `recipientId` and optional `message` (at most 500 characters). A repeated request in either direction returns the existing pending request; it never auto-accepts. `GET /api/v1/friend-requests?direction=INCOMING|OUTGOING` lists requests (default `status=PENDING`). `POST /api/v1/friend-requests/{requestId}/accept|reject|cancel` processes a request with role checks and repeat-safe results. `GET /api/v1/friends` lists friends; `DELETE /api/v1/friends/{userId}` removes a friendship. Lists use `limit` and an opaque `cursor`. Flyway V6 creates the social tables. Phone/code lookup and friend-request creation are rate limited per user.
 
 ## Authentication API
 

@@ -1178,7 +1178,7 @@
         ],
         "operationId": "listFriends",
         "summary": "Danh sách bạn bè",
-        "description": "Cursor thứ tự createdAt DESC, user.id DESC.",
+        "description": "List friendships ordered by creation time descending. The opaque cursor is tied to the requested limit; changes between pages can shift offset-based results.",
         "x-permission": "AUTHENTICATED",
         "responses": {
           "200": {
@@ -1345,7 +1345,7 @@
         ],
         "operationId": "listFriendRequests",
         "summary": "Lời mời kết bạn gửi/nhận",
-        "description": "Lời mời kết bạn gửi/nhận",
+        "description": "List incoming or outgoing requests by status, newest first. The opaque cursor is tied to the requested limit; changes between pages can shift offset-based results.",
         "x-permission": "AUTHENTICATED",
         "responses": {
           "200": {
@@ -1383,7 +1383,8 @@
                             },
                             "status": "PENDING",
                             "createdAt": "2026-09-17T03:00:00Z",
-                            "resolvedAt": null
+                            "resolvedAt": null,
+                            "message": "Chao ban, minh ket ban nhe!"
                           }
                         ],
                         "pageInfo": {
@@ -1494,7 +1495,7 @@
         ],
         "operationId": "createFriendRequest",
         "summary": "Gửi hoặc lấy lời mời/quan hệ đã có",
-        "description": "Luôn 200: PENDING kèm request đang chờ ở bất kỳ chiều nào, hoặc ALREADY_FRIENDS kèm friendship. Không tự chấp nhận lời mời ngược chiều. Tự mời mình -> 422 SELF_FRIEND_REQUEST.",
+        "description": "Send a friend request with an optional message (maximum 500 characters). Always 200: return an existing pending request in either direction or an existing friendship. A reverse request does not auto-accept. Sending to self returns 422 SELF_FRIEND_REQUEST.",
         "x-permission": "AUTHENTICATED",
         "responses": {
           "200": {
@@ -1532,7 +1533,8 @@
                           },
                           "status": "PENDING",
                           "createdAt": "2026-09-17T03:00:00Z",
-                          "resolvedAt": null
+                          "resolvedAt": null,
+                          "message": "Chao ban, minh ket ban nhe!"
                         }
                       },
                       "requestId": "00000000-0000-4000-8000-000000000090"
@@ -1577,7 +1579,8 @@
               "examples": {
                 "default": {
                   "value": {
-                    "recipientId": "00000000-0000-4000-8000-000000000003"
+                    "recipientId": "00000000-0000-4000-8000-000000000003",
+                    "message": "Chao ban, minh ket ban nhe!"
                   }
                 }
               }
@@ -1629,7 +1632,8 @@
                         },
                         "status": "ACCEPTED",
                         "createdAt": "2026-09-17T03:00:00Z",
-                        "resolvedAt": "2026-09-17T03:00:00Z"
+                        "resolvedAt": "2026-09-17T03:00:00Z",
+                        "message": "Chao ban, minh ket ban nhe!"
                       },
                       "requestId": "00000000-0000-4000-8000-000000000090"
                     }
@@ -1714,7 +1718,8 @@
                         },
                         "status": "REJECTED",
                         "createdAt": "2026-09-17T03:00:00Z",
-                        "resolvedAt": "2026-09-17T03:00:00Z"
+                        "resolvedAt": "2026-09-17T03:00:00Z",
+                        "message": "Chao ban, minh ket ban nhe!"
                       },
                       "requestId": "00000000-0000-4000-8000-000000000090"
                     }
@@ -1799,7 +1804,8 @@
                         },
                         "status": "CANCELLED",
                         "createdAt": "2026-09-17T03:00:00Z",
-                        "resolvedAt": "2026-09-17T03:00:00Z"
+                        "resolvedAt": "2026-09-17T03:00:00Z",
+                        "message": "Chao ban, minh ket ban nhe!"
                       },
                       "requestId": "00000000-0000-4000-8000-000000000090"
                     }
@@ -8360,12 +8366,18 @@
             "format": "date-time",
             "nullable": true,
             "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true
           }
         },
         "required": [
           "id",
           "sender",
           "recipient",
+          "message",
           "status",
           "createdAt",
           "resolvedAt"
@@ -8385,7 +8397,8 @@
           },
           "status": "PENDING",
           "createdAt": "2026-09-17T03:00:00Z",
-          "resolvedAt": null
+          "resolvedAt": null,
+          "message": "Chao ban, minh ket ban nhe!"
         }
       },
       "CreateFriendRequest": {
@@ -8395,6 +8408,12 @@
             "type": "string",
             "example": "00000000-0000-4000-8000-000000000003",
             "format": "uuid"
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true,
+            "description": "Optional greeting sent with the friend request."
           }
         },
         "required": [

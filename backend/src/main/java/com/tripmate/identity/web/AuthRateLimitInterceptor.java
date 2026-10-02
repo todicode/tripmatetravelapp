@@ -42,7 +42,8 @@ public class AuthRateLimitInterceptor implements HandlerInterceptor {
         int limit = "otp".equals(category) ? otpLimit : generalLimit;
         Object principal = SecurityContextHolder.getContext().getAuthentication() == null ? null
                 : SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        String subject = "lookup".equals(category) && principal instanceof AuthenticatedActor actor
+        String subject = ("lookup".equals(category) || "friend-request".equals(category))
+                && principal instanceof AuthenticatedActor actor
                 ? actor.userId().toString() : request.getRemoteAddr();
         String key = category + '|' + subject;
         Bucket bucket = buckets.computeIfAbsent(key, ignored -> new Bucket());
@@ -68,6 +69,7 @@ public class AuthRateLimitInterceptor implements HandlerInterceptor {
                 && (uri.equals("/api/v1/users/lookup") || uri.equals("/api/v1/users/lookup-by-phone"))) {
             return "lookup";
         }
+        if ("POST".equalsIgnoreCase(method) && uri.equals("/api/v1/friend-requests")) return "friend-request";
         if (!"POST".equalsIgnoreCase(method)) return null;
         if (!uri.startsWith("/api/v1/auth/")) {
             return null;

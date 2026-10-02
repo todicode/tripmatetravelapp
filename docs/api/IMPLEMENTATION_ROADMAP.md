@@ -56,7 +56,7 @@ Tất cả đường dẫn REST dưới đây tính từ `/api/v1`.
 | `GET /users/me` | Đọc hồ sơ tài khoản hiện tại | identity |
 | `GET /health` | Kiểm tra dịch vụ | shared/system |
 
-`PATCH /users/me` đã triển khai slice sửa tên ngày 2026-10-01, có frontend MVVM và tests HTTP/PostgreSQL. Avatar/interests chưa hỗ trợ. API friend requests/trips/places/chat/notifications và các nhóm tiếp theo **chưa có controller/service tương ứng** trong backend đã kiểm tra. Ví dụ trong mock server không phải implementation.
+`PATCH /users/me` đã triển khai slice sửa tên ngày 2026-10-01, có frontend MVVM và tests HTTP/PostgreSQL. Avatar/interests chưa hỗ trợ. API trips/places/chat/notifications và các nhóm tiếp theo **chưa có controller/service tương ứng** trong backend đã kiểm tra. Ví dụ trong mock server không phải implementation.
 
 Các bảng identity đã có migration: `app_users`, `user_devices`, `refresh_tokens`, `pending_registrations`, `auth_identities`, `password_reset_challenges`.
 
@@ -293,7 +293,7 @@ Chốt checklist **chung của chuyến** theo UI hiện tại: ACTIVE member đ
 
 Backend chống tự kết bạn, pending trùng hai chiều, accept bởi người không phải recipient. Accept và tạo friendship trong transaction; hai request đồng thời không tạo quan hệ trùng. Không làm API public liệt kê mọi email tài khoản.
 
-**Implemented user lookup:** Authenticated `GET /users/lookup-by-phone?phone=...`, `GET /users/lookup?friendCode=...`, and `GET /users/me/friend-code` return minimal public profile data. Flyway V5 enforces unique normalized phone numbers (formatting ignored; Vietnamese +84 and 0 prefixes equivalent). Lookup is rate limited per user. Phone ownership is not SMS verified. If old records collide after normalization, the migration stops for manual resolution. Friend requests and QR scanning remain future work.
+**Implemented friend API:** Authenticated phone/friend-code lookup now returns real relationship state. Flyway V5 enforces unique normalized phone numbers (not SMS verified); V6 adds friend requests with optional 500-character message and friendships. Requests are idempotent for a pending pair, role-checked on accept/reject/cancel, and paged. A friend can be removed. Existing normalized phone duplicates stop V5 for manual resolution. QR scanning and mobile friend UI remain frontend work.
 
 ### 11.2. trip: membership và invitations
 
