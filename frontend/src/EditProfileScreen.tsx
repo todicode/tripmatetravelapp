@@ -21,7 +21,7 @@ export default function EditProfileScreen({ onBack }: { onBack: () => void }) {
   return <View style={s.screen}>
     <Header title="Chỉnh sửa hồ sơ" onBack={handleBack} />
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled">
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={s.body} keyboardShouldPersistTaps="handled">
         <View style={[s.card, { alignItems: 'center', padding: 20, gap: 12 }]}>
           <Pressable accessibilityLabel="Thay ảnh đại diện" disabled={form.isSaving || form.isPicking} onPress={() => { void form.chooseAvatar(); }} style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: c.blue, alignItems: 'center', justifyContent: 'center' }}>
             {form.avatarUri ? <Image source={{ uri: form.avatarUri }} style={{ width: 80, height: 80, borderRadius: 40 }} /> : <Text style={{ color: c.onBlue, fontSize: 24, fontWeight: '600' }}>{Array.from(form.name.trim()).slice(-1).join('').toUpperCase()}</Text>}
@@ -64,12 +64,14 @@ export default function EditProfileScreen({ onBack }: { onBack: () => void }) {
           </View>
         </View>
         <Text style={s.small}>Tên hiển thị tối đa 100 ký tự. Email không thể chỉnh sửa tại đây.</Text>
+      </ScrollView>
+      <View style={[s.footer, { gap: 8 }]}>
         {!!form.errorMessage && <Text accessibilityRole="alert" style={s.error}>{form.errorMessage}</Text>}
         <Pressable accessibilityRole="button" accessibilityState={{ disabled: !form.canSave, busy: form.isSaving }} disabled={!form.canSave}
           onPress={() => { void form.save(); }} style={[s.button, !form.canSave && { opacity: 0.6 }]}>
           {form.isSaving ? <View style={s.row}><ActivityIndicator color={c.onBlue} /><Text style={s.buttonText}>Đang lưu…</Text></View> : <Text style={s.buttonText}>Lưu thay đổi</Text>}
         </Pressable>
-      </ScrollView>
+      </View>
     </KeyboardAvoidingView>
   </View>;
 }
