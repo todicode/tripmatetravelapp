@@ -41,6 +41,28 @@ export default function EditProfileScreen({ onBack }: { onBack: () => void }) {
           <Text style={[s.title, { fontSize: 14 }]}>Email</Text>
           <TextInput accessibilityLabel="Email, chỉ đọc" value={form.email} editable={false} style={[s.input, { fontSize: 16, borderWidth: 0, borderRadius: 8 }]} />
         </View>
+        <View style={[s.card, { gap: 12 }]}>
+          <Text style={[s.title, { fontSize: 16 }]}>Sở thích du lịch</Text>
+          <Text style={s.small}>Chọn những trải nghiệm bạn yêu thích. Bạn có thể thay đổi hoặc bỏ chọn tất cả.</Text>
+          {form.isLoadingInterests && <View style={s.row}><ActivityIndicator color={c.blue} /><Text style={s.small}>Đang tải sở thích…</Text></View>}
+          {!!form.interestsError && <Text accessibilityRole="alert" style={s.error}>{form.interestsError}</Text>}
+          {!form.interestsReady && !form.isLoadingInterests && <Pressable accessibilityRole="button" disabled={form.isSaving} onPress={() => { void form.retryInterests(); }} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={s.link}>Thử lại</Text></Pressable>}
+          {form.interestsReady && form.interests.length === 0 && <Text style={s.small}>Chưa có danh mục sở thích.</Text>}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {form.interests.map(item => {
+              const selected = form.interestCodes.includes(item.code);
+              return <Pressable key={item.code} accessibilityRole="checkbox" accessibilityLabel={item.label}
+                accessibilityState={{ checked: selected, disabled: form.isSaving }} disabled={form.isSaving}
+                onPress={() => form.toggleInterest(item.code)}
+                style={{ minHeight: 48, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1, borderRadius: 12,
+                  borderColor: selected ? c.blue : c.border, backgroundColor: selected ? c.primaryLight : c.white,
+                  flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Icon name={selected ? 'checkbox-marked-outline' : 'checkbox-blank-outline'} size={20} color={selected ? c.blue : c.muted} />
+                <Text style={{ color: selected ? c.blue : c.ink }}>{item.label}</Text>
+              </Pressable>;
+            })}
+          </View>
+        </View>
         <Text style={s.small}>Tên hiển thị tối đa 100 ký tự. Email không thể chỉnh sửa tại đây.</Text>
         {!!form.errorMessage && <Text accessibilityRole="alert" style={s.error}>{form.errorMessage}</Text>}
         <Pressable accessibilityRole="button" accessibilityState={{ disabled: !form.canSave, busy: form.isSaving }} disabled={!form.canSave}

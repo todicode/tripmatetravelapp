@@ -20,6 +20,49 @@ const { displayNameError } = load('profile/profileModel.ts');
 const { createProfileApi } = load('profile/profileApi.ts');
 const { EditProfileModel } = load('profile/editProfileModel.ts');
 const { SessionManager, ApiRequestError } = load('auth/session.ts');
+test('interest drafts compare sets, persist changes and clear with an explicit empty array', async () => {
+  const writes = [];
+  const form = new EditProfileModel('An', async (...args) => { writes.push(args); return true; }, () => {}, () => {}, undefined,
+    async () => ({ items: [{ code: 'FOOD', label: 'Ẩm thực' }, { code: 'NATURE', label: 'Thiên nhiên' }], codes: ['FOOD'] }));
+  form.toggleInterest('FOOD'); assert.equal(form.isDirty, false);
+  await form.loadInterestOptions(); assert.equal(form.isDirty, false);
+  form.toggleInterest('FOOD'); form.toggleInterest('FOOD'); assert.equal(form.isDirty, false);
+  form.toggleInterest('NATURE'); assert.equal(form.canSave, true);
+  await form.save(); assert.deepEqual(Array.from(writes[0][2]), ['FOOD', 'NATURE']);
+  form.toggleInterest('FOOD'); form.toggleInterest('NATURE');
+  await form.save(); assert.equal(writes[1][2].length, 0);
+});
+test('failed interest load preserves server selection on name-only save; retry restores selections', async () => {
+  let attempts = 0, savedCodes = 'not called';
+  const form = new EditProfileModel('An', async (name, avatar, codes) => { savedCodes = codes; return true; }, () => {}, () => {}, undefined,
+    async () => { if (++attempts === 1) throw Error('offline'); return { items: [], codes: ['FOOD'] }; });
+  await form.loadInterestOptions(); assert.ok(form.getSnapshot().interestsError);
+  form.setName('B'); await form.save(); assert.equal(savedCodes, undefined);
+  await form.loadInterestOptions(); assert.equal(form.getSnapshot().interestCodes[0], 'FOOD');
+  assert.equal(form.getSnapshot().interests[0].code, 'FOOD');
+});
+test('interest save failure keeps draft and unmount ignores late catalog responses', async () => {
+  const pending = deferred();
+  const form = new EditProfileModel('An', async () => { throw Error('offline'); }, () => {}, () => {}, undefined,
+    () => pending.promise);
+  const loading = form.loadInterestOptions(); form.setActive(false);
+  pending.resolve({ items: [{ code: 'FOOD', label: 'Food' }], codes: ['FOOD'] }); await loading;
+  assert.equal(form.getSnapshot().interestsReady, false);
+  form.setActive(true); await form.loadInterestOptions(); form.toggleInterest('FOOD'); await form.save();
+  assert.equal(form.getSnapshot().interestCodes.length, 0); assert.equal(form.isDirty, true);
+  assert.ok(form.getSnapshot().errorMessage);
+});
+test('interest adapter validates catalog and only includes explicitly changed selections', async () => {
+  const payloads = [];
+  const api = createProfileApi(async (path, body) => {
+    if (path === '/interests') return { items: [{ code: 'FOOD', label: 'Ẩm thực' }] };
+    payloads.push(body); return profile();
+  }, 'a');
+  assert.equal((await api.interests())[0].code, 'FOOD');
+  await api.update('An'); await api.update('An', undefined, []);
+  assert.equal('interestCodes' in payloads[0], false); assert.equal(payloads[1].interestCodes.length, 0);
+  await assert.rejects(createProfileApi(async () => ({ items: [{ code: 'FOOD' }] }), 'a').interests());
+});
 test('thumbnail bytes become a data URI without Blob or FileReader, including multiple chunks', async () => {
   const bytes = Uint8Array.from({ length: 20000 }, (_, index) => index % 256);
   const api = createProfileApi(async (path, body, method, options) => {

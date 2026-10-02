@@ -1,5 +1,5 @@
 import { ApiRequestError, AuthorizedRequest } from '../auth/session';
-import { AvatarDraft, Profile } from './profileModel';
+import { AvatarDraft, Interest, Profile } from './profileModel';
 
 function parseProfile(value: unknown, userId: string): Profile {
   if (!value || typeof value !== 'object') throw invalidProfile();
@@ -17,8 +17,16 @@ const invalidProfile = () => new ApiRequestError('INVALID_RESPONSE', 'Pháº£n há»
 export function createProfileApi(request: AuthorizedRequest, userId: string) {
   return {
     get: async () => parseProfile(await request<unknown>('/users/me'), userId),
-    update: async (displayName: string, avatarMediaId?: string | null) => parseProfile(
-      await request<unknown>('/users/me', { displayName, ...(avatarMediaId !== undefined ? { avatarMediaId } : {}) }, 'PATCH'), userId),
+    update: async (displayName: string, avatarMediaId?: string | null, interestCodes?: string[]) => parseProfile(
+      await request<unknown>('/users/me', { displayName, ...(avatarMediaId !== undefined ? { avatarMediaId } : {}),
+        ...(interestCodes !== undefined ? { interestCodes } : {}) }, 'PATCH'), userId),
+    interests: async (): Promise<Interest[]> => {
+      const data = await request<{ items?: unknown }>('/interests');
+      if (!Array.isArray(data?.items) || !data.items.every(item => item && typeof item.code === 'string' && item.code.length > 0
+        && item.code.length <= 32 && typeof item.label === 'string' && item.label.length > 0 && item.label.length <= 80)
+        || new Set(data.items.map(item => item.code)).size !== data.items.length) throw invalidProfile();
+      return data.items;
+    },
     upload: async (file: AvatarDraft): Promise<string> => {
       const media = await request<{ id?: unknown; uploaderId?: unknown; status?: unknown; purpose?: unknown }>('/media', { purpose: 'AVATAR' }, 'POST', { file });
       if (typeof media?.id !== 'string' || media.uploaderId !== userId || media.status !== 'READY' || media.purpose !== 'AVATAR') throw invalidProfile();

@@ -52,15 +52,19 @@ export class ProfileStore {
     }
   };
   uploadAvatar = (file: AvatarDraft) => this.api.upload(file);
-  save = async (value: string, avatarMediaId?: string | null): Promise<boolean> => {
+  loadInterestOptions = async () => {
+    const [items, profile] = await Promise.all([this.api.interests(), this.api.get()]);
+    return { items, codes: profile.interestCodes };
+  };
+  save = async (value: string, avatarMediaId?: string | null, interestCodes?: string[]): Promise<boolean> => {
     const name = value.trim();
     const error = displayNameError(name);
     if (error) throw new Error(error);
-    if (this.state.isSaving || (name === this.state.user.displayName && avatarMediaId === undefined)) return false;
+    if (this.state.isSaving || (name === this.state.user.displayName && avatarMediaId === undefined && interestCodes === undefined)) return false;
     ++this.sequence; // Invalidate every GET begun before this write, even if the write fails.
     this.publish({ isSaving: true, isLoading: false, errorMessage: null });
     try {
-      const profile = await this.api.update(name, avatarMediaId);
+      const profile = await this.api.update(name, avatarMediaId, interestCodes);
       this.publish({ profile, user: profile });
       void this.showAvatar(profile, this.sequence);
       return true;
