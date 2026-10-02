@@ -1,5 +1,11 @@
 # Contract changelog
 
+## Interests implementation - 2026-10-02
+
+- Implemented authenticated GET `/interests` and profile `interestCodes` persistence. No wire schema change: the list is unique, has at most 50 codes, omission preserves selections, and `[]` clears them. Null, unknown codes and invalid shapes return 422 atomically with other profile changes.
+- Flyway V4 creates `interests` and `user_interests`, seeded with FOOD, NATURE, CULTURE, HIGHLIGHTS, MUSEUMS, HISTORY and SHOPPING. Frontend reads labels/codes from the catalog API. Trip setup's existing local preferences remain separate until the trip implementation slice.
+- Implementation and acceptance checklist: `INTEREST_IMPLEMENTATION_PLAN.md`.
+
 ## 1.3.1 - 2026-10-01
 
 - Added the avatar implementation slice: multipart upload, protected metadata/content/thumbnail, orphan deletion and atomic profile avatar attachment/removal. CHAT and friend/trip visibility remain unimplemented; avatar access currently requires ownership.

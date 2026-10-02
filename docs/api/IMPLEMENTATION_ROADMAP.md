@@ -64,7 +64,7 @@ Các bảng identity đã có migration: `app_users`, `user_devices`, `refresh_t
 
 | Mục UI | Hiện tại | Phần còn thiếu |
 | --- | --- | --- |
-| Cá nhân | GET hồ sơ, PATCH tên/avatar, upload private, state và form MVVM | Cấu hình R2 thật, nghiệm thu UI native; interests |
+| Cá nhân | GET hồ sơ, PATCH tên/avatar/sở thích, upload private, danh mục sở thích và form MVVM | Nghiệm thu UI sở thích; các luồng tiếp theo theo kế hoạch |
 | Chuyến đi/lịch trình | State trong phiên app | CRUD trip, itinerary, quyền, version, tải lại |
 | Khách sạn | Dữ liệu gắn trong model chuyến đi | Bảng và contract lưu nơi nghỉ |
 | Chi phí/checklist | Mảng trong chuyến đi của phiên | Bảng và API ghi/đọc/sửa/xóa |

@@ -15,9 +15,9 @@ Ngày 2026-10-02. Người dùng yêu cầu triển khai sau auth, tên và avat
 | Task | Phạm vi | Trạng thái |
 | --- | --- | --- |
 | ST-01 | Đối chiếu contract/schema/UI và ghi kế hoạch | Xong |
-| ST-02 | Migration, seed và API danh mục có auth | Xong, HTTP/PostgreSQL pass |
-| ST-03 | Lưu/đọc sở thích, validation và transaction | Xong, kiểm thử persistence/atomicity pass |
-| ST-04 | Adapter, state, ViewModel và giao diện | Xong, TypeScript và frontend tests pass |
+| ST-02 | Migration, seed và API danh mục có auth | Xong, `b18a174`, HTTP/PostgreSQL pass |
+| ST-03 | Lưu/đọc sở thích, validation và transaction | Xong, `b37864e`, persistence/atomicity pass |
+| ST-04 | Adapter, state, ViewModel và giao diện | Xong, `812245d`, TypeScript và frontend tests pass |
 | ST-05 | HTTP/PostgreSQL, frontend, typecheck và bàn giao | Tự động xong; nghiệm thu UI native thủ công còn lại |
 
 ## Kiểm thử nghiệm thu
@@ -32,7 +32,7 @@ Ngày 2026-10-02. Người dùng yêu cầu triển khai sau auth, tên và avat
 ## Kết quả và tiếp nối
 
 - 65 backend tests pass, 0 failure/error/skipped, gồm HTTP/JWT và PostgreSQL 17 riêng chạy migration V1–V4. Không ghi dữ liệu test vào database auth thật.
-- 40 frontend auth/profile tests pass; TypeScript pass. Kiểm thử catalog lỗi/retry, draft, xóa tất cả, response sau unmount, omission và validation response.
+- 40 frontend auth/profile tests pass; TypeScript và Metro Android export pass. Kiểm thử catalog lỗi/retry, draft, xóa tất cả, response sau unmount, omission và validation response.
 - OpenAPI pass: 73 operations, 138 schemas, 1751 examples/parameters, 6 negative checks. Contract wire không thay đổi.
 - Chưa thao tác native UI để nghiệm thu bố cục; chưa tích hợp sở thích cá nhân vào màn tạo chuyến đi. Màn tạo chuyến đi hiện vẫn dùng preferences local, xử lý ở slice trips.
 - Avatar đã được người dùng xác nhận hoạt động trước khi bắt đầu slice này.
