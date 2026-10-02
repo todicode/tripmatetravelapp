@@ -34,4 +34,16 @@ class ProfileUpdateRequestTest {
             assertEquals(field, error.getDetails().getFirst().field());
         }
     }
+
+    @Test void acceptsPhoneCompletionAndRejectsInvalidPhone() {
+        assertEquals("+84901234567", ProfileUpdateRequest.parse(Map.of("phone", " +84901234567 ")).phone());
+        for (Object value : new Object[]{"", "123", "+" + "1".repeat(32), 123}) {
+            ApiException error = assertThrows(ApiException.class,
+                    () -> ProfileUpdateRequest.parse(Map.of("phone", value)));
+            assertEquals("phone", error.getDetails().getFirst().field());
+        }
+        Map<String, Object> nullPhone = new HashMap<>();
+        nullPhone.put("phone", null);
+        assertThrows(ApiException.class, () -> ProfileUpdateRequest.parse(nullPhone));
+    }
 }

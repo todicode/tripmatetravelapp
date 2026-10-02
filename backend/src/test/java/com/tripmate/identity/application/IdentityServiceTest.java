@@ -407,7 +407,7 @@ class IdentityServiceTest {
                 new AuthenticatedUser(userId, UUID.randomUUID(), 1L), null, AuthorityUtils.NO_AUTHORITIES));
         try {
             var profiles = new ProfileService(userRepository, org.mockito.Mockito.mock(com.tripmate.media.api.AvatarMedia.class), service, org.mockito.Mockito.mock(com.tripmate.catalog.api.InterestCatalog.class));
-            ProfileResponse response = profiles.update(new com.tripmate.identity.web.ProfileUpdateRequest("Nguyễn An", false, null, null));
+            ProfileResponse response = profiles.update(new com.tripmate.identity.web.ProfileUpdateRequest("Nguyễn An", false, null, null, null));
             assertEquals(userId, response.id());
             assertEquals("Nguyễn An", service.getCurrentProfile().displayName());
             assertEquals("an@example.test", response.email());
@@ -424,8 +424,29 @@ class IdentityServiceTest {
         SecurityContextHolder.clearContext();
         var profiles = new ProfileService(userRepository, org.mockito.Mockito.mock(com.tripmate.media.api.AvatarMedia.class), service, org.mockito.Mockito.mock(com.tripmate.catalog.api.InterestCatalog.class));
         assertEquals(HttpStatus.UNAUTHORIZED,
-                assertThrows(ApiException.class, () -> profiles.update(new com.tripmate.identity.web.ProfileUpdateRequest("An", false, null, null))).getStatus());
+                assertThrows(ApiException.class, () -> profiles.update(new com.tripmate.identity.web.ProfileUpdateRequest("An", false, null, null, null))).getStatus());
         org.mockito.Mockito.verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void completesMissingPhoneButRejectsChangingAnExistingNumber() {
+        UUID userId = UUID.randomUUID();
+        UserEntity user = new UserEntity(userId, "google@example.test", "hash", "Google user", null, "TM-G", Instant.now());
+        when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+                new AuthenticatedUser(userId, UUID.randomUUID(), 1L), null, AuthorityUtils.NO_AUTHORITIES));
+        try {
+            var profiles = new ProfileService(userRepository, org.mockito.Mockito.mock(com.tripmate.media.api.AvatarMedia.class),
+                    service, org.mockito.Mockito.mock(com.tripmate.catalog.api.InterestCatalog.class));
+            assertEquals("+84901234567", profiles.update(com.tripmate.identity.web.ProfileUpdateRequest.parse(
+                    java.util.Map.of("phone", " +84901234567 "))).phone());
+            assertEquals("PHONE_ALREADY_SET", assertThrows(ApiException.class,
+                    () -> profiles.update(com.tripmate.identity.web.ProfileUpdateRequest.parse(
+                            java.util.Map.of("phone", "+84907654321")))).getCode());
+            assertEquals("+84901234567", user.getPhone());
+            verify(userRepository).saveAndFlush(user);
+        } finally { SecurityContextHolder.clearContext(); }
     }
 
     private PendingRegistrationEntity pending(UUID id, String otp, Instant expiresAt) {

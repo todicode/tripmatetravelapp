@@ -148,5 +148,5 @@ Create an OAuth web client in the same Google Cloud project as the mobile creden
 
 - Profile editing, interests, device push tokens and PostgreSQL concurrency suites are not part of this identity slice. Password reset and authenticated password change are implemented.
 - Auth endpoints have a per-instance in-memory rate limit (`10` general requests or `5` OTP requests per minute per remote address). Replace it with a shared store such as Redis before running multiple backend instances.
-- Google-created users have no phone value because Google authentication does not collect the manual registration phone field. Add a profile-completion endpoint before making phone mandatory for those accounts.
+- Google-created users initially have `phone: null`. The app requires a phone before entering its main interface; authenticated `PATCH /users/me` accepts `phone` only while it is missing (repeating the same value is safe). This records a number but does not verify ownership by SMS.
 - The local logging email sender is a development adapter. Configure SMTP and a verified Resend sender before integration testing real email delivery.

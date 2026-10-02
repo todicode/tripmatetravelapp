@@ -7917,6 +7917,14 @@
       "ProfileUpdate": {
         "type": "object",
         "properties": {
+          "phone": {
+            "type": "string",
+            "example": "+84901234567",
+            "minLength": 7,
+            "maxLength": 32,
+            "pattern": "^\\+?[0-9 ()-]{7,32}$",
+            "description": "Chỉ điền khi hồ sơ chưa có số điện thoại; gửi lại cùng số được chấp nhận."
+          },
           "displayName": {
             "type": "string",
             "example": "Nguyễn An",

@@ -165,7 +165,7 @@ Ví dụ xung đột:
 ### Auth registration v1.1 decisions
 
 - Manual registration creates a temporary challenge and sends an email OTP. `app_users` and a TripMate session are created only after a correct, unexpired, single-use OTP.
-- The request includes a required `phone` for manual registration. Profile responses may contain `phone: null` for Google-created users until profile completion exists.
+- The request includes a required `phone` for manual registration. Google-created profiles can have `phone: null` until authenticated `PATCH /users/me` fills it; the mobile app must block its main interface until completion. Phone entry alone does not verify ownership.
 - Google authentication accepts only a Google ID token and `installationId`. The backend verifies the token before issuing TripMate access and refresh tokens.
 - A Google identity is not auto-linked to an existing manual account by matching email. v1 returns `AUTH_METHOD_CONFLICT` and the user must use the existing manual sign-in flow.
 

@@ -51,6 +51,14 @@ export function useSessionViewModel(baseUrl: string) {
     setSessionError(null);
   };
 
+  const completePhone = async (phone: string) => {
+    const profile = await manager.request<{ id: string; phone: string | null }>('/users/me', { phone }, 'PATCH');
+    if (!profile || profile.id !== session?.user.id || profile.phone !== phone) {
+      throw new ApiRequestError('INVALID_RESPONSE', 'Không xác nhận được số điện thoại đã lưu. Vui lòng thử lại.', 0);
+    }
+    manager.updatePhone(profile.id, profile.phone);
+  };
+
   const logout = async () => {
     if (!session || loggingOut.current) return;
     loggingOut.current = true;
@@ -80,5 +88,5 @@ export function useSessionViewModel(baseUrl: string) {
     manager.request<T>(path, body, method, options), [manager]);
 
   return { session, request, restoring, restoreError, sessionError, restoreSession,
-    authenticate, logout, changePassword, discardSavedSession };
+    authenticate, completePhone, logout, changePassword, discardSavedSession };
 }

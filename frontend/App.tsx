@@ -232,7 +232,7 @@ function InputField({
   placeholder: string;
   value: string;
   onChangeText: (value: string) => void;
-} & Pick<TextInputProps, 'autoCapitalize' | 'autoComplete' | 'keyboardType' | 'maxLength'>) {
+} & Pick<TextInputProps, 'autoCapitalize' | 'autoComplete' | 'keyboardType' | 'maxLength' | 'onBlur'>) {
   return (
     <View style={styles.inputWrap}>
       <MaterialCommunityIcons name={icon} size={18} color="#7A7A7A" />
@@ -932,11 +932,59 @@ function AuthSheet({ activeTab, onChangeTab, onAuthenticated }: { activeTab: Aut
   );
 }
 
+function CompletePhoneDialog({ onComplete, onLogout, sessionError }: {
+  onComplete: (phone: string) => Promise<void>;
+  onLogout: () => Promise<void>;
+  sessionError: string | null;
+}) {
+  const [phone, setPhone] = useState('');
+  const [touched, setTouched] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const normalized = phone.trim();
+  const invalid = touched && !/^\+?[0-9 ()-]{7,32}$/.test(normalized);
+
+  const submit = async () => {
+    if (submitting) return;
+    setTouched(true);
+    if (!/^\+?[0-9 ()-]{7,32}$/.test(normalized)) return;
+    setError(null);
+    setSubmitting(true);
+    try { await onComplete(normalized); }
+    catch (cause) { setError(getApiErrorMessage(cause)); }
+    finally { setSubmitting(false); }
+  };
+
+  return <Modal visible transparent animationType="fade" onRequestClose={() => {}}>
+    <SafeAreaView style={styles.phoneOverlay} edges={['top', 'bottom']}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
+        <ScrollView contentContainerStyle={styles.phoneDialogScroll} keyboardShouldPersistTaps="handled">
+          <View style={styles.phoneDialog}>
+            <View accessible={false} style={styles.phoneDialogIcon}><MaterialCommunityIcons name="phone-outline" size={24} color={colors.blue} /></View>
+            <Text style={styles.phoneDialogTitle}>Vui lòng nhập SĐT của bạn</Text>
+            <Text style={styles.phoneDialogDescription}>Bạn cần thêm số điện thoại trước khi tiếp tục vào TripMate.</Text>
+            <Text style={styles.phoneDialogLabel}>Số điện thoại (bắt buộc)</Text>
+            <InputField icon="phone-outline" placeholder="Số điện thoại" value={phone} onChangeText={setPhone}
+              onBlur={() => setTouched(true)} autoComplete="tel" keyboardType="phone-pad" maxLength={32} />
+            {invalid && <Text accessibilityRole="alert" style={styles.phoneFieldError}>Nhập số điện thoại hợp lệ từ 7 đến 32 ký tự.</Text>}
+            <InlineError message={error ?? sessionError} />
+            <PrimaryButton label="Lưu và tiếp tục" loading={submitting} onPress={submit} />
+            <Pressable accessibilityRole="button" disabled={submitting} onPress={() => { void onLogout(); }}
+              style={({ pressed }) => [styles.phoneLogout, pressed && styles.subtlePressed]}>
+              <Text style={styles.link}>Đăng xuất</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  </Modal>;
+}
+
 function AppContent() {
   const theme = useAppTheme();
   const [activeTab, setActiveTab] = useState<AuthTab>('login');
   const { session, request, restoring, restoreError, sessionError, restoreSession, authenticate,
-    logout, changePassword: updatePassword, discardSavedSession } = useSessionViewModel(authApiBaseUrl);
+    completePhone, logout, changePassword: updatePassword, discardSavedSession } = useSessionViewModel(authApiBaseUrl);
   useEffect(() => { if (!session) setActiveTab('login'); }, [session]);
 
   const changePassword = async (currentPassword: string, newPassword: string) => {
@@ -962,7 +1010,10 @@ function AppContent() {
             <PrimaryButton label="Thử lại" loading={false} onPress={() => { void restoreSession(); }} />
             <Pressable accessibilityRole="button" onPress={() => { void discardSavedSession(); }}><Text style={styles.link}>Đăng nhập bằng tài khoản khác</Text></Pressable>
           </>}
-        </View> : session ? <>
+        </View> : session && !session.user.phone?.trim() ? <>
+          <MapBackdrop />
+          <CompletePhoneDialog onComplete={completePhone} onLogout={logout} sessionError={sessionError} />
+        </> : session ? <>
           <InlineError message={sessionError} />
           <ProfileProvider key={session.user.id} user={session.user} request={request}>
             <ExploreHome onLogout={() => { void logout(); }} onChangePassword={changePassword} />
@@ -1033,6 +1084,15 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   sheetHandle: { alignSelf: 'center', backgroundColor: colors.border, borderRadius: 3, height: 4, marginBottom: 12, width: 36 },
+  phoneOverlay: { flex: 1, backgroundColor: 'rgba(18, 29, 45, 0.58)' },
+  phoneDialogScroll: { flexGrow: 1, justifyContent: 'center', padding: 24 },
+  phoneDialog: { alignSelf: 'center', backgroundColor: colors.white, borderRadius: 24, gap: 12, maxWidth: 420, padding: 24, width: '100%' },
+  phoneDialogIcon: { alignItems: 'center', justifyContent: 'center', width: 48, height: 48, borderRadius: 24, backgroundColor: '#EAF3FF' },
+  phoneDialogTitle: { color: colors.ink, fontSize: 20, fontWeight: '700' },
+  phoneDialogDescription: { color: colors.muted, fontSize: 14, lineHeight: 21 },
+  phoneDialogLabel: { color: colors.ink, fontSize: 14, fontWeight: '600', marginTop: 4 },
+  phoneFieldError: { color: '#B42318', fontSize: 13 },
+  phoneLogout: { alignItems: 'center', borderRadius: 18, justifyContent: 'center', minHeight: 48 },
   segmentedControl: { backgroundColor: colors.canvas, borderColor: colors.border, borderRadius: 24, borderWidth: 1, flexDirection: 'row', height: 42, marginBottom: 12, padding: 3, position: 'relative' },
   segmentIndicator: { backgroundColor: colors.white, borderColor: colors.border, borderRadius: 20, borderWidth: 1, bottom: 3, left: 3, position: 'absolute', top: 3, width: '50%' },
   segmentIndicatorRegister: { left: '50%' },

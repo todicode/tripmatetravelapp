@@ -5,7 +5,7 @@ export type SessionResponse = {
   refreshToken: string;
   refreshExpiresAt: string;
   deviceId: string;
-  user: { id: string; displayName: string; email: string };
+  user: { id: string; displayName: string; email: string; phone: string | null };
 };
 
 export class ApiRequestError extends Error {
@@ -66,6 +66,12 @@ export class SessionManager {
     this.remember = false;
     this.changed(null);
     await this.store(() => this.storage.remove());
+  }
+
+  updatePhone(userId: string, phone: string) {
+    if (!this.current || this.current.user.id !== userId) throw expired();
+    this.current = { ...this.current, user: { ...this.current.user, phone } };
+    this.changed(this.current);
   }
 
   restore(): Promise<void> {

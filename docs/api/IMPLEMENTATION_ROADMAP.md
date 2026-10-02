@@ -98,7 +98,7 @@ Lưu AsyncStorage/SecureStore không đồng nghĩa lưu vào PostgreSQL. Bấm 
 | Giờ lịch | Chỉ có giờ đến, có thể rỗng | Itinerary bắt buộc start/end, không chồng lấn | Chốt semantics thời gian chưa định; không tự bịa giờ kết thúc |
 | Điểm tự nhập | Có tên, có thể không tọa độ | PLACE cần UUID; NOTE có customTitle | Có thể ánh xạ thành NOTE nếu đúng ý nghĩa; muốn địa điểm tùy chỉnh thật thì bổ sung tài nguyên |
 | Trạng thái chuyến/điểm | upcoming/completed/cancelled, pending/active/completed | Trip phase UPCOMING/ONGOING/PAST theo ngày; item không có trạng thái thực hiện | Phân biệt phase theo thời gian và completion/cancellation; bổ sung trạng thái thực hiện nếu muốn lưu |
-| Email hồ sơ | UI có ô email | ProfileUpdate không cho email/phone | Giữ email đăng nhập chỉ đọc; muốn đổi email cần xác minh email mới và luồng riêng |
+| Email hồ sơ | UI có ô email | ProfileUpdate không cho email; phone chỉ điền khi còn trống | Giữ email đăng nhập chỉ đọc; muốn đổi email cần xác minh email mới và luồng riêng |
 | Thông báo toàn cục | Hai switch nhắc chuyến/chat | Device có pushEnabled; trip có chat/itinerary push | Chốt scope user/device/trip, không map nhắc chuyến sang itinerary push |
 | Gần bạn | Địa điểm cá nhân đã lưu trong 50 km | Places nearby tìm provider, tối đa 10 km và cityCode | Hai use case khác nhau; giữ lọc saved places hoặc thêm API riêng, không đổi UI thành khám phá provider |
 

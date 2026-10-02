@@ -29,12 +29,16 @@ public class ProfileService {
         }
         var user = users.findByIdForUpdate(actor.userId()).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "Không tìm thấy tài khoản."));
         if (user.getStatus() != UserStatus.ACTIVE) throw new ApiException(HttpStatus.FORBIDDEN, "ACCOUNT_DISABLED", "Tài khoản đã bị khóa.");
+        if (update.phone() != null && user.getPhone() != null && !user.getPhone().equals(update.phone())) {
+            throw new ApiException(HttpStatus.CONFLICT, "PHONE_ALREADY_SET", "Số điện thoại đã được lưu. Không thể thay đổi tại bước này.");
+        }
         if (update.interestCodes() != null) interests.validate(update.interestCodes());
         if (update.hasAvatar()) {
             media.replace(user.getId(), user.getAvatarMediaId(), update.avatarMediaId());
             user.setAvatarMediaId(update.avatarMediaId());
         }
         if (update.displayName() != null) user.setDisplayName(update.displayName());
+        if (update.phone() != null && user.getPhone() == null) user.setPhone(update.phone());
         if (update.interestCodes() != null) user.setInterestCodes(update.interestCodes());
         users.saveAndFlush(user);
         return identity.getCurrentProfile();

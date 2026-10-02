@@ -114,6 +114,10 @@ public class UserEntity {
         return phone;
     }
 
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
     public String getFriendCode() {
         return friendCode;
     }

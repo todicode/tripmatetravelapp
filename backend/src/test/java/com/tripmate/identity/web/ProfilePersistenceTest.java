@@ -112,6 +112,22 @@ class ProfilePersistenceTest {
         assertEquals(0, call("GET", "/users/me", nextToken, null, 200).get("data").get("interestCodes").size());
     }
 
+    @Test void missingPhoneCanBeCompletedAndCannotBeChanged() throws Exception {
+        UUID id = UUID.randomUUID();
+        UserEntity user = users.saveAndFlush(new UserEntity(id, id + "@example.test", passwords.encode(PASSWORD),
+                "Google user", null, "TM-" + id.toString().substring(0, 8), Instant.now()));
+        String token = login(user, UUID.randomUUID()).get("accessToken").asText();
+        assertTrue(call("GET", "/users/me", token, null, 200).get("data").get("phone").isNull());
+        assertEquals("+84901234567", call("PATCH", "/users/me", token,
+                Map.of("phone", " +84901234567 "), 200).get("data").get("phone").asText());
+        assertEquals("+84901234567", users.findById(id).orElseThrow().getPhone());
+        assertEquals("+84901234567", call("PATCH", "/users/me", token,
+                Map.of("phone", "+84901234567"), 200).get("data").get("phone").asText());
+        assertEquals("PHONE_ALREADY_SET", call("PATCH", "/users/me", token,
+                Map.of("phone", "+84907654321"), 409).get("error").get("code").asText());
+        assertEquals("+84901234567", login(user, UUID.randomUUID()).get("user").get("phone").asText());
+    }
+
     @Test void rejectsInvalidWritesAtomicallyAndRequiresAuthentication() throws Exception {
         UserEntity user = createUser("Original");
         String token = login(user, UUID.randomUUID()).get("accessToken").asText();

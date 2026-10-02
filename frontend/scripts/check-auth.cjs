@@ -17,7 +17,7 @@ const { passwordError } = load('password.ts');
 const initialTime = Date.now();
 const session = (id = 1) => ({ accessToken: `access-${id}`, refreshToken: `refresh-${id}`, expiresIn: 900,
   refreshExpiresAt: new Date(initialTime + 86400000).toISOString(), tokenType: 'Bearer', deviceId: 'device',
-  user: { id: 'user', displayName: 'An', email: 'an@example.test' } });
+  user: { id: 'user', displayName: 'An', email: 'an@example.test', phone: null } });
 function fixture(transport) {
   let stored = null, current = null, now = initialTime;
   const manager = new SessionManager(transport, {
@@ -40,6 +40,17 @@ test('remember me stores only refresh credentials; unchecked removes them', asyn
   await f.manager.accept(session(2), false);
   assert.equal(f.saved(), null);
   assert.equal(f.current().accessToken, 'access-2');
+});
+
+test('completing a phone updates the active session without changing saved credentials', async () => {
+  const f = fixture(async () => {});
+  await f.manager.accept(session());
+  const saved = f.saved();
+  f.manager.updatePhone('user', '+84901234567');
+  assert.equal(f.current().user.phone, '+84901234567');
+  assert.equal(f.saved(), saved);
+  assert.throws(() => f.manager.updatePhone('other-user', '+84907654321'));
+  assert.equal(f.current().user.phone, '+84901234567');
 });
 
 test('restoring twice shares a single rotation and persists the new credential', async () => {

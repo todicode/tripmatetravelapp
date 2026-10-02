@@ -8,14 +8,20 @@ import java.util.Map;
 import java.util.UUID;
 
 /** Validates supported profile fields before any persistence. */
-public record ProfileUpdateRequest(String displayName, boolean hasAvatar, UUID avatarMediaId, List<String> interestCodes) {
+public record ProfileUpdateRequest(String displayName, boolean hasAvatar, UUID avatarMediaId, List<String> interestCodes, String phone) {
     public static ProfileUpdateRequest parse(Object body) {
         if (!(body instanceof Map<?, ?> fields)) throw invalid("body", "Hồ sơ phải là một object.");
         for (Object field : fields.keySet()) {
-            if (!"displayName".equals(field) && !"avatarMediaId".equals(field) && !"interestCodes".equals(field)) throw invalid(String.valueOf(field), "Trường này chưa được hỗ trợ.");
+            if (!"displayName".equals(field) && !"avatarMediaId".equals(field) && !"interestCodes".equals(field) && !"phone".equals(field)) throw invalid(String.valueOf(field), "Trường này chưa được hỗ trợ.");
         }
         if (fields.isEmpty()) throw invalid("body", "Cần ít nhất một trường cập nhật.");
         List<String> codes = null;
+        String phone = null;
+        if (fields.containsKey("phone")) {
+            if (!(fields.get("phone") instanceof String value)) throw invalid("phone", "Số điện thoại không hợp lệ.");
+            phone = value.trim();
+            if (phone.length() > 32 || !phone.matches("\\+?[0-9 ()-]{7,32}")) throw invalid("phone", "Số điện thoại không hợp lệ.");
+        }
         if (fields.containsKey("interestCodes")) {
             if (!(fields.get("interestCodes") instanceof List<?> values) || values.size() > 50) {
                 throw invalid("interestCodes", "Chọn tối đa 50 sở thích bằng danh sách mã.");
@@ -37,7 +43,7 @@ public record ProfileUpdateRequest(String displayName, boolean hasAvatar, UUID a
             }
             avatarId = UUID.fromString(value);
         }
-        if (!fields.containsKey("displayName")) return new ProfileUpdateRequest(null, hasAvatar, avatarId, codes);
+        if (!fields.containsKey("displayName")) return new ProfileUpdateRequest(null, hasAvatar, avatarId, codes, phone);
         if (!(fields.get("displayName") instanceof String name)) {
             throw invalid("displayName", "Tên hiển thị phải là chuỗi.");
         }
@@ -46,7 +52,7 @@ public record ProfileUpdateRequest(String displayName, boolean hasAvatar, UUID a
         if (normalized.isEmpty() || normalized.codePointCount(0, normalized.length()) > 100) {
             throw invalid("displayName", "Tên hiển thị cần từ 1 đến 100 ký tự.");
         }
-        return new ProfileUpdateRequest(normalized, hasAvatar, avatarId, codes);
+        return new ProfileUpdateRequest(normalized, hasAvatar, avatarId, codes, phone);
     }
     private static ApiException invalid(String field, String message) {
         return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "VALIDATION_ERROR", message,
