@@ -203,20 +203,59 @@ test('API adapter handles empty 204 and preserves HTTP status from an HTML error
 
 test('multipart transport lets native fetch set boundary and authenticates binary downloads', async () => {
   class NativeFormData { entries = []; append(key, value) { this.entries.push([key, value]); } }
-  const api = load('api.ts', { require: () => ({ ApiRequestError }), AbortController, setTimeout, clearTimeout, FormData: NativeFormData,
+  class LocalFile { constructor(uri) { this.uri = uri; } }
+  const api = load('api.ts', { require: name => name === 'expo-file-system' ? { File: LocalFile } : { ApiRequestError }, AbortController, setTimeout, clearTimeout, FormData: NativeFormData,
     fetch: async (url, options) => {
       assert.equal(options.headers.Authorization, 'Bearer token');
       if (url.endsWith('/media')) {
         assert.equal(options.headers['Content-Type'], undefined);
         assert.equal(options.body.entries[0][0], 'purpose'); assert.equal(options.body.entries[1][0], 'file');
+        assert.ok(options.body.entries[1][1] instanceof LocalFile);
         return new Response(JSON.stringify({ data: { id: 'media' } }));
       }
       return new Response('binary', { headers: { 'Content-Type': 'image/jpeg' } });
     },
   }).apiRequest;
   await api('https://example.test', 'API', '/media', { purpose: 'AVATAR' }, 'token', 'POST', { file: { uri: 'file://avatar.jpg', name: 'avatar.jpg', type: 'image/jpeg' } });
-  const blob = await api('https://example.test', 'API', '/media/id/thumbnail', undefined, 'token', 'GET', { responseType: 'blob' });
-  assert.equal(await blob.text(), 'binary');
+  const bytes = await api('https://example.test', 'API', '/media/id/thumbnail', undefined, 'token', 'GET', { responseType: 'arrayBuffer' });
+  assert.equal(Buffer.from(bytes).toString(), 'binary');
+});
+
+test('upload passes Expo multipart encoder and rejects the old URI descriptor', async () => {
+  const encoderSource = fs.readFileSync(path.resolve(__dirname, '../node_modules/expo/src/winter/fetch/convertFormData.ts'), 'utf8');
+  const compiled = ts.transpileModule(encoderSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } });
+  const context = { exports: {}, Blob, TextEncoder, Uint8Array,
+    require: () => ({ blobToArrayBufferAsync: blob => blob.arrayBuffer() }) };
+  vm.runInNewContext(compiled.outputText, context);
+  const { convertFormDataAsync } = context.exports;
+  class NativeFormData {
+    parts = []; append(key, value) { this.parts.push([key, value]); }
+    entries() { return this.parts; }
+  }
+  const bytes = new Uint8Array([255, 216, 255, 217]);
+  class LocalFile {
+    name = 'avatar.jpg'; type = 'image/jpeg';
+    constructor(uri) { assert.equal(uri, 'file:///cache/avatar.jpg'); }
+    async bytes() { return bytes; }
+  }
+  const old = new NativeFormData(); old.append('file', { uri: 'file:///cache/avatar.jpg', name: 'avatar.jpg', type: 'image/jpeg' });
+  await assert.rejects(convertFormDataAsync(old), /Unsupported FormDataPart/);
+  let sent = false;
+  const api = load('api.ts', { require: name => name === 'expo-file-system' ? { File: LocalFile } : { ApiRequestError },
+    AbortController, setTimeout, clearTimeout, FormData: NativeFormData,
+    fetch: async (url, options) => {
+      const encoded = await convertFormDataAsync(options.body, 'test-boundary');
+      const body = Buffer.from(encoded.body);
+      assert.ok(body.includes(Buffer.from(bytes)));
+      assert.match(body.toString(), /name="purpose"\r\n\r\nAVATAR/);
+      assert.match(body.toString(), /name="file"; filename="avatar.jpg"/);
+      assert.match(body.toString(), /content-type: image\/jpeg/);
+      assert.equal(options.headers.Authorization, 'Bearer token');
+      sent = true; return new Response(JSON.stringify({ data: { id: 'media' } }));
+    } }).apiRequest;
+  await api('https://example.test', 'API', '/media', { purpose: 'AVATAR' }, 'token', 'POST',
+    { file: { uri: 'file:///cache/avatar.jpg', name: 'avatar.jpg', type: 'image/jpeg' } });
+  assert.equal(sent, true);
 });
 
 test('API adapter reads retry hints and rejects malformed success payloads', async () => {

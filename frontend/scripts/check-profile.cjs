@@ -11,7 +11,7 @@ function load(file) {
   const compiled = ts.transpileModule(fs.readFileSync(resolved, 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   });
-  const context = { exports: {}, require: name => load(path.relative(path.resolve(__dirname, '../src'), path.resolve(path.dirname(resolved), name + '.ts'))) };
+  const context = { exports: {}, btoa, require: name => load(path.relative(path.resolve(__dirname, '../src'), path.resolve(path.dirname(resolved), name + '.ts'))) };
   vm.runInNewContext(compiled.outputText, context); cache.set(resolved, context.exports);
   return context.exports;
 }
@@ -20,6 +20,15 @@ const { displayNameError } = load('profile/profileModel.ts');
 const { createProfileApi } = load('profile/profileApi.ts');
 const { EditProfileModel } = load('profile/editProfileModel.ts');
 const { SessionManager, ApiRequestError } = load('auth/session.ts');
+test('thumbnail bytes become a data URI without Blob or FileReader, including multiple chunks', async () => {
+  const bytes = Uint8Array.from({ length: 20000 }, (_, index) => index % 256);
+  const api = createProfileApi(async (path, body, method, options) => {
+    assert.equal(path, '/media/avatar/thumbnail');
+    assert.equal(method, 'GET'); assert.equal(options.responseType, 'arrayBuffer');
+    return bytes.buffer;
+  }, 'a');
+  assert.equal(await api.image('avatar'), `data:image/jpeg;base64,${Buffer.from(bytes).toString('base64')}`);
+});
 const profile = (name = 'An', id = 'a') => ({ id, displayName: name, email: `${id}@example.test`,
   avatarMediaId: null, phone: null, interestCodes: [], createdAt: '2026-10-01T00:00:00Z', updatedAt: '2026-10-01T00:00:00Z' });
 function deferred() { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; }

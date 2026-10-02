@@ -44,6 +44,15 @@ Mỗi task cập nhật kết quả/commit. Manifest chỉ commit hai dòng lo�
 
 ## Handoff hiện tại
 
+### Sửa lỗi upload trên Expo 57 — 2026-10-02
+
+- Cảnh báo `Response.blob()` được xử lý bằng tải thumbnail qua `arrayBuffer()` và tạo data URI trực tiếp, không qua native Blob/FileReader. Không thêm native dependency; chỉ cần reload. TypeScript và 36 frontend tests pass, gồm kiểm thử bytes qua nhiều chunk.
+
+- Runtime Expo 57 mặc định dùng `expo/fetch`. Multipart encoder từ chối descriptor React Native `{ uri, name, type }` trước khi gửi request; vì vậy UI báo lỗi kết nối chung, backend không có lỗi và bảng media chưa có bản ghi.
+- `frontend/src/auth/api.ts` chuyển sang `File` từ `expo-file-system` để encoder đọc bytes. Không đổi credential hoặc bucket R2.
+- Test hồi quy chạy chính `convertFormDataAsync` của Expo đang cài: descriptor cũ bị từ chối, File mã hóa đúng bytes, filename, MIME và field purpose. TypeScript và 35 frontend tests pass.
+- Cần reload app, chọn lại ảnh và Lưu để nghiệm thu R2 thật; chưa khẳng định credential R2 đã hoạt động từ kiểm thử encoder.
+
 - Backend: 64 tests, 0 failure/error/skipped; HTTP/JWT/PostgreSQL thật trong container riêng, storage giả lập. Có kiểm thử hai upload đồng thời không vượt quota, lỗi upload/delete, cleanup retry và WebP/pixel limit.
 - Frontend: 34 auth/profile tests và TypeScript pass. Android debug x86_64 build thành công; Metro export Android thành công. Native modules được autolink; merged manifest không có CAMERA/RECORD_AUDIO.
 - OpenAPI: 73 operations, 138 schemas, 1751 examples và 6 negative checks pass.

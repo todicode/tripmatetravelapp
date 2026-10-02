@@ -1,4 +1,5 @@
 import { ApiRequestError, RequestOptions } from './session';
+import { File } from 'expo-file-system';
 
 export async function apiRequest<T>(
   baseUrl: string,
@@ -17,8 +18,8 @@ export async function apiRequest<T>(
     if (options?.file) {
       const form = new FormData();
       Object.entries(body ?? {}).forEach(([key, value]) => form.append(key, String(value)));
-      // React Native's FormData accepts a native file descriptor rather than a browser Blob.
-      form.append('file', options.file as unknown as Blob);
+      // Expo 57 fetch encodes Blob/File bytes; RN's { uri, name, type } descriptor is unsupported.
+      form.append('file', new File(options.file.uri));
       requestBody = form;
     }
     const response = await fetch(`${baseUrl}${path}`, {
@@ -28,9 +29,9 @@ export async function apiRequest<T>(
       method: method ?? (body === undefined ? 'GET' : 'POST'),
     });
     if (response.status === 204) return undefined as T;
-    if (response.ok && options?.responseType === 'blob') {
+    if (response.ok && options?.responseType === 'arrayBuffer') {
       if (!response.headers.get('Content-Type')?.startsWith('image/')) throw new ApiRequestError('INVALID_RESPONSE', 'Phản hồi ảnh không hợp lệ.', 0);
-      return await response.blob() as T;
+      return await response.arrayBuffer() as T;
     }
     const payload = await response.json().catch(() => null) as {
       data?: T;

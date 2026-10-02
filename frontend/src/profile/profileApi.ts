@@ -25,13 +25,14 @@ export function createProfileApi(request: AuthorizedRequest, userId: string) {
       return media.id;
     },
     image: async (id: string): Promise<string> => {
-      const blob = await request<Blob>(`/media/${encodeURIComponent(id)}/thumbnail`, undefined, 'GET', { responseType: 'blob' });
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(invalidProfile());
-        reader.onerror = () => reject(invalidProfile());
-        reader.readAsDataURL(blob);
-      });
+      const buffer = await request<ArrayBuffer>(`/media/${encodeURIComponent(id)}/thumbnail`, undefined, 'GET', { responseType: 'arrayBuffer' });
+      // Thumbnails are normalized JPEGs. Avoid the native Blob store and FileReader round trip.
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      for (let offset = 0; offset < bytes.length; offset += 8192) {
+        binary += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
+      }
+      return `data:image/jpeg;base64,${btoa(binary)}`;
     },
   };
 }
