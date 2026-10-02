@@ -1016,7 +1016,7 @@ function AppContent() {
         </> : session ? <>
           <InlineError message={sessionError} />
           <ProfileProvider key={session.user.id} user={session.user} request={request}>
-            <ExploreHome onLogout={() => { void logout(); }} onChangePassword={changePassword} />
+            <ExploreHome request={request} onLogout={() => { void logout(); }} onChangePassword={changePassword} />
           </ProfileProvider>
         </> : (
           <>

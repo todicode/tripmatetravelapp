@@ -13,12 +13,13 @@ import CreateMenu from './CreateMenu';
 import { useToast } from './theme/Toast';
 import ScreenTransition from './theme/ScreenTransition';
 import { useProfileState } from './profile/ProfileProvider';
+import { AuthorizedRequest } from './auth/session';
 
-export default function ExploreHome({ onLogout, onChangePassword }: { onLogout: () => void; onChangePassword: (currentPassword: string, newPassword: string) => Promise<void> }) {
+export default function ExploreHome({ onLogout, onChangePassword, request }: { onLogout: () => void; onChangePassword: (currentPassword: string, newPassword: string) => Promise<void>; request: AuthorizedRequest }) {
   const { user } = useProfileState();
   const { c, s } = useTripUi();
   const toast = useToast();
-  const { tab, setTab, trips, setTrips, lists, route, setRoute, menu, setMenu, exploreAction, setExploreAction, profileDetail, setProfileDetail, chat, openCreate, changeLists, savePlace } = useHomeViewModel({ user, notify: toast });
+  const { tab, setTab, trips, setTrips, lists, route, setRoute, menu, setMenu, exploreAction, setExploreAction, profileDetail, setProfileDetail, chat, openCreate, changeLists, savePlace } = useHomeViewModel({ user, notify: toast, request });
   if (route?.kind === 'create') return <ScreenTransition key="create" duration={320} slide><TripSetupScreen initialCityKey={route.cityKey} lists={lists} onBack={() => setRoute(null)} onSave={trip => { setTrips(current => [trip, ...current]); setTab('trips'); setRoute({ kind: 'trip', id: trip.id }); }} /></ScreenTransition>;
   if (route?.kind === 'trip') {
     const trip = trips.find(item => item.id === route.id);

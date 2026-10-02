@@ -7,7 +7,7 @@ export async function apiRequest<T>(
   path: string,
   body?: Record<string, unknown>,
   accessToken?: string,
-  method?: 'GET' | 'POST' | 'PATCH',
+  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE',
   options?: RequestOptions,
 ): Promise<T> {
   const controller = new AbortController();

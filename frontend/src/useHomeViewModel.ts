@@ -4,9 +4,10 @@ import type { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { makeId, normalizeName, Place, SavedPlaceList, Trip } from './trips/tripModel';
 import { useChatSession } from './chat/useChatSession';
+import { AuthorizedRequest } from './auth/session';
 import { parseSavedLists } from './savedPlacesModel';
 
-export function useHomeViewModel({ user, notify }: { user: { displayName: string; email: string }; notify: typeof Alert.alert }) {
+export function useHomeViewModel({ user, notify, request }: { user: { displayName: string; email: string }; notify: typeof Alert.alert; request: AuthorizedRequest }) {
   const [tab, setTab] = useState<'explore' | 'trips' | 'chat' | 'profile'>('explore');
   const [trips, setTrips] = useState<Trip[]>([]);
   const [lists, setLists] = useState<SavedPlaceList[]>([]);
@@ -38,7 +39,7 @@ export function useHomeViewModel({ user, notify }: { user: { displayName: string
   const [menu, setMenu] = useState(false);
   const [exploreAction, setExploreAction] = useState<'list' | 'lists' | 'place'>();
   const [profileDetail, setProfileDetail] = useState(false);
-  const chat = useChatSession();
+  const chat = useChatSession(request);
   const openCreate = (cityKey?: string) => { setMenu(false); setRoute({ kind: 'create', cityKey }); };
   useEffect(() => { if (route?.kind === 'create' || tab === 'chat' || (tab === 'profile' && profileDetail)) return; const sub = BackHandler.addEventListener('hardwareBackPress', () => { if (route) setRoute(null); else if (tab !== 'explore') setTab('explore'); else return false; return true; }); return () => sub.remove(); }, [route, tab, profileDetail]);
   return { tab, setTab, trips, setTrips, lists, route, setRoute, menu, setMenu, exploreAction, setExploreAction, profileDetail, setProfileDetail, chat, openCreate, changeLists, savePlace };
