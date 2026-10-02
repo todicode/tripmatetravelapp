@@ -56,7 +56,7 @@ Tất cả đường dẫn REST dưới đây tính từ `/api/v1`.
 | `GET /users/me` | Đọc hồ sơ tài khoản hiện tại | identity |
 | `GET /health` | Kiểm tra dịch vụ | shared/system |
 
-`PATCH /users/me` đã triển khai slice sửa tên ngày 2026-10-01, có frontend MVVM và tests HTTP/PostgreSQL. Avatar/interests chưa hỗ trợ. API friends/trips/places/chat/notifications và các nhóm tiếp theo **chưa có controller/service tương ứng** trong backend đã kiểm tra. Ví dụ trong mock server không phải implementation.
+`PATCH /users/me` đã triển khai slice sửa tên ngày 2026-10-01, có frontend MVVM và tests HTTP/PostgreSQL. Avatar/interests chưa hỗ trợ. API friend requests/trips/places/chat/notifications và các nhóm tiếp theo **chưa có controller/service tương ứng** trong backend đã kiểm tra. Ví dụ trong mock server không phải implementation.
 
 Các bảng identity đã có migration: `app_users`, `user_devices`, `refresh_tokens`, `pending_registrations`, `auth_identities`, `password_reset_challenges`.
 
@@ -281,6 +281,7 @@ Chốt checklist **chung của chuyến** theo UI hiện tại: ACTIVE member đ
 | --- | --- |
 | `GET /users/me/friend-code` | QR/mã kết bạn cá nhân |
 | `GET /users/lookup?friendCode=...` | Tìm bằng mã từ QR |
+| `GET /users/lookup-by-phone?phone=...` | Exact phone lookup |
 | `GET /friends`, `DELETE /friends/{userId}` | Chọn bạn để mời và quản lý quan hệ |
 | `GET /friend-requests` | Tab đã nhận/đã gửi |
 | `POST /friend-requests` | Gửi lời mời với recipientId |
@@ -292,7 +293,7 @@ Chốt checklist **chung của chuyến** theo UI hiện tại: ACTIVE member đ
 
 Backend chống tự kết bạn, pending trùng hai chiều, accept bởi người không phải recipient. Accept và tạo friendship trong transaction; hai request đồng thời không tạo quan hệ trùng. Không làm API public liệt kê mọi email tài khoản.
 
-**[Bổ sung] tìm theo điện thoại:** đề xuất `GET /users/lookup-by-phone?phone=...`, nhưng phải chốt chuẩn hóa, xác minh/độ duy nhất và quyền tìm thấy trước khi triển khai. `app_users.phone` hiện nullable và chưa có unique/phone verification trong migration identity; Google user có thể không có phone. Không suy ra tìm chắc chắn một người chỉ vì registration có phone. Trả user summary tối thiểu, giới hạn tìm kiếm; không dùng endpoint friendCode để nhận thêm phone tùy ý.
+**Implemented user lookup:** Authenticated `GET /users/lookup-by-phone?phone=...`, `GET /users/lookup?friendCode=...`, and `GET /users/me/friend-code` return minimal public profile data. Flyway V5 enforces unique normalized phone numbers (formatting ignored; Vietnamese +84 and 0 prefixes equivalent). Lookup is rate limited per user. Phone ownership is not SMS verified. If old records collide after normalization, the migration stops for manual resolution. Friend requests and QR scanning remain future work.
 
 ### 11.2. trip: membership và invitations
 

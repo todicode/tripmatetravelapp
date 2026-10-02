@@ -32,6 +32,10 @@ public class ProfileService {
         if (update.phone() != null && user.getPhone() != null && !user.getPhone().equals(update.phone())) {
             throw new ApiException(HttpStatus.CONFLICT, "PHONE_ALREADY_SET", "Số điện thoại đã được lưu. Không thể thay đổi tại bước này.");
         }
+        if (update.phone() != null && user.getPhone() == null
+                && users.existsByPhoneLookup(PhoneNumber.key(update.phone()))) {
+            throw new ApiException(HttpStatus.CONFLICT, "PHONE_ALREADY_REGISTERED", "Số điện thoại này đã được sử dụng bởi tài khoản khác.");
+        }
         if (update.interestCodes() != null) interests.validate(update.interestCodes());
         if (update.hasAvatar()) {
             media.replace(user.getId(), user.getAvatarMediaId(), update.avatarMediaId());

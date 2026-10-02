@@ -1,9 +1,11 @@
 package com.tripmate.identity.web;
 
+import com.tripmate.shared.security.AuthenticatedActor;
 import com.tripmate.shared.web.RateLimitExceededException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -33,15 +35,16 @@ public class AuthRateLimitInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            return true;
-        }
-        String category = category(request.getRequestURI());
+        String category = category(request.getMethod(), request.getRequestURI());
         if (category == null) {
             return true;
         }
         int limit = "otp".equals(category) ? otpLimit : generalLimit;
-        String key = category + '|' + request.getRemoteAddr();
+        Object principal = SecurityContextHolder.getContext().getAuthentication() == null ? null
+                : SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        String subject = "lookup".equals(category) && principal instanceof AuthenticatedActor actor
+                ? actor.userId().toString() : request.getRemoteAddr();
+        String key = category + '|' + subject;
         Bucket bucket = buckets.computeIfAbsent(key, ignored -> new Bucket());
         long now = System.nanoTime();
         synchronized (bucket) {
@@ -60,7 +63,12 @@ public class AuthRateLimitInterceptor implements HandlerInterceptor {
         return true;
     }
 
-    private String category(String uri) {
+    private String category(String method, String uri) {
+        if ("GET".equalsIgnoreCase(method)
+                && (uri.equals("/api/v1/users/lookup") || uri.equals("/api/v1/users/lookup-by-phone"))) {
+            return "lookup";
+        }
+        if (!"POST".equalsIgnoreCase(method)) return null;
         if (!uri.startsWith("/api/v1/auth/")) {
             return null;
         }

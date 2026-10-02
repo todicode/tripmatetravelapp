@@ -37,8 +37,9 @@ class ProfilePersistenceTest {
 
     private UserEntity createUser(String name) {
         UUID id = UUID.randomUUID();
+        String phone = "+84" + String.format("%09d", Math.floorMod(id.getMostSignificantBits(), 1_000_000_000L));
         return users.saveAndFlush(new UserEntity(id, id + "@example.test", passwords.encode(PASSWORD),
-                name, "+84901234567", "TM-" + id.toString().substring(0, 8), Instant.now()));
+                name, phone, "TM-" + id.toString().substring(0, 8).toUpperCase(java.util.Locale.ROOT), Instant.now()));
     }
     private JsonNode login(UserEntity user, UUID installation) throws Exception {
         return call("POST", "/auth/login", null, Map.of("email", user.getEmail(), "password", PASSWORD,
@@ -110,6 +111,30 @@ class ProfilePersistenceTest {
         assertEquals(2, call("GET", "/users/me", token, null, 200).get("data").get("interestCodes").size());
         assertEquals(0, call("PATCH", "/users/me", token, Map.of("interestCodes", java.util.List.of()), 200).get("data").get("interestCodes").size());
         assertEquals(0, call("GET", "/users/me", nextToken, null, 200).get("data").get("interestCodes").size());
+    }
+
+    @Test void lookupUsesOneNormalizedPhoneAndReturnsOnlyPublicProfile() throws Exception {
+        UserEntity target = createUser("Lookup target");
+        UserEntity viewer = createUser("Lookup viewer");
+        String token = login(viewer, UUID.randomUUID()).get("accessToken").asText();
+        String localPhone = "0" + target.getPhone().substring(3);
+        JsonNode found = call("GET", "/users/lookup-by-phone?phone=" + localPhone, token, null, 200).get("data");
+        assertEquals(target.getId().toString(), found.get("user").get("id").asText());
+        assertEquals("NONE", found.get("relationship").asText());
+        assertFalse(found.get("user").has("phone"));
+        assertFalse(found.get("user").has("email"));
+        assertEquals(found, call("GET", "/users/lookup?friendCode=" + target.getFriendCode().toLowerCase(),
+                token, null, 200).get("data"));
+        assertEquals("tripmate://friend/" + target.getFriendCode(),
+                call("GET", "/users/me/friend-code", token, null, 200).get("data").get("qrPayload").asText());
+        call("GET", "/users/lookup-by-phone?phone=" + localPhone, null, null, 401);
+        UUID incompleteId = UUID.randomUUID();
+        UserEntity incomplete = users.saveAndFlush(new UserEntity(incompleteId, incompleteId + "@example.test",
+                passwords.encode(PASSWORD), "Incomplete", null, "TM-" + incompleteId.toString().substring(0, 8), Instant.now()));
+        assertEquals("PHONE_ALREADY_REGISTERED", call("PATCH", "/users/me",
+                login(incomplete, UUID.randomUUID()).get("accessToken").asText(), Map.of("phone", localPhone), 409)
+                .get("error").get("code").asText());
+        assertTrue(users.findById(incompleteId).orElseThrow().getPhone() == null);
     }
 
     @Test void missingPhoneCanBeCompletedAndCannotBeChanged() throws Exception {

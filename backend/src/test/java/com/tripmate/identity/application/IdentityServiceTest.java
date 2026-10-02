@@ -429,6 +429,15 @@ class IdentityServiceTest {
     }
 
     @Test
+    void rejectsRegistrationWhenNormalizedPhoneIsAlreadyUsed() {
+        when(userRepository.existsByPhoneLookup("0901234567")).thenReturn(true);
+        ApiException error = assertThrows(ApiException.class, () -> service.startRegistration(
+                new RegisterRequest("new@example.test", "secret-password", UUID.randomUUID(), "New", "0901 234 567")));
+        assertEquals("PHONE_ALREADY_REGISTERED", error.getCode());
+        verify(pendingRegistrationRepository, never()).save(any());
+    }
+
+    @Test
     void completesMissingPhoneButRejectsChangingAnExistingNumber() {
         UUID userId = UUID.randomUUID();
         UserEntity user = new UserEntity(userId, "google@example.test", "hash", "Google user", null, "TM-G", Instant.now());
@@ -446,6 +455,25 @@ class IdentityServiceTest {
                             java.util.Map.of("phone", "+84907654321")))).getCode());
             assertEquals("+84901234567", user.getPhone());
             verify(userRepository).saveAndFlush(user);
+        } finally { SecurityContextHolder.clearContext(); }
+    }
+
+    @Test
+    void rejectsGooglePhoneCompletionWhenNormalizedPhoneIsAlreadyUsed() {
+        UUID userId = UUID.randomUUID();
+        UserEntity user = new UserEntity(userId, "google@example.test", "hash", "Google user", null, "TM-G", Instant.now());
+        when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
+        when(userRepository.existsByPhoneLookup("0901234567")).thenReturn(true);
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+                new AuthenticatedUser(userId, UUID.randomUUID(), 1L), null, AuthorityUtils.NO_AUTHORITIES));
+        try {
+            var profiles = new ProfileService(userRepository, org.mockito.Mockito.mock(com.tripmate.media.api.AvatarMedia.class),
+                    service, org.mockito.Mockito.mock(com.tripmate.catalog.api.InterestCatalog.class));
+            assertEquals("PHONE_ALREADY_REGISTERED", assertThrows(ApiException.class,
+                    () -> profiles.update(com.tripmate.identity.web.ProfileUpdateRequest.parse(
+                            java.util.Map.of("phone", "0901 234 567")))).getCode());
+            assertNull(user.getPhone());
+            verify(userRepository, never()).saveAndFlush(user);
         } finally { SecurityContextHolder.clearContext(); }
     }
 

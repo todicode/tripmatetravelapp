@@ -1,5 +1,7 @@
 package com.tripmate.identity.web;
 
+import com.tripmate.identity.application.PhoneNumber;
+
 import com.tripmate.shared.web.ApiException;
 import com.tripmate.shared.web.ErrorDetailResponse;
 import org.springframework.http.HttpStatus;
@@ -21,6 +23,8 @@ public record ProfileUpdateRequest(String displayName, boolean hasAvatar, UUID a
             if (!(fields.get("phone") instanceof String value)) throw invalid("phone", "Số điện thoại không hợp lệ.");
             phone = value.trim();
             if (phone.length() > 32 || !phone.matches("\\+?[0-9 ()-]{7,32}")) throw invalid("phone", "Số điện thoại không hợp lệ.");
+            try { PhoneNumber.key(phone); }
+            catch (ApiException invalidPhone) { throw invalid("phone", "Số điện thoại không hợp lệ."); }
         }
         if (fields.containsKey("interestCodes")) {
             if (!(fields.get("interestCodes") instanceof List<?> values) || values.size() > 50) {

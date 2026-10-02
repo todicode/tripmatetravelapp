@@ -44,6 +44,9 @@ public class UserEntity {
     @Column(length = 32)
     private String phone;
 
+    @Column(name = "phone_lookup", length = 15, insertable = false, updatable = false)
+    private String phoneLookup;
+
     @Column(name = "friend_code", nullable = false, unique = true, length = 32)
     private String friendCode;
 

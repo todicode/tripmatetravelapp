@@ -59,4 +59,16 @@ class AuthRateLimitInterceptorTest {
         assertThrows(RateLimitExceededException.class,
                 () -> interceptor.preHandle(request, mock(HttpServletResponse.class), new Object()));
     }
+
+    @Test
+    void limitsLookupRequests() {
+        AuthRateLimitInterceptor interceptor = new AuthRateLimitInterceptor(Duration.ofMinutes(1), 1, 1);
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getMethod()).thenReturn("GET");
+        when(request.getRequestURI()).thenReturn("/api/v1/users/lookup-by-phone");
+        when(request.getRemoteAddr()).thenReturn("127.0.0.1");
+        assertTrue(interceptor.preHandle(request, mock(HttpServletResponse.class), new Object()));
+        assertThrows(RateLimitExceededException.class,
+                () -> interceptor.preHandle(request, mock(HttpServletResponse.class), new Object()));
+    }
 }

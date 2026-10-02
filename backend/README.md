@@ -71,6 +71,10 @@ With `EMAIL_MODE=log`, the backend logs the recipient, expiry and OTP for local 
 
 For local Gmail SMTP, run `./scripts/setup-gmail-smtp.ps1` from the repository root in PowerShell. It prompts once for a Gmail App Password and saves the sender address and password in the Git-ignored `personal/gmail-smtp.env`. Later `./scripts/run-backend.ps1` calls automatically load that file and enable Gmail SMTP. Use `-Email address@gmail.com` for another sender, or `-Replace` to rotate the stored App Password. Do not commit or share the file. If the file is absent, the backend helper retains `EMAIL_MODE=log` and prints development OTP codes to its terminal.
 
+## User lookup
+
+Authenticated `GET /api/v1/users/lookup-by-phone?phone=...` and `GET /api/v1/users/lookup?friendCode=...` return only user ID, display name, avatar media ID and a relationship placeholder. `GET /api/v1/users/me/friend-code` returns the current user's code and QR payload. Lookup is rate limited per user. Phone numbers are unique after formatting and Vietnam `+84`/`0` normalization, but are not SMS verified. Flyway V5 will reject existing normalized duplicates; inspect and resolve them before deployment. Friend requests are not implemented yet.
+
 ## Authentication API
 
 Base URL: `http://localhost:8080/api/v1`.

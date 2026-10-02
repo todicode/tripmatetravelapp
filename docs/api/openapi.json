@@ -931,6 +931,9 @@
           "404": {
             "$ref": "#/components/responses/Error404"
           },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
           "429": {
             "$ref": "#/components/responses/Error429"
           },
@@ -951,6 +954,89 @@
               "pattern": "\\S"
             },
             "description": "friendCode"
+          }
+        ]
+      }
+    },
+    "/users/lookup-by-phone": {
+      "get": {
+        "tags": [
+          "Friends"
+        ],
+        "operationId": "lookupUserByPhone",
+        "summary": "Look up a limited profile by phone number",
+        "description": "Authenticated exact lookup using a normalized phone number. Spaces, dashes and parentheses are ignored; Vietnamese +84 and leading 0 are equivalent. Returns no email or phone. One normalized phone belongs to at most one account. Lookup uses the configured per-user rate limit (10 requests per minute by default).",
+        "x-permission": "AUTHENTICATED",
+        "responses": {
+          "200": {
+            "description": "Limited profile matching the phone number",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserLookupResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "user": {
+                          "id": "00000000-0000-4000-8000-000000000001",
+                          "displayName": "Nguyễn An",
+                          "avatarMediaId": null
+                        },
+                        "relationship": "NONE",
+                        "pendingRequestId": null
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "phone",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "+84901234567",
+              "minLength": 7,
+              "maxLength": 32
+            },
+            "description": "Phone number to look up"
           }
         ]
       }

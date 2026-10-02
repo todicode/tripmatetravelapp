@@ -94,9 +94,13 @@ public class IdentityService {
     public RegistrationChallengeResponse startRegistration(RegisterRequest request) {
         PasswordPolicy.validate(request.password());
         String email = normalizeEmail(request.email());
+        String phoneKey = PhoneNumber.key(request.phone());
         if (userRepository.existsByEmail(email)) {
             throw new ApiException(HttpStatus.CONFLICT, "EMAIL_ALREADY_REGISTERED",
                     "Email này đã được đăng ký.");
+        }
+        if (userRepository.existsByPhoneLookup(phoneKey)) {
+            throw phoneAlreadyRegistered();
         }
 
         Instant now = Instant.now();
@@ -146,6 +150,9 @@ public class IdentityService {
             pendingRegistrationRepository.save(pending);
             throw new ApiException(HttpStatus.CONFLICT, "EMAIL_ALREADY_REGISTERED",
                     "Email này đã được đăng ký.");
+        }
+        if (userRepository.existsByPhoneLookup(PhoneNumber.key(pending.getPhone()))) {
+            throw phoneAlreadyRegistered();
         }
 
         UserEntity user = new UserEntity(UUID.randomUUID(), pending.getEmail(), pending.getPasswordHash(),
@@ -358,6 +365,11 @@ public class IdentityService {
     private ApiException invalidCredentials() {
         return new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS",
                 "Email hoặc mật khẩu không đúng.");
+    }
+
+    private ApiException phoneAlreadyRegistered() {
+        return new ApiException(HttpStatus.CONFLICT, "PHONE_ALREADY_REGISTERED",
+                "Số điện thoại này đã được sử dụng bởi tài khoản khác.");
     }
 
     private String normalizeEmail(String email) {
