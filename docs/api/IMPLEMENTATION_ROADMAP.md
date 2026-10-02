@@ -27,7 +27,7 @@ Repo đã có **73 operation REST trong OpenAPI**, nhưng đây là contract thi
 
 - Giao tiếp chuẩn: [openapi.json](openapi.json), [TEAM_RULES.md](TEAM_RULES.md), [CHANGELOG.md](CHANGELOG.md).
 - Kiến trúc: [CODING_STANDARDS.md](../CODING_STANDARDS.md): frontend **MVVM**, backend **Modular Monolith**.
-- Thiết kế DB: [tripmate_v1.sql](../database/tripmate_v1.sql), [DATA_DICTIONARY.md](../database/DATA_DICTIONARY.md), [ERD](../../TRIPMATE_ERD_V1.md).
+- Thiết kế DB: [tripmate_v1.sql](../../backend/database/tripmate_v1.sql), [DATA_DICTIONARY.md](../../backend/database/DATA_DICTIONARY.md), [ERD](../../TRIPMATE_ERD_V1.md).
 - Schema được backend quản lý: [V1__identity.sql](../../backend/src/main/resources/db/migration/V1__identity.sql), [V2__password_reset.sql](../../backend/src/main/resources/db/migration/V2__password_reset.sql).
 - API có implementation: [AuthController.java](../../backend/src/main/java/com/tripmate/identity/web/AuthController.java), [UserController.java](../../backend/src/main/java/com/tripmate/identity/web/UserController.java), [HealthController.java](../../backend/src/main/java/com/tripmate/shared/web/HealthController.java).
 - State UI: [useHomeViewModel.ts](../../frontend/src/useHomeViewModel.ts), [tripModel.ts](../../frontend/src/trips/tripModel.ts), [useChatSession.ts](../../frontend/src/chat/useChatSession.ts), [useSettingsViewModel.ts](../../frontend/src/useSettingsViewModel.ts).

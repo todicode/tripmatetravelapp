@@ -18,8 +18,8 @@ MAIL_FROM=your-gmail-address@gmail.com
 These settings take precedence over `personal/gmail-smtp.env`. Use `EMAIL_MODE=log`
 for development OTPs in the terminal. SMTP mode requires all five `MAIL_*` fields;
 incomplete configuration stops startup. Restart the backend after changes.
-The helper also reads `SERVER_PORT` from this file; database and Google settings
-continue to use the helper's existing configuration sources.
+The helper also reads `SERVER_PORT` and `DATABASE_PASSWORD` from this file.
+It passes `DATABASE_PASSWORD` to the local PostgreSQL Compose service.
 
 ## Stack
 
@@ -40,7 +40,7 @@ cd backend
 
 ## Database
 
-The default local connection matches `docs/database/DBEAVER_LOCAL.md`:
+The default local connection matches `backend/database/DBEAVER_LOCAL.md`:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |

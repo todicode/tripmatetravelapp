@@ -10,7 +10,6 @@ Set-StrictMode -Version Latest
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $backendRoot = Join-Path $repoRoot 'backend'
-$databaseEnvFile = Join-Path $repoRoot 'docs/database/.env.erd.local'
 $frontendEnvFile = Join-Path $repoRoot 'frontend/.env.local'
 $gmailEnvFile = Join-Path $repoRoot 'personal/gmail-smtp.env'
 $defaultJavaHome = 'C:\Program Files\Eclipse Adoptium\jdk-26.0.2.1+1'
@@ -69,7 +68,7 @@ if (-not (Test-Path -LiteralPath $mavenWrapper)) {
     throw "Maven wrapper was not found at $mavenWrapper"
 }
 
-$dbPassword = Read-EnvValue $databaseEnvFile 'TRIPMATE_DB_PASSWORD'
+$dbPassword = Read-EnvValue $backendEnvFile 'DATABASE_PASSWORD'
 $googleWebClientId = Read-EnvValue $frontendEnvFile 'EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID'
 
 $env:JAVA_HOME = $javaHome
@@ -132,8 +131,8 @@ if (Test-Path -LiteralPath $backendEnvFile) {
 }
 Write-Host 'Starting local PostgreSQL...' -ForegroundColor Cyan
 & docker compose `
-    --env-file $databaseEnvFile `
-    -f (Join-Path $repoRoot 'docs/database/compose.auth.yml') `
+    --env-file $backendEnvFile `
+    -f (Join-Path $repoRoot 'backend/database/compose.auth.yml') `
     up -d --wait
 
 if ($LASTEXITCODE -ne 0) {

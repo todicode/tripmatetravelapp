@@ -8,7 +8,7 @@ services:
     environment:
       POSTGRES_DB: tripmate_auth
       POSTGRES_USER: tripmate
-      POSTGRES_PASSWORD: ${TRIPMATE_DB_PASSWORD:?Set TRIPMATE_DB_PASSWORD in .env.erd.local}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?Set DATABASE_PASSWORD in backend/.env}
       TZ: UTC
     volumes:
       - auth_pgdata:/var/lib/postgresql/data

@@ -37,9 +37,9 @@ Không đưa booking, thanh toán, chia tiền, chat riêng, OTP, chuyến nhi�
 
 ## 2. Tệp thiết kế và cách đọc
 
-- [tripmate_v1.dbml](docs/database/tripmate_v1.dbml): đầy đủ bảng, cột, PK/FK, cardinality và unique cơ bản; có thể import vào dbdiagram.
-- [tripmate_v1.sql](docs/database/tripmate_v1.sql): DDL tham chiếu PostgreSQL, bao gồm CHECK, partial index và deferred constraint.
-- [DATA_DICTIONARY.md](docs/database/DATA_DICTIONARY.md): giải thích từng thuộc tính, toàn bộ quan hệ FK và cách dùng từng index cho thành viên mới.
+- [tripmate_v1.dbml](backend/database/tripmate_v1.dbml): đầy đủ bảng, cột, PK/FK, cardinality và unique cơ bản; có thể import vào dbdiagram.
+- [tripmate_v1.sql](backend/database/tripmate_v1.sql): DDL tham chiếu PostgreSQL, bao gồm CHECK, partial index và deferred constraint.
+- [DATA_DICTIONARY.md](backend/database/DATA_DICTIONARY.md): giải thích từng thuộc tính, toàn bộ quan hệ FK và cách dùng từng index cho thành viên mới.
 - [TECHNOLOGY_DECISIONS.md](docs/TECHNOLOGY_DECISIONS.md): lý do lựa chọn công nghệ và đánh đổi.
 - Tài liệu này: sơ đồ theo nhóm, ý nghĩa dữ liệu, transaction và các quy tắc backend phải thực hiện.
 
@@ -507,7 +507,7 @@ Kết quả kiểm tra SQL của lần thiết kế này được ghi ở cuối
 - DDL chạy thành công trên **PostgreSQL 17.11**, trong container tạm không mở cổng mạng và không gắn dữ liệu có sẵn.
 - Database tạo đủ **23 bảng và 55 khóa ngoại**.
 - **22/22 ca kiểm tra ràng buộc đạt**: lời mời hai chiều/tự kết bạn, thứ tự cặp bạn, ngày/ngân sách, owner membership, ngày lịch trùng, giờ/chi phí sai, retry chat, scope/uploader của media, tái dùng attachment, tin rỗng, avatar, quota, lease, thông báo cho chính actor, reorder deferred và gửi lại lời mời sau từ chối.
-- [verify_tripmate_v1.sql](docs/database/verify_tripmate_v1.sql) dùng dữ liệu giả và ROLLBACK toàn bộ fixture. Đây là kiểm tra constraint DB, không thay thế test quyền và concurrency của backend.
+- [verify_tripmate_v1.sql](backend/database/verify_tripmate_v1.sql) dùng dữ liệu giả và ROLLBACK toàn bộ fixture. Đây là kiểm tra constraint DB, không thay thế test quyền và concurrency của backend.
 - DBML đã được bộ đọc **@dbml/cli** phân tích, xuất thành SQL và chạy trong một database tạm riêng. Toàn bộ **55 quan hệ FK khớp chiều và cột** với schema tham chiếu.
 - DBML dùng UTF-8 **không BOM** để import được. Thứ tự FK của quan hệ một-một theo [đặc tả DBML](https://dbml.dbdiagram.io/docs/).
 - Chưa có backend được triển khai trong workspace; chưa chạy test REST, WebSocket, Groq, R2 hoặc FCM. ERD cũng chưa được đối chiếu với UI Stitch.
@@ -518,7 +518,7 @@ Công việc kế tiếp trong kế hoạch là chốt API contract từ các lu
 
 ## 11. Kiểm tra lại và bổ sung tài liệu ngày 17/09/2026
 
-- Thêm [lý do chọn công nghệ](docs/TECHNOLOGY_DECISIONS.md) và [từ điển dữ liệu cho teammate](docs/database/DATA_DICTIONARY.md).
+- Thêm [lý do chọn công nghệ](docs/TECHNOLOGY_DECISIONS.md) và [từ điển dữ liệu cho teammate](backend/database/DATA_DICTIONARY.md).
 - Từ điển bao phủ đủ **213 cột của 23 bảng**, toàn bộ **55 FK** và **73 index**; gồm giải thích NULL/default, quyền ở service và ví dụ truy vấn.
 - Chạy lại DDL và `verify_tripmate_v1.sql` trên **PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2)** trong container tạm, không mở cổng và không gắn volume có sẵn: **22/22 ca PASS**.
 - Kiểm tra thêm database thực tế: **23 bảng, 55 FK, 73 index**, không còn fixture user sau rollback; container kiểm thử đã được xóa.

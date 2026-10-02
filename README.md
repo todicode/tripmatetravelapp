@@ -15,10 +15,10 @@ Phạm vi v1: một thành phố Việt Nam mỗi chuyến, 1–5 ngày, tối �
 1. [Kế hoạch, phạm vi và timeline](TRIPMATE_PLAN.md).
 2. [Lý do chọn công nghệ và các đánh đổi](docs/TECHNOLOGY_DECISIONS.md).
 3. [Thiết kế ERD và quy tắc nghiệp vụ/transaction](TRIPMATE_ERD_V1.md).
-4. [Từ điển dữ liệu: từng cột, quan hệ và index của 23 bảng](docs/database/DATA_DICTIONARY.md).
+4. [Từ điển dữ liệu: từng cột, quan hệ và index của 23 bảng](backend/database/DATA_DICTIONARY.md).
 5. [API contract JSON, mock local và cách tích hợp](docs/api/README.md).
 6. [Quy tắc backend/frontend bắt buộc tuân thủ](docs/api/TEAM_RULES.md).
-7. [Dựng PostgreSQL local và xem ERD bằng DBeaver](docs/database/DBEAVER_LOCAL.md).
+7. [Dựng PostgreSQL local và xem ERD bằng DBeaver](backend/database/DBEAVER_LOCAL.md).
 
 ## Công nghệ dự kiến
 
@@ -46,17 +46,18 @@ docs/
     TEAM_RULES.md              Quy tắc phối hợp backend/frontend
     README.md                  Chạy mock và kiểm tra contract
     mock-server.mjs            HTTP mock độc lập backend
+backend/
   database/
     DATA_DICTIONARY.md           Giải thích schema cho thành viên nhóm
     tripmate_v1.sql              Nguồn chuẩn về cấu trúc và ràng buộc vật lý
     tripmate_v1.dbml             Sơ đồ có thể import vào công cụ DBML
     verify_tripmate_v1.sql       Kiểm tra constraint với fixture rollback
+    compose.auth.yml             PostgreSQL local cho backend
     compose.erd.yml              PostgreSQL local để review ERD
-    .env.erd.example             Mẫu cấu hình, không chứa mật khẩu thật
     DBEAVER_LOCAL.md             Hướng dẫn dựng và kiểm tra database
 ```
 
-[backend/](backend/README.md) và [frontend/](frontend/README.md) đã được Git theo dõi bằng README hướng dẫn riêng; ứng dụng Spring Boot và Expo chưa được khởi tạo.
+[backend/](backend/README.md) và [frontend/](frontend/README.md) có hướng dẫn chạy riêng.
 
 ## Chạy database local
 
@@ -64,20 +65,20 @@ Cần Docker Desktop đang chạy Linux containers. Tại thư mục gốc repo,
 
 ```powershell
 # Chỉ tạo khi chưa có file local; giữ nguyên mật khẩu đang dùng nếu đã dựng DB.
-if (-not (Test-Path docs/database/.env.erd.local)) {
-    Copy-Item docs/database/.env.erd.example docs/database/.env.erd.local
+if (-not (Test-Path backend/.env)) {
+    Copy-Item backend/.env.example backend/.env
 }
 ```
 
-Mở `docs/database/.env.erd.local`, tự đặt giá trị `TRIPMATE_DB_PASSWORD`, rồi chạy:
+Mở `backend/.env`, tự đặt giá trị `DATABASE_PASSWORD`, rồi chạy:
 
 ```powershell
-docker compose --env-file docs/database/.env.erd.local -f docs/database/compose.erd.yml up -d --wait
+docker compose --env-file backend/.env -f backend/database/compose.erd.yml up -d --wait
 ```
 
-Kết nối PostgreSQL tại `127.0.0.1:5433`, database `tripmate_erd`, user `tripmate`. Schema được nạp **chỉ khi volume khởi tạo lần đầu**. File `.env.erd.local` được Git bỏ qua.
+Kết nối PostgreSQL tại `127.0.0.1:5433`, database `tripmate_erd`, user `tripmate`. Schema được nạp **chỉ khi volume khởi tạo lần đầu**. File `backend/.env` được Git bỏ qua.
 
-Xem [hướng dẫn đầy đủ và cách chạy bộ kiểm tra](docs/database/DBEAVER_LOCAL.md). SQL hiện là tài liệu tham chiếu, chưa phải migration Flyway và không được chạy lại trực tiếp lên database có dữ liệu.
+Xem [hướng dẫn đầy đủ và cách chạy bộ kiểm tra](backend/database/DBEAVER_LOCAL.md). SQL hiện là tài liệu tham chiếu, chưa phải migration Flyway và không được chạy lại trực tiếp lên database có dữ liệu.
 
 ## Công việc tiếp theo
 

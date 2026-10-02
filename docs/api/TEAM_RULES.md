@@ -2,7 +2,7 @@
 
 Phiên bản contract **1.0.0**, ngày **17/09/2026**. Áp dụng cho người và AI hỗ trợ hai phía. Đây là baseline để triển khai; **chưa phải danh sách API đang chạy**.
 
-Nguồn chuẩn giao tiếp là [openapi.json](openapi.json). REST nằm trong `paths/components`; STOMP trong `x-realtime`; push trong `x-push`. `x-realtime` là extension riêng của dự án, **không phải tài liệu AsyncAPI**. [ERD](../../TRIPMATE_ERD_V1.md) và [SQL](../database/tripmate_v1.sql) quy định dữ liệu/transaction; DTO API không xuất trực tiếp entity database.
+Nguồn chuẩn giao tiếp là [openapi.json](openapi.json). REST nằm trong `paths/components`; STOMP trong `x-realtime`; push trong `x-push`. `x-realtime` là extension riêng của dự án, **không phải tài liệu AsyncAPI**. [ERD](../../TRIPMATE_ERD_V1.md) và [SQL](../../backend/database/tripmate_v1.sql) quy định dữ liệu/transaction; DTO API không xuất trực tiếp entity database.
 
 **BẮT BUỘC** nghĩa là cả hai phía phải thực hiện. Khi khác ý tưởng với contract, sửa contract trước qua PR chung, không tự đổi wire format rồi yêu cầu phía kia sửa theo.
 

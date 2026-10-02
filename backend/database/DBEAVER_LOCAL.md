@@ -9,19 +9,19 @@ Cài Docker Desktop và DBeaver, mở Docker Desktop ở chế độ Linux conta
 Tạo cấu hình từ mẫu nếu chưa có file local:
 
 ```powershell
-if (-not (Test-Path docs/database/.env.erd.local)) {
-    Copy-Item docs/database/.env.erd.example docs/database/.env.erd.local
+if (-not (Test-Path backend/.env)) {
+    Copy-Item backend/.env.example backend/.env
 }
 ```
 
-Mở `docs/database/.env.erd.local`, điền một mật khẩu riêng cho database local sau dấu `=` của `TRIPMATE_DB_PASSWORD`. Mẫu cố ý để trống; Compose sẽ từ chối chạy khi chưa có giá trị. Có thể dùng chuỗi ngẫu nhiên chữ/số để tránh ký tự bị Compose diễn giải.
+Mở `backend/.env`, điền mật khẩu database local vào `DATABASE_PASSWORD`. Compose sẽ từ chối chạy khi chưa có giá trị. Có thể dùng chuỗi ngẫu nhiên chữ/số để tránh ký tự bị Compose diễn giải.
 
 File local không được đưa lên Git. Không ghi đè mật khẩu đang dùng nếu máy đã khởi tạo database.
 
 Khởi động:
 
 ```powershell
-docker compose --env-file docs/database/.env.erd.local -f docs/database/compose.erd.yml up -d --wait
+docker compose --env-file backend/.env -f backend/database/compose.erd.yml up -d --wait
 ```
 
 Lần đầu cần tải image `postgres:17`. SQL được nạp từ `tripmate_v1.sql` khi volume còn mới; sau khi thành công có 23 bảng và 55 khóa ngoại, chưa có dữ liệu demo.
@@ -35,7 +35,7 @@ Lần đầu cần tải image `postgres:17`. SQL được nạp từ `tripmate_
 | Port | `5433` |
 | Database | `tripmate_erd` |
 | Username | `tripmate` |
-| Password | Giá trị bạn đặt trong `.env.erd.local`, không gồm tên biến hoặc dấu `=` |
+| Password | Giá trị `DATABASE_PASSWORD` trong `backend/.env`, không gồm tên biến hoặc dấu `=` |
 
 Chọn **Database → New Database Connection → PostgreSQL**, nhập thông tin, chọn **Test Connection**, rồi **Finish**. Nếu thiếu JDBC driver, DBeaver sẽ đề nghị tải. Xem [hướng dẫn tạo connection của DBeaver](https://dbeaver.com/docs/dbeaver/Create-Connection/).
 
@@ -47,13 +47,13 @@ Trong Database Navigator, mở connection → database → Schemas → public �
 
 ```powershell
 # Khởi động lại
-docker compose --env-file docs/database/.env.erd.local -f docs/database/compose.erd.yml up -d --wait
+docker compose --env-file backend/.env -f backend/database/compose.erd.yml up -d --wait
 
 # Xem trạng thái
-docker compose --env-file docs/database/.env.erd.local -f docs/database/compose.erd.yml ps
+docker compose --env-file backend/.env -f backend/database/compose.erd.yml ps
 
 # Dừng; vẫn giữ volume và dữ liệu
-docker compose --env-file docs/database/.env.erd.local -f docs/database/compose.erd.yml stop
+docker compose --env-file backend/.env -f backend/database/compose.erd.yml stop
 ```
 
 Volume có tên `tripmate_erd_v1_local_pgdata`. Cổng chỉ mở trên `127.0.0.1:5433` của máy hiện tại.
@@ -65,8 +65,8 @@ Sửa SQL rồi restart **không cập nhật schema đã khởi tạo**. Đổi
 Dùng database local vừa khởi tạo, chưa có dữ liệu nghiệp vụ; không chạy trên production. Script dùng dữ liệu giả, bật `ON_ERROR_STOP` và rollback fixture. Script có lệnh riêng của `psql`, nên chạy bằng lệnh dưới đây thay vì dán toàn bộ vào SQL editor thông thường của DBeaver:
 
 ```powershell
-Get-Content -Raw -Encoding UTF8 docs/database/verify_tripmate_v1.sql |
-    docker compose --env-file docs/database/.env.erd.local -f docs/database/compose.erd.yml exec -T postgres psql -X -U tripmate -d tripmate_erd -v ON_ERROR_STOP=1
+Get-Content -Raw -Encoding UTF8 backend/database/verify_tripmate_v1.sql |
+    docker compose --env-file backend/.env -f backend/database/compose.erd.yml exec -T postgres psql -X -U tripmate -d tripmate_erd -v ON_ERROR_STOP=1
 if ($LASTEXITCODE -ne 0) {
     throw "Database constraint checks failed."
 }
@@ -81,9 +81,8 @@ Các ca này kiểm tra constraint database. Giới hạn 10 thành viên, quy�
 | File | Vai trò |
 | --- | --- |
 | [compose.erd.yml](compose.erd.yml) | Service PostgreSQL, port, volume, healthcheck và init SQL |
-| [.env.erd.example](.env.erd.example) | Mẫu được commit để người mới tự tạo cấu hình |
-| `.env.erd.local` | Mật khẩu riêng từng máy, được Git bỏ qua |
-| [.gitignore](.gitignore) | Quy tắc bỏ qua file local |
+| [backend/.env.example](../.env.example) | Mẫu cấu hình backend và database local |
+| `backend/.env` | Mật khẩu riêng từng máy, được Git bỏ qua |
 | [tripmate_v1.sql](tripmate_v1.sql) | Schema tham chiếu, nguồn chuẩn của constraint/index |
 | [tripmate_v1.dbml](tripmate_v1.dbml) | Sơ đồ thiết kế |
 | [verify_tripmate_v1.sql](verify_tripmate_v1.sql) | Kiểm tra với fixture rollback |

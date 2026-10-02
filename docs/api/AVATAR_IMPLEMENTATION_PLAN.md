@@ -27,7 +27,7 @@ Mỗi task cập nhật kết quả/commit. Manifest chỉ commit hai dòng lo�
 
 ## Nguồn cần đọc
 
-- `docs/CODING_STANDARDS.md`, `docs/api/TEAM_RULES.md`, `docs/api/openapi.json`, `docs/database/tripmate_v1.sql`.
+- `docs/CODING_STANDARDS.md`, `docs/api/TEAM_RULES.md`, `docs/api/openapi.json`, `backend/database/tripmate_v1.sql`.
 - `backend/src/main/java/com/tripmate/identity/{application,web,domain}`, `frontend/src/profile/*`, `frontend/src/auth/{api,session,useSessionViewModel}.ts`.
 - `template_gui/src/screens/EditProfileScreen.jsx`: chỉ tham khảo style; giới hạn 1 MiB và local FileReader không phải contract production.
 - `scripts/run-backend.ps1` đã nạp bốn biến R2 từ backend/.env.

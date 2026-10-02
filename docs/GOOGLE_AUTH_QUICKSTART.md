@@ -6,14 +6,14 @@
 
 1. Cài Docker Desktop (chạy Linux containers), Node.js 22+, Android Studio/SDK và JDK 26 (backend) cùng JDK 17 (Android). Mở Docker Desktop và đợi Docker Engine chạy. Clone nhánh có tích hợp Google Auth; trước khi chủ repo commit/push thay đổi, `git pull` chưa nhận được các file trong tài liệu này. Mở PowerShell tại thư mục repo (trong các lệnh dưới đây, thay `C:\path\to\tripmatetravelapp` bằng đường dẫn thực tế).
 2. Mở Android Studio, bật Android Emulator có **Google Play Services/Play Store**. Dùng tài khoản Google mà chủ project sẽ thêm vào OAuth **Test users**.
-3. Đảm bảo `docs/database/.env.erd.local` tồn tại và có `TRIPMATE_DB_PASSWORD=<mật khẩu local>` khác rỗng. Nếu thiếu, sao chép file mẫu rồi nhập mật khẩu:
+3. Đảm bảo `backend/.env` tồn tại và có `DATABASE_PASSWORD=<mật khẩu local>` khác rỗng. Nếu thiếu, sao chép file mẫu rồi nhập mật khẩu:
 
    ```powershell
    cd C:\path\to\tripmatetravelapp
-   if (-not (Test-Path docs/database/.env.erd.local)) {
-       Copy-Item docs/database/.env.erd.example docs/database/.env.erd.local
+   if (-not (Test-Path backend/.env)) {
+       Copy-Item backend/.env.example backend/.env
    }
-   notepad docs/database/.env.erd.local
+   notepad backend/.env
    ```
 
    Nếu file đã tồn tại, giữ nguyên mật khẩu hiện tại. Volume PostgreSQL giữ mật khẩu khi được tạo lần đầu; sửa file sau đó sẽ không đổi mật khẩu trong volume.
@@ -26,7 +26,7 @@
    }
    ```
 
-   Nếu đã có `.env.local`, giữ file đó và đối chiếu hai dòng với `.env.example`. Client ID ở dòng đầu là loại **Web application**, cùng Google Cloud project với Android OAuth client có package `com.tripmate.app` và SHA-1 của debug keystore. Client ID không phải secret. Không cần client secret hoặc `google-services.json` cho Android flow này. Cả hai file `.env.local` và `.env.erd.local` được Git ignore; mỗi người tự tạo trên máy mình.
+   Nếu đã có `.env.local`, giữ file đó và đối chiếu hai dòng với `.env.example`. Client ID ở dòng đầu là loại **Web application**, cùng Google Cloud project với Android OAuth client có package `com.tripmate.app` và SHA-1 của debug keystore. Client ID không phải secret. Không cần client secret hoặc `google-services.json` cho Android flow này. Cả `frontend/.env.local` và `backend/.env` được Git ignore; mỗi người tự tạo trên máy mình.
 
 5. Cài dependency và chuẩn bị debug keystore riêng cho máy mới. Trong PowerShell ở thư mục repo:
 
@@ -68,7 +68,7 @@ cd C:\path\to\tripmatetravelapp
 
 Thay đường dẫn `-JavaHome` bằng thư mục JDK 26 trên máy bạn mình (thư mục chứa `bin/java.exe`). Nếu bỏ tham số, helper thử `BACKEND_JAVA_HOME`, đường dẫn JDK 26 của máy tác giả, rồi `JAVA_HOME`; nó sẽ báo lỗi rõ nếu chọn sai phiên bản. Helper đọc mật khẩu database và Web Client ID từ các file local, khởi động PostgreSQL `tripmate_auth` tại `127.0.0.1:55432`, rồi chạy Spring Boot. **Giữ terminal này mở.** Chờ dòng `Started TripMateApplication` và `Tomcat started on port 8080`.
 
-Không chạy `compose.erd.yml` cho backend. Database ERD ở port `5433` nạp sẵn schema nên Flyway báo `Found non-empty schema`. Helper đã dùng Compose riêng `docs/database/compose.auth.yml`, không xóa dữ liệu ERD.
+Không chạy `compose.erd.yml` cho backend. Database ERD ở port `5433` nạp sẵn schema nên Flyway báo `Found non-empty schema`. Helper đã dùng Compose riêng `backend/database/compose.auth.yml`, không xóa dữ liệu ERD.
 
 Có thể kiểm tra API bằng token sai từ PowerShell khác:
 
@@ -110,7 +110,7 @@ Google Auth phụ thuộc vào mạng của emulator để mở tài khoản và
 - Không thấy tài khoản Google muốn chọn hoặc bị màn hình OAuth chặn: kiểm tra email đã thêm vào **Test users** và emulator có Google Play Services.
 - `NETWORK_ERROR` tới `10.0.2.2:8080`: kiểm tra terminal backend còn chạy và port `8080` đang nghe.
 - `401 INVALID_GOOGLE_TOKEN`: kiểm tra Web Client ID ở `frontend/.env.local` và `GOOGLE_WEB_CLIENT_ID` mà helper nạp cho backend là cùng một ID Web.
-- `FATAL: password authentication failed`: mật khẩu trong `.env.erd.local` không khớp volume `tripmate_auth_local_pgdata`. Khôi phục mật khẩu cũ; nếu muốn tạo database auth mới, cần sao lưu dữ liệu trước khi xóa volume.
+- `FATAL: password authentication failed`: `DATABASE_PASSWORD` trong `backend/.env` không khớp volume `tripmate_auth_local_pgdata`. Khôi phục mật khẩu cũ; nếu muốn tạo database auth mới, cần sao lưu dữ liệu trước khi xóa volume.
 - `Found non-empty schema`: bạn đang chạy backend trên database ERD port `5433`; dùng `scripts/run-backend.ps1` với database auth port `55432`.
 - `GOOGLE_CONFIG_MISSING`: thiếu Web Client ID trong `frontend/.env.local`, hoặc Metro chưa khởi động lại sau khi sửa file.
 - `Port 8080 was already in use`: đã có backend hoặc ứng dụng khác đang chạy ở port đó; chỉ chạy một backend cùng lúc.
