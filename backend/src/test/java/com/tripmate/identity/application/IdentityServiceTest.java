@@ -5,6 +5,7 @@ import com.tripmate.identity.domain.AuthIdentityEntity;
 import com.tripmate.identity.domain.PendingRegistrationEntity;
 import com.tripmate.identity.domain.RefreshTokenEntity;
 import com.tripmate.identity.domain.UserEntity;
+import com.tripmate.identity.domain.UserStatus;
 import com.tripmate.identity.infrastructure.AuthIdentityRepository;
 import com.tripmate.identity.infrastructure.DeviceRepository;
 import com.tripmate.identity.infrastructure.PendingRegistrationRepository;
@@ -240,19 +241,90 @@ class IdentityServiceTest {
 
 
     @Test
-    void googleIdentityDoesNotAutoLinkExistingManualEmail() {
+    void googleIdentityLinksExistingManualAccountWithPhone() {
+        UUID installationId = UUID.randomUUID();
+        UserEntity existing = new UserEntity(UUID.randomUUID(), "an@example.test", "password-hash",
+                "Nguyen An", "0901234567", "TM-EXIST01", Instant.now());
         when(googleIdentityVerifier.verify("google-id-token"))
                 .thenReturn(new GoogleIdentityVerifier.GoogleProfile(
                         "google-subject", "an@example.test", true, "Nguyen An"));
         when(authIdentityRepository.findByProviderAndProviderSubject("GOOGLE", "google-subject"))
                 .thenReturn(Optional.empty());
-        when(userRepository.existsByEmail("an@example.test")).thenReturn(true);
+        when(userRepository.findByEmailForUpdate("an@example.test")).thenReturn(Optional.of(existing));
+        when(deviceRepository.findByInstallationId(installationId)).thenReturn(Optional.empty());
+        when(deviceRepository.save(any(DeviceEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(jwtTokenService.issue(any(UserEntity.class), any(DeviceEntity.class))).thenReturn("access-token");
 
-        ApiException exception = assertThrows(ApiException.class,
+        SessionResponse response = service.authenticateWithGoogle(new GoogleAuthRequest("google-id-token", installationId));
+
+        assertEquals(existing.getId(), response.user().id());
+        assertEquals("0901234567", response.user().phone());
+        assertEquals("password-hash", existing.getPasswordHash());
+        ArgumentCaptor<AuthIdentityEntity> identity = ArgumentCaptor.forClass(AuthIdentityEntity.class);
+        verify(authIdentityRepository).save(identity.capture());
+        assertSame(existing, identity.getValue().getUser());
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void googleIdentityLinksExistingManualAccountWithoutPhone() {
+        UUID installationId = UUID.randomUUID();
+        UserEntity existing = new UserEntity(UUID.randomUUID(), "an@example.test", "password-hash",
+                "Nguyen An", null, "TM-EXIST01", Instant.now());
+        when(googleIdentityVerifier.verify("google-id-token"))
+                .thenReturn(new GoogleIdentityVerifier.GoogleProfile(
+                        "google-subject", "an@example.test", true, "Nguyen An"));
+        when(authIdentityRepository.findByProviderAndProviderSubject("GOOGLE", "google-subject"))
+                .thenReturn(Optional.empty());
+        when(userRepository.findByEmailForUpdate("an@example.test")).thenReturn(Optional.of(existing));
+        when(deviceRepository.findByInstallationId(installationId)).thenReturn(Optional.empty());
+        when(deviceRepository.save(any(DeviceEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        SessionResponse response = service.authenticateWithGoogle(new GoogleAuthRequest("google-id-token", installationId));
+
+        assertEquals(existing.getId(), response.user().id());
+        assertNull(response.user().phone());
+        verify(authIdentityRepository).save(any(AuthIdentityEntity.class));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void googleIdentityCannotReplaceAnotherGoogleIdentityOnExistingAccount() {
+        UserEntity existing = new UserEntity(UUID.randomUUID(), "an@example.test", "password-hash",
+                "Nguyen An", "0901234567", "TM-EXIST01", Instant.now());
+        when(googleIdentityVerifier.verify("google-id-token"))
+                .thenReturn(new GoogleIdentityVerifier.GoogleProfile(
+                        "new-google-subject", "an@example.test", true, "Nguyen An"));
+        when(authIdentityRepository.findByProviderAndProviderSubject("GOOGLE", "new-google-subject"))
+                .thenReturn(Optional.empty());
+        when(userRepository.findByEmailForUpdate("an@example.test")).thenReturn(Optional.of(existing));
+        when(authIdentityRepository.existsByUserIdAndProvider(existing.getId(), "GOOGLE")).thenReturn(true);
+
+        ApiException error = assertThrows(ApiException.class,
                 () -> service.authenticateWithGoogle(new GoogleAuthRequest("google-id-token", UUID.randomUUID())));
 
-        assertEquals(HttpStatus.CONFLICT, exception.getStatus());
-        assertEquals("AUTH_METHOD_CONFLICT", exception.getCode());
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        assertEquals("GOOGLE_IDENTITY_CONFLICT", error.getCode());
+        verify(authIdentityRepository, never()).save(any());
+    }
+
+    @Test
+    void googleIdentityDoesNotLinkDisabledAccountWithMatchingEmail() {
+        UserEntity existing = new UserEntity(UUID.randomUUID(), "an@example.test", "password-hash",
+                "Nguyen An", "0901234567", "TM-EXIST01", Instant.now());
+        existing.setStatus(UserStatus.DISABLED);
+        when(googleIdentityVerifier.verify("google-id-token"))
+                .thenReturn(new GoogleIdentityVerifier.GoogleProfile(
+                        "google-subject", "an@example.test", true, "Nguyen An"));
+        when(authIdentityRepository.findByProviderAndProviderSubject("GOOGLE", "google-subject"))
+                .thenReturn(Optional.empty());
+        when(userRepository.findByEmailForUpdate("an@example.test")).thenReturn(Optional.of(existing));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> service.authenticateWithGoogle(new GoogleAuthRequest("google-id-token", UUID.randomUUID())));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        assertEquals("ACCOUNT_DISABLED", error.getCode());
         verify(authIdentityRepository, never()).save(any());
     }
 

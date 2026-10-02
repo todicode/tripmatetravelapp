@@ -221,14 +221,21 @@ public class IdentityService {
                 throw new ApiException(HttpStatus.FORBIDDEN, "ACCOUNT_DISABLED", "Tài khoản đã bị khóa.");
             }
         } else {
-            if (userRepository.existsByEmail(email)) {
-                throw new ApiException(HttpStatus.CONFLICT, "AUTH_METHOD_CONFLICT",
-                        "Email này đã có tài khoản thủ công. Hãy đăng nhập bằng email và mật khẩu.");
+            user = userRepository.findByEmailForUpdate(email).orElse(null);
+            if (user != null) {
+                if (user.getStatus() != UserStatus.ACTIVE) {
+                    throw new ApiException(HttpStatus.FORBIDDEN, "ACCOUNT_DISABLED", "Tài khoản đã bị khóa.");
+                }
+                if (authIdentityRepository.existsByUserIdAndProvider(user.getId(), GOOGLE_PROVIDER)) {
+                    throw new ApiException(HttpStatus.CONFLICT, "GOOGLE_IDENTITY_CONFLICT",
+                            "Tài khoản này đã liên kết với một tài khoản Google khác.");
+                }
+            } else {
+                String unusablePassword = passwordEncoder.encode(randomSecret());
+                user = new UserEntity(UUID.randomUUID(), email, unusablePassword, profile.displayName(),
+                        null, generateFriendCode(), Instant.now());
+                user = userRepository.save(user);
             }
-            String unusablePassword = passwordEncoder.encode(randomSecret());
-            user = new UserEntity(UUID.randomUUID(), email, unusablePassword, profile.displayName(),
-                    null, generateFriendCode(), Instant.now());
-            user = userRepository.save(user);
             authIdentityRepository.save(new AuthIdentityEntity(UUID.randomUUID(), user, GOOGLE_PROVIDER,
                     profile.subject(), email));
         }

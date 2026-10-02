@@ -86,7 +86,7 @@ Base URL: `http://localhost:8080/api/v1`.
 3. `POST /auth/register/resend` accepts `verificationId`. Resends only after the cooldown and rotates the stored OTP hash.
 4. `POST /auth/register/cancel` accepts `verificationId` and deletes an unfinished challenge. Missing or already completed challenges are safe no-ops. Expired challenges are also removed by a periodic cleanup job.
 5. `POST /auth/login` accepts email/password and `installationId`. Manual accounts can log in only after email verification.
-6. `POST /auth/google` accepts a Google `idToken` and `installationId`. The backend verifies the token signature, audience, issuer, expiry, subject and `email_verified`, then issues TripMate tokens. A Google identity is not automatically linked to an existing manual account with the same email; v1 returns `AUTH_METHOD_CONFLICT`.
+6. `POST /auth/google` accepts a Google `idToken` and `installationId`. The backend verifies the token signature, audience, issuer, expiry, subject and `email_verified`, then issues TripMate tokens. If the verified Google email matches an active manual account, the Google identity is linked to that user ID without changing its password or phone. An account already linked to a different Google subject returns `GOOGLE_IDENTITY_CONFLICT`.
 7. `POST /auth/refresh` rotates a single-use refresh token. Reuse revokes the whole token family.
 8. `POST /auth/logout` requires the bearer access token, revokes refresh tokens for the current device and increments its binding version.
 9. `GET /users/me` requires the bearer access token and returns the profile, including `phone` when available.
@@ -142,7 +142,7 @@ Invoke-RestMethod "$base/users/me" -Headers $headers
 Invoke-RestMethod "$base/auth/logout" -Method Post -Headers $headers
 ```
 
-The registration screen can model the API states as: `202` = show the OTP form and countdown, `422 OTP_INVALID` = keep the form and show an inline error, `410 OTP_EXPIRED` = offer resend, `429 OTP_RESEND_TOO_SOON` or `OTP_ATTEMPTS_EXCEEDED` = respect the retry window, and `201` = store the returned session. Google uses `200` for both a first-time account and a returning account; `409 AUTH_METHOD_CONFLICT` asks the user to use the existing manual sign-in flow.
+The registration screen can model the API states as: `202` = show the OTP form and countdown, `422 OTP_INVALID` = keep the form and show an inline error, `410 OTP_EXPIRED` = offer resend, `429 OTP_RESEND_TOO_SOON` or `OTP_ATTEMPTS_EXCEEDED` = respect the retry window, and `201` = store the returned session. Google uses `200` for both a first-time account and a returning account, including an existing account matched by email. The client checks the returned profile's `phone`: a missing phone opens the required phone form, while an existing phone enters the app.
 
 For Android Emulator, use `http://10.0.2.2:8080/api/v1`; for a physical device use the development computer's LAN address. Production traffic must use HTTPS.
 
