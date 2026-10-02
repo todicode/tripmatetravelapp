@@ -25,7 +25,7 @@ class ProfileUpdateRequestTest {
         assertThrows(ApiException.class, () -> ProfileUpdateRequest.parse(nullName));
     }
     @Test void rejectsUnsupportedAndUnknownFieldsEvenAlongsideValidName() {
-        for (String field : List.of("interestCodes", "userId", "email")) {
+        for (String field : List.of("userId", "email")) {
             Map<String, Object> body = new HashMap<>();
             body.put("displayName", "An");
             body.put(field, null);

@@ -17,8 +17,9 @@ public class ProfileService {
     private final UserRepository users;
     private final AvatarMedia media;
     private final IdentityService identity;
-    public ProfileService(UserRepository users, AvatarMedia media, IdentityService identity) {
-        this.users = users; this.media = media; this.identity = identity;
+    private final com.tripmate.catalog.api.InterestCatalog interests;
+    public ProfileService(UserRepository users, AvatarMedia media, IdentityService identity, com.tripmate.catalog.api.InterestCatalog interests) {
+        this.users = users; this.media = media; this.identity = identity; this.interests = interests;
     }
     @Transactional
     public ProfileResponse update(ProfileUpdateRequest update) {
@@ -28,11 +29,13 @@ public class ProfileService {
         }
         var user = users.findByIdForUpdate(actor.userId()).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "Không tìm thấy tài khoản."));
         if (user.getStatus() != UserStatus.ACTIVE) throw new ApiException(HttpStatus.FORBIDDEN, "ACCOUNT_DISABLED", "Tài khoản đã bị khóa.");
+        if (update.interestCodes() != null) interests.validate(update.interestCodes());
         if (update.hasAvatar()) {
             media.replace(user.getId(), user.getAvatarMediaId(), update.avatarMediaId());
             user.setAvatarMediaId(update.avatarMediaId());
         }
         if (update.displayName() != null) user.setDisplayName(update.displayName());
+        if (update.interestCodes() != null) user.setInterestCodes(update.interestCodes());
         users.saveAndFlush(user);
         return identity.getCurrentProfile();
     }

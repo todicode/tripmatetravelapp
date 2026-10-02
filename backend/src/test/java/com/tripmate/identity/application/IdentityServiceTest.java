@@ -406,8 +406,8 @@ class IdentityServiceTest {
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
                 new AuthenticatedUser(userId, UUID.randomUUID(), 1L), null, AuthorityUtils.NO_AUTHORITIES));
         try {
-            var profiles = new ProfileService(userRepository, org.mockito.Mockito.mock(com.tripmate.media.api.AvatarMedia.class), service);
-            ProfileResponse response = profiles.update(new com.tripmate.identity.web.ProfileUpdateRequest("Nguyễn An", false, null));
+            var profiles = new ProfileService(userRepository, org.mockito.Mockito.mock(com.tripmate.media.api.AvatarMedia.class), service, org.mockito.Mockito.mock(com.tripmate.catalog.api.InterestCatalog.class));
+            ProfileResponse response = profiles.update(new com.tripmate.identity.web.ProfileUpdateRequest("Nguyễn An", false, null, null));
             assertEquals(userId, response.id());
             assertEquals("Nguyễn An", service.getCurrentProfile().displayName());
             assertEquals("an@example.test", response.email());
@@ -422,9 +422,9 @@ class IdentityServiceTest {
     @Test
     void rejectsProfileUpdateWithoutAuthentication() {
         SecurityContextHolder.clearContext();
-        var profiles = new ProfileService(userRepository, org.mockito.Mockito.mock(com.tripmate.media.api.AvatarMedia.class), service);
+        var profiles = new ProfileService(userRepository, org.mockito.Mockito.mock(com.tripmate.media.api.AvatarMedia.class), service, org.mockito.Mockito.mock(com.tripmate.catalog.api.InterestCatalog.class));
         assertEquals(HttpStatus.UNAUTHORIZED,
-                assertThrows(ApiException.class, () -> profiles.update(new com.tripmate.identity.web.ProfileUpdateRequest("An", false, null))).getStatus());
+                assertThrows(ApiException.class, () -> profiles.update(new com.tripmate.identity.web.ProfileUpdateRequest("An", false, null, null))).getStatus());
         org.mockito.Mockito.verifyNoInteractions(userRepository);
     }
 

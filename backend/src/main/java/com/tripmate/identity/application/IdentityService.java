@@ -343,7 +343,7 @@ public class IdentityService {
 
     private ProfileResponse toProfile(UserEntity user) {
         return new ProfileResponse(user.getId(), user.getDisplayName(), user.getAvatarMediaId(),
-                user.getEmail(), user.getPhone(), List.of(), user.getCreatedAt(), user.getUpdatedAt());
+                user.getEmail(), user.getPhone(), user.getInterestCodes(), user.getCreatedAt(), user.getUpdatedAt());
     }
 
     private AuthenticatedUser authenticatedUser() {

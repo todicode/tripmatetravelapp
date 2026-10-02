@@ -77,13 +77,48 @@ class ProfilePersistenceTest {
         assertEquals("Nguyễn Bình", login(user, installation).get("user").get("displayName").asText());
     }
 
+    @Test void interestsPersistClearAndValidateAtomicallyAcrossAccounts() throws Exception {
+        UserEntity user = createUser("Interests"), other = createUser("Other interests");
+        String token = login(user, UUID.randomUUID()).get("accessToken").asText();
+        call("GET", "/interests", null, null, 401);
+        var catalog = call("GET", "/interests", token, null, 200).get("data").get("items");
+        assertEquals(7, catalog.size());
+        assertTrue(catalog.toString().contains("FOOD"));
+        var selected = call("PATCH", "/users/me", token, Map.of("interestCodes", java.util.List.of("NATURE", "FOOD")), 200).get("data");
+        assertEquals("FOOD", selected.get("interestCodes").get(0).asText());
+        assertEquals(2, selected.get("interestCodes").size());
+        String nextToken = login(user, UUID.randomUUID()).get("accessToken").asText();
+        assertEquals(2, call("GET", "/users/me", nextToken, null, 200).get("data").get("interestCodes").size());
+        assertEquals(0, call("GET", "/users/me", login(other, UUID.randomUUID()).get("accessToken").asText(), null, 200).get("data").get("interestCodes").size());
+        call("PATCH", "/users/me", token, Map.of("displayName", "Renamed"), 200);
+        assertEquals(2, call("GET", "/users/me", token, null, 200).get("data").get("interestCodes").size());
+        var nullPayload = new java.util.HashMap<String,Object>();
+        nullPayload.put("displayName", "Must not save"); nullPayload.put("interestCodes", null);
+        call("PATCH", "/users/me", token, nullPayload, 422);
+        for (Object codes : new Object[]{"FOOD", java.util.List.of(12), java.util.List.of(""), java.util.List.of("x".repeat(33)),
+                java.util.List.of("FOOD", "FOOD"), java.util.List.of("UNKNOWN"),
+                java.util.stream.IntStream.range(0,51).mapToObj(i -> "CODE" + i).toList()}) {
+            var error = call("PATCH", "/users/me", token, Map.of("displayName", "Must not save", "interestCodes", codes), 422);
+            assertEquals("interestCodes", error.get("error").get("details").get(0).get("field").asText());
+        }
+        var unchanged = call("GET", "/users/me", token, null, 200).get("data");
+        assertEquals("Renamed", unchanged.get("displayName").asText());
+        assertEquals(2, unchanged.get("interestCodes").size());
+        // A later failure in the avatar part must not partially change name or interests.
+        call("PATCH", "/users/me", token, Map.of("displayName", "Must not save", "interestCodes", java.util.List.of("CULTURE"),
+                "avatarMediaId", UUID.randomUUID().toString()), 404);
+        assertEquals(2, call("GET", "/users/me", token, null, 200).get("data").get("interestCodes").size());
+        assertEquals(0, call("PATCH", "/users/me", token, Map.of("interestCodes", java.util.List.of()), 200).get("data").get("interestCodes").size());
+        assertEquals(0, call("GET", "/users/me", nextToken, null, 200).get("data").get("interestCodes").size());
+    }
+
     @Test void rejectsInvalidWritesAtomicallyAndRequiresAuthentication() throws Exception {
         UserEntity user = createUser("Original");
         String token = login(user, UUID.randomUUID()).get("accessToken").asText();
         call("PATCH", "/users/me", null, Map.of("displayName", "Intruder"), 401);
         call("PATCH", "/users/me", "invalid", Map.of("displayName", "Intruder"), 401);
         for (Object body : new Object[]{Map.of("displayName", " "), Map.of("displayName", "😀".repeat(101)),
-                Map.of("displayName", "Wrong", "interestCodes", new String[]{"FOOD"}),
+                Map.of("displayName", "Wrong", "interestCodes", new String[]{"UNKNOWN"}),
                 Map.of("displayName", "Wrong", "userId", UUID.randomUUID().toString())}) {
             assertEquals("VALIDATION_ERROR", call("PATCH", "/users/me", token, body, 422).get("error").get("code").asText());
         }

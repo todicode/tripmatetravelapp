@@ -16,6 +16,19 @@ import java.util.UUID;
 @Table(name = "app_users")
 public class UserEntity {
 
+    @jakarta.persistence.ElementCollection
+    @jakarta.persistence.CollectionTable(name = "user_interests", joinColumns = @jakarta.persistence.JoinColumn(name = "user_id"))
+    @Column(name = "interest_code", length = 32, nullable = false)
+    private java.util.Set<String> interestCodes = new java.util.HashSet<>();
+
+    public java.util.List<String> getInterestCodes() { return interestCodes.stream().sorted().toList(); }
+    public void setInterestCodes(java.util.List<String> codes) {
+        if (!interestCodes.equals(new java.util.HashSet<>(codes))) {
+            interestCodes.clear(); interestCodes.addAll(codes);
+            updatedAt = Instant.now();
+        }
+    }
+
     @Id
     private UUID id;
 
