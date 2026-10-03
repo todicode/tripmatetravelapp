@@ -12,7 +12,7 @@
     "test:auth": "node --test scripts/check-auth.cjs",
     "test:profile": "node --test scripts/check-profile.cjs",
     "test:friends": "node --test scripts/check-friends.cjs",
-    "test:messages": "node --test scripts/check-direct-messages.cjs scripts/check-direct-realtime.cjs",
+    "test:messages": "node --test scripts/check-direct-messages.cjs scripts/check-direct-realtime.cjs scripts/check-direct-scroll.cjs",
     "ios": "expo run:ios"
   },
   "dependencies": {

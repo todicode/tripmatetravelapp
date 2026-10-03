@@ -17,6 +17,22 @@ export default function DirectConversationScreen({ conversation, thread, onBack,
   const list = useRef<FlatList<DeliveryMessage>>(null);
   const submitInFlight = useRef(false);
   const atBottom = useRef(true);
+  const scrollAfterSend = useRef(false);
+  const scrollFrame = useRef<number | null>(null);
+  const scrollToLatest = () => {
+    if (!atBottom.current && !scrollAfterSend.current) return;
+    if (scrollFrame.current !== null) cancelAnimationFrame(scrollFrame.current);
+    scrollFrame.current = requestAnimationFrame(() => {
+      scrollFrame.current = null;
+      if (!atBottom.current && !scrollAfterSend.current) return;
+      list.current?.scrollToOffset({ offset: 0, animated: false });
+      scrollAfterSend.current = false;
+      atBottom.current = true;
+    });
+  };
+  useEffect(() => () => {
+    if (scrollFrame.current !== null) cancelAnimationFrame(scrollFrame.current);
+  }, []);
   const visibleSeq = useRef('0');
   const read = useRef(onRead);
   read.current = onRead;
@@ -42,7 +58,7 @@ export default function DirectConversationScreen({ conversation, thread, onBack,
     const text = input;
     setInput(''); setInputError('');
     atBottom.current = true;
-    list.current?.scrollToOffset({ offset: 0, animated: true });
+    scrollAfterSend.current = true;
     try { await onSend(text); }
     catch (error) { setInput(current => current || text); setInputError(error instanceof Error ? error.message : 'Chưa thể gửi tin. Vui lòng thử lại.'); }
     finally { submitInFlight.current = false; }
@@ -59,9 +75,9 @@ export default function DirectConversationScreen({ conversation, thread, onBack,
     <FlatList ref={list} data={messages} inverted keyExtractor={item => item.id}
       keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
       contentContainerStyle={{ padding: 16, gap: 12, flexGrow: 1 }}
-      maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+      maintainVisibleContentPosition={{ minIndexForVisible: 0, autoscrollToTopThreshold: 80 }}
       onScroll={event => { atBottom.current = event.nativeEvent.contentOffset.y < 80; }} scrollEventThrottle={100}
-      onContentSizeChange={() => { if (atBottom.current) list.current?.scrollToOffset({ offset: 0, animated: false }); }}
+      onContentSizeChange={scrollToLatest} onLayout={scrollToLatest}
       onViewableItemsChanged={onViewable} viewabilityConfig={viewability}
       ListEmptyComponent={<View style={u.empty}>
         {!thread || thread.loading ? <><ActivityIndicator color={c.blue} /><Text style={s.small}>Đang tải tin nhắn...</Text></>
