@@ -6,6 +6,8 @@
   "scripts": {
     "start": "expo start",
     "android": "node scripts/run-android.cjs",
+    "android:all": "node scripts/run-android.cjs --all-emulators",
+    "test:android": "node --test scripts/check-all-emulators.cjs",
     "typecheck": "tsc --noEmit",
     "test:auth": "node --test scripts/check-auth.cjs",
     "test:profile": "node --test scripts/check-profile.cjs",

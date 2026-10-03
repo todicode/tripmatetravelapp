@@ -6,6 +6,18 @@ Thư mục triển khai ứng dụng Android TripMate. Màn hình đăng nhập 
 
 Stack theo kế hoạch: React Native, TypeScript, Expo development build, Expo Router, TanStack Query và Zustand.
 
+## Chạy trên tất cả emulator đang bật
+
+Mở các emulator trong Android Studio, chờ máy khởi động xong, rồi chạy trong thư mục `frontend`:
+
+```powershell
+npm run android:all
+```
+
+Lệnh tự tìm các emulator đang kết nối qua ADB, build một APK debug cho các kiến trúc cần thiết, cài cập nhật và mở TripMate trên từng máy. Không xóa dữ liệu đăng nhập; không chọn điện thoại thật hoặc emulator offline. Nếu không có emulator đang bật, lệnh báo lỗi và không tự mở máy mới.
+
+Các máy dùng chung Metro trên cổng 8081: script dùng lại server đang chạy hoặc khởi động một server mới. Giữ terminal Metro mở khi test; backend cần chạy riêng. Đăng nhập tài khoản khác nhau trên từng máy để test chat. `npm run android` vẫn dùng luồng chạy Android cũ. Kiểm tra script bằng `npm run test:android`.
+
 ## UI được port từ template_gui
 
 - Màn hình sau đăng nhập dùng component React Native và các hook ViewModel; giữ nguyên luồng auth và cấu trúc API hiện có.

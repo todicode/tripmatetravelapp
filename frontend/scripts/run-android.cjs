@@ -42,11 +42,21 @@ console.log(`Android JAVA_HOME: ${javaHome}`);
 
 const expoPackage = require.resolve('expo/package.json');
 const expoBin = require(expoPackage).bin.expo;
-const result = spawnSync(process.execPath, [
-  path.resolve(path.dirname(expoPackage), expoBin),
-  'run:android',
-  ...process.argv.slice(2),
-], { cwd: projectRoot, env, stdio: 'inherit' });
+if (process.argv[2] === '--all-emulators') {
+  if (process.argv.length > 3) {
+    console.error('Usage: npm run android:all');
+    process.exit(1);
+  }
+  require('./run-all-emulators.cjs').runAllEmulators({
+    projectRoot, env, expoCli: path.resolve(path.dirname(expoPackage), expoBin),
+  }).catch(error => { console.error(error.message); process.exitCode = 1; });
+} else {
+  const result = spawnSync(process.execPath, [
+    path.resolve(path.dirname(expoPackage), expoBin),
+    'run:android',
+    ...process.argv.slice(2),
+  ], { cwd: projectRoot, env, stdio: 'inherit' });
 
-if (result.error) console.error(result.error.message);
-process.exit(result.status ?? 1);
+  if (result.error) console.error(result.error.message);
+  process.exit(result.status ?? 1);
+}
