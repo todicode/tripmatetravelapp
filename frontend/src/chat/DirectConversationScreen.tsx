@@ -87,7 +87,7 @@ export default function DirectConversationScreen({ conversation, thread, onBack,
     {!!thread?.readError && <Pressable accessibilityRole="button" accessibilityLabel="Thử cập nhật trạng thái đã đọc" onPress={() => onRead(visibleSeq.current)} style={{ padding: 12 }}><Text style={s.error}>{thread.readError}</Text></Pressable>}
     <FlatList ref={list} data={messages} inverted keyExtractor={item => item.id}
       keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
-      contentContainerStyle={{ padding: 16, gap: 12, flexGrow: 1 }}
+      contentContainerStyle={{ padding: 16, flexGrow: 1 }}
       maintainVisibleContentPosition={{ minIndexForVisible: 0, autoscrollToTopThreshold: 80 }}
       onScroll={event => { atBottom.current = event.nativeEvent.contentOffset.y < 80; }} scrollEventThrottle={100}
       onContentSizeChange={scrollToLatest} onLayout={scrollToLatest}
@@ -102,21 +102,32 @@ export default function DirectConversationScreen({ conversation, thread, onBack,
           {thread.olderLoading ? <ActivityIndicator color={c.blue} /> : <Text style={s.link}>{thread.olderError ? 'Thử tải lại tin cũ' : 'Xem tin nhắn cũ hơn'}</Text>}
         </Pressable>
       </View> : null}
-      renderItem={({ item, index }) => <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+      renderItem={({ item, index }) => {
+        // Data is newest first: index + 1 is the previous message in reading order.
+        const joinsAbove = messages[index + 1]?.isMe === item.isMe;
+        const joinsBelow = messages[index - 1]?.isMe === item.isMe;
+        const topRadius = joinsAbove ? 4 : 24;
+        const bottomRadius = joinsBelow ? 4 : 24;
+        return <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8,
+          marginBottom: index === messages.length - 1 ? 0 : joinsAbove ? 2 : 10 }}>
         {!item.isMe && <View style={{ width: 28 }} accessible={false} importantForAccessibility="no-hide-descendants">
-          {(index === 0 || messages[index - 1]?.isMe) && <Avatar text={avatarText} uri={avatarUri} size={28} />}
+          {!joinsBelow && <Avatar text={avatarText} uri={avatarUri} size={28} />}
         </View>}
         <View style={{ flex: 1, alignItems: item.isMe ? 'flex-end' : 'flex-start', gap: 4 }}>
-        <View style={{ maxWidth: '82%', padding: 12, borderRadius: 18, borderWidth: item.isMe ? 0 : 1,
+        <View style={{ maxWidth: '82%', paddingHorizontal: 14, paddingVertical: 9,
+          borderTopLeftRadius: item.isMe ? 24 : topRadius, borderBottomLeftRadius: item.isMe ? 24 : bottomRadius,
+          borderTopRightRadius: item.isMe ? topRadius : 24, borderBottomRightRadius: item.isMe ? bottomRadius : 24,
+          borderWidth: item.isMe ? 0 : 1,
           borderColor: c.border, backgroundColor: item.isMe ? c.blue : c.white, opacity: item.status === 'sending' ? 0.65 : 1 }}>
           <Text selectable style={{ color: item.isMe ? c.onBlue : c.ink, fontSize: 16, lineHeight: 23 }}>{item.text}</Text>
-          <Text style={{ marginTop: 6, fontSize: 12, textAlign: 'right', color: item.isMe ? c.onBlue : c.muted }}>{item.time}{item.status === 'sending' ? ' · Đang gửi...' : ''}</Text>
         </View>
+        {item.status === 'sending' && <Text style={s.small}>Đang gửi...</Text>}
         {item.status === 'failed' && <View style={{ maxWidth: '82%', gap: 4 }}><Text accessibilityRole="alert" style={s.error}>{item.error ?? 'Chưa gửi được tin nhắn.'}</Text>
           {conversation.canSend && <Pressable accessibilityRole="button" accessibilityLabel="Thử gửi lại tin nhắn" onPress={() => onRetry(item.clientMessageId)} style={{ minHeight: 44, justifyContent: 'center', alignItems: 'flex-end' }}><Text style={s.link}>Thử gửi lại</Text></Pressable>}
         </View>}
         </View>
-      </View>} />
+      </View>;
+      }} />
     {!!inputError && <Text accessibilityRole="alert" style={[s.error, { padding: 12, backgroundColor: c.white }]}>{inputError}</Text>}
     <View style={[s.footer, s.row, { padding: 12 }]}>
       <TextInput value={input} onChangeText={text => { setInput(text); setInputError(''); }} editable={canSend}

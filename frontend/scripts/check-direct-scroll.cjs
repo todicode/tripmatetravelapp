@@ -72,3 +72,30 @@ test('incoming runs show one peer avatar at the newest bubble and outgoing messa
   assert.equal(h.find(rows[2], 'Avatar'), undefined);
   assert.equal(h.find(rows[3], 'Avatar').props.text, 'A');
 });
+
+test('message runs use tight spacing and connected corners in chronological order on both sides', () => {
+  for (const isMe of [true, false]) {
+    const h = screen();
+    h.props.thread.messages = [
+      { id: 'first', isMe }, { id: 'middle', isMe }, { id: 'last', isMe },
+      { id: 'standalone', isMe: !isMe },
+    ];
+    const list = h.find(h.render(), 'FlatList');
+    const rows = list.props.data.map((item, index) => list.props.renderItem({ item, index }));
+    const bubble = row => row.children.at(-1).children[0].props.style;
+    const corners = row => {
+      const style = bubble(row);
+      return isMe ? [style.borderTopRightRadius, style.borderBottomRightRadius]
+        : [style.borderTopLeftRadius, style.borderBottomLeftRadius];
+    };
+    assert.deepEqual(corners(rows[3]), [24, 4]); // First, visually above the rest.
+    assert.deepEqual(corners(rows[2]), [4, 4]);
+    assert.deepEqual(corners(rows[1]), [4, 24]);
+    const standalone = bubble(rows[0]);
+    assert.deepEqual([standalone.borderTopLeftRadius, standalone.borderBottomLeftRadius,
+      standalone.borderTopRightRadius, standalone.borderBottomRightRadius], [24, 24, 24, 24]);
+    assert.equal(rows[2].props.style.marginBottom, 2);
+    assert.equal(rows[1].props.style.marginBottom, 2);
+    assert.equal(rows[0].props.style.marginBottom, 10);
+  }
+});
