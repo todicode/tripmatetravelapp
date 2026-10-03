@@ -1,8 +1,9 @@
 # API contract TripMate
 
-Bộ giao tiếp để backend và frontend phát triển độc lập, phiên bản **1.3.0 — 24/09/2026**.
+Bộ giao tiếp để backend và frontend phát triển độc lập, phiên bản **1.4.0 — 03/10/2026**.
 
-- [openapi.json](openapi.json): **73 operation REST**, request/response/schema, quyền, lỗi, ví dụ; STOMP và FCM trong x-realtime/x-push.
+- [openapi.json](openapi.json): **79 operation REST**, request/response/schema, quyền, lỗi, ví dụ; STOMP và FCM trong x-realtime/x-push.
+- [DIRECT_MESSAGING.md](DIRECT_MESSAGING.md): API nhắn tin cá nhân đã triển khai, ví dụ gửi/đọc tin và hướng dẫn kiểm thử PostgreSQL.
 - [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md): API đã triển khai, lộ trình theo UI/database hiện tại, phân công frontend/backend/hạ tầng và các phần cần bổ sung contract.
 - [TEAM_RULES.md](TEAM_RULES.md): các điều hai bên bắt buộc tuân thủ và tiêu chí bàn giao.
 - [CHANGELOG.md](CHANGELOG.md): lịch sử phiên bản contract.

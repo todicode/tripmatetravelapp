@@ -77,6 +77,10 @@ Authenticated `GET /api/v1/users/lookup-by-phone?phone=...` and `GET /api/v1/use
 
 `POST /api/v1/friend-requests` takes `recipientId` and optional `message` (at most 500 characters). A repeated request in either direction returns the existing pending request; it never auto-accepts. `GET /api/v1/friend-requests?direction=INCOMING|OUTGOING` lists requests (default `status=PENDING`). `POST /api/v1/friend-requests/{requestId}/accept|reject|cancel` processes a request with role checks and repeat-safe results. `GET /api/v1/friends` lists friends; `DELETE /api/v1/friends/{userId}` removes a friendship. Lists use `limit` and an opaque `cursor`. Flyway V6 creates the social tables. Phone/code lookup and friend-request creation are rate limited per user.
 
+## Direct messaging API
+
+Five authenticated REST operations are implemented under `/api/v1/direct-conversations`: POST opens/reuses a conversation with a current friend, GET lists conversations, GET/POST `/{id}/messages` reads/sends text, and PUT `/{id}/read` advances the caller's read sequence. Sending supports `clientMessageId` retries, messages use contiguous string sequences, and unread counts exclude outgoing messages. Unfriend preserves history but blocks sending. Flyway V7 adds the chat tables. No frontend, socket, push or attachment changes in this slice. See [API examples and PostgreSQL test instructions](../docs/api/DIRECT_MESSAGING.md).
+
 ## Authentication API
 
 Base URL: `http://localhost:8080/api/v1`.

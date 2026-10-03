@@ -1,5 +1,12 @@
 # Contract changelog
 
+## 1.4.0 - 2026-10-03
+
+- Added five authenticated REST operations for direct text messaging: open/list conversations, send/list messages, and update the caller's read sequence. Frontend integration, WebSocket, push and attachments are outside this implementation slice.
+- Only current friends may open a conversation or send; unfriend retains participant access to history and read markers. One canonical conversation per pair, contiguous per-conversation sequences and sender-scoped `clientMessageId` retries are transaction protected.
+- New `DirectConversation`, `DirectMessage`, page, read and request schemas. Bigint sequence/read/unread values are strings; text is preserved exactly and limited to 4,000 Unicode code points. Conversation lists use signed actor-bound keyset cursors; message pages use exclusive `beforeSeq`/`afterSeq` and return ascending sequences.
+- Flyway V7 adds `direct_conversations` and `direct_messages` without altering identity/social data. Examples and database acceptance instructions: `DIRECT_MESSAGING.md`.
+
 ## Interests implementation - 2026-10-02
 
 - Implemented authenticated GET `/interests` and profile `interestCodes` persistence. No wire schema change: the list is unique, has at most 50 codes, omission preserves selections, and `[]` clears them. Null, unknown codes and invalid shapes return 422 atomically with other profile changes.

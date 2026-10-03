@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "TripMate API Contract",
-    "version": "1.3.1",
-    "description": "Contract-first TripMate API for the Spring backend and mobile React Native client. Version 1.3.1 documents avatar image normalization and media storage availability errors. This JSON is the canonical wire format; examples use fixture data. Rules: docs/api/TEAM_RULES.md. Realtime: x-realtime. Bigint values are sent as strings."
+    "version": "1.4.0",
+    "description": "Contract-first TripMate API for the Spring backend and mobile React Native client. Version 1.4.0 adds REST APIs for direct text messaging between friends. This JSON is the canonical wire format; examples use fixture data. Rules: docs/api/TEAM_RULES.md. Realtime: x-realtime. Bigint values are sent as strings."
   },
   "servers": [
     {
@@ -60,6 +60,9 @@
     },
     {
       "name": "Location"
+    },
+    {
+      "name": "Direct messaging"
     }
   ],
   "security": [
@@ -7650,6 +7653,831 @@
           }
         }
       }
+    },
+    "/direct-conversations": {
+      "post": {
+        "tags": [
+          "Direct messaging"
+        ],
+        "operationId": "openDirectConversation",
+        "summary": "Open a direct conversation",
+        "description": "Only current friends; no self conversation. Always 200, returning the unique existing conversation or creating it atomically. No email/phone in summaries.",
+        "x-permission": "AUTHENTICATED; conversation participants only",
+        "responses": {
+          "200": {
+            "description": "Open a direct conversation",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectConversationResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "id": "00000000-0000-4000-8000-000000000080",
+                        "user": {
+                          "id": "00000000-0000-4000-8000-000000000002",
+                          "displayName": "Recipient",
+                          "avatarMediaId": null
+                        },
+                        "lastMessage": {
+                          "id": "00000000-0000-4000-8000-000000000081",
+                          "conversationId": "00000000-0000-4000-8000-000000000080",
+                          "seq": "1",
+                          "sender": {
+                            "id": "00000000-0000-4000-8000-000000000002",
+                            "displayName": "Recipient",
+                            "avatarMediaId": null
+                          },
+                          "clientMessageId": "00000000-0000-4000-8000-000000000082",
+                          "body": "Hello!",
+                          "createdAt": "2026-10-03T03:00:00Z"
+                        },
+                        "lastSeq": "1",
+                        "lastReadSeq": "0",
+                        "unreadCount": "1",
+                        "canSend": true,
+                        "createdAt": "2026-10-03T03:00:00Z",
+                        "updatedAt": "2026-10-03T03:00:00Z"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "403": {
+            "description": "NOT_FRIENDS",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "NOT_FRIENDS": {
+                    "value": {
+                      "requestId": "00000000-0000-4000-8000-000000000090",
+                      "error": {
+                        "code": "NOT_FRIENDS",
+                        "message": "NOT_FRIENDS",
+                        "details": [],
+                        "context": {}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "USER_NOT_FOUND",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "USER_NOT_FOUND": {
+                    "value": {
+                      "requestId": "00000000-0000-4000-8000-000000000090",
+                      "error": {
+                        "code": "USER_NOT_FOUND",
+                        "message": "USER_NOT_FOUND",
+                        "details": [],
+                        "context": {}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "VALIDATION_ERROR",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "requestId": "00000000-0000-4000-8000-000000000090",
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "VALIDATION_ERROR",
+                        "details": [],
+                        "context": {}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenDirectConversation"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "recipientId": "00000000-0000-4000-8000-000000000002"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Direct messaging"
+        ],
+        "operationId": "listDirectConversations",
+        "summary": "List direct conversations",
+        "description": "Ordered updatedAt DESC, id DESC. Signed keyset cursor bound to actor and limit. Last message, incoming unread count and canSend included; unfriend retains history but canSend=false. Pages may change during concurrent sends; dedupe by ID.",
+        "x-permission": "AUTHENTICATED; conversation participants only",
+        "responses": {
+          "200": {
+            "description": "List direct conversations",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectConversationPageResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "items": [
+                          {
+                            "id": "00000000-0000-4000-8000-000000000080",
+                            "user": {
+                              "id": "00000000-0000-4000-8000-000000000002",
+                              "displayName": "Recipient",
+                              "avatarMediaId": null
+                            },
+                            "lastMessage": {
+                              "id": "00000000-0000-4000-8000-000000000081",
+                              "conversationId": "00000000-0000-4000-8000-000000000080",
+                              "seq": "1",
+                              "sender": {
+                                "id": "00000000-0000-4000-8000-000000000002",
+                                "displayName": "Recipient",
+                                "avatarMediaId": null
+                              },
+                              "clientMessageId": "00000000-0000-4000-8000-000000000082",
+                              "body": "Hello!",
+                              "createdAt": "2026-10-03T03:00:00Z"
+                            },
+                            "lastSeq": "1",
+                            "lastReadSeq": "0",
+                            "unreadCount": "1",
+                            "canSend": true,
+                            "createdAt": "2026-10-03T03:00:00Z",
+                            "updatedAt": "2026-10-03T03:00:00Z"
+                          }
+                        ],
+                        "pageInfo": {
+                          "nextCursor": null,
+                          "hasMore": false
+                        }
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            },
+            "description": "Opaque signed cursor; omit on first page"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "example": 20
+            },
+            "description": "Page size"
+          }
+        ]
+      }
+    },
+    "/direct-conversations/{id}/messages": {
+      "get": {
+        "tags": [
+          "Direct messaging"
+        ],
+        "operationId": "listDirectMessages",
+        "summary": "Read direct message history",
+        "description": "Participants only, including after unfriend. Default newest N; beforeSeq gets nearest older N; afterSeq gets next N. Exclusive bounds, mutually exclusive; items always seq ASC. hasMore follows query direction. nextBeforeSeq=min seq if older messages exist, otherwise null. nextAfterSeq=max returned seq, or supplied afterSeq/0 for an empty page. Poll afterSeq until hasMore=false. GET does not mark read.",
+        "x-permission": "AUTHENTICATED; conversation participants only",
+        "responses": {
+          "200": {
+            "description": "Read direct message history",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectMessagePageResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "items": [
+                          {
+                            "id": "00000000-0000-4000-8000-000000000081",
+                            "conversationId": "00000000-0000-4000-8000-000000000080",
+                            "seq": "1",
+                            "sender": {
+                              "id": "00000000-0000-4000-8000-000000000002",
+                              "displayName": "Recipient",
+                              "avatarMediaId": null
+                            },
+                            "clientMessageId": "00000000-0000-4000-8000-000000000082",
+                            "body": "Hello!",
+                            "createdAt": "2026-10-03T03:00:00Z"
+                          }
+                        ],
+                        "pageInfo": {
+                          "hasMore": false,
+                          "nextBeforeSeq": null,
+                          "nextAfterSeq": "1"
+                        }
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "404": {
+            "description": "CONVERSATION_NOT_FOUND",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "CONVERSATION_NOT_FOUND": {
+                    "value": {
+                      "requestId": "00000000-0000-4000-8000-000000000090",
+                      "error": {
+                        "code": "CONVERSATION_NOT_FOUND",
+                        "message": "CONVERSATION_NOT_FOUND",
+                        "details": [],
+                        "context": {}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000080"
+            },
+            "description": "Conversation UUID"
+          },
+          {
+            "name": "beforeSeq",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "0",
+              "pattern": "^(0|[1-9][0-9]{0,18})$",
+              "maxLength": 19,
+              "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes."
+            },
+            "description": "Exclusive upper sequence"
+          },
+          {
+            "name": "afterSeq",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "0",
+              "pattern": "^(0|[1-9][0-9]{0,18})$",
+              "maxLength": 19,
+              "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes."
+            },
+            "description": "Exclusive lower sequence"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "example": 50
+            },
+            "description": "Page size"
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Direct messaging"
+        ],
+        "operationId": "sendDirectMessage",
+        "summary": "Send a direct text message",
+        "description": "Current friends and participants only. Always 200, including retry. UUID clientMessageId is unique per conversation and sender: identical body returns previous message, changed body gives 409. Body is preserved exactly, requires non-whitespace text and at most 4000 Unicode code points. Server assigns sender and contiguous seq under transaction locks. After unfriend even retries are denied. No media, socket or push in this slice.",
+        "x-permission": "AUTHENTICATED; conversation participants only",
+        "responses": {
+          "200": {
+            "description": "Send a direct text message",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectMessageResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "id": "00000000-0000-4000-8000-000000000081",
+                        "conversationId": "00000000-0000-4000-8000-000000000080",
+                        "seq": "1",
+                        "sender": {
+                          "id": "00000000-0000-4000-8000-000000000002",
+                          "displayName": "Recipient",
+                          "avatarMediaId": null
+                        },
+                        "clientMessageId": "00000000-0000-4000-8000-000000000082",
+                        "body": "Hello!",
+                        "createdAt": "2026-10-03T03:00:00Z"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "403": {
+            "description": "NOT_FRIENDS",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "NOT_FRIENDS": {
+                    "value": {
+                      "requestId": "00000000-0000-4000-8000-000000000090",
+                      "error": {
+                        "code": "NOT_FRIENDS",
+                        "message": "NOT_FRIENDS",
+                        "details": [],
+                        "context": {}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "CONVERSATION_NOT_FOUND",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "CONVERSATION_NOT_FOUND": {
+                    "value": {
+                      "requestId": "00000000-0000-4000-8000-000000000090",
+                      "error": {
+                        "code": "CONVERSATION_NOT_FOUND",
+                        "message": "CONVERSATION_NOT_FOUND",
+                        "details": [],
+                        "context": {}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "IDEMPOTENCY_CONFLICT",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "requestId": "00000000-0000-4000-8000-000000000090",
+                      "error": {
+                        "code": "IDEMPOTENCY_CONFLICT",
+                        "message": "IDEMPOTENCY_CONFLICT",
+                        "details": [],
+                        "context": {}
+                      }
+                    }
+                  },
+                  "MESSAGE_LIMIT_REACHED": {
+                    "value": {
+                      "requestId": "00000000-0000-4000-8000-000000000090",
+                      "error": {
+                        "code": "MESSAGE_LIMIT_REACHED",
+                        "message": "Sequence exhausted",
+                        "details": [],
+                        "context": {}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "VALIDATION_ERROR",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "requestId": "00000000-0000-4000-8000-000000000090",
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "VALIDATION_ERROR",
+                        "details": [],
+                        "context": {}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000080"
+            },
+            "description": "Conversation UUID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendDirectMessage"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "clientMessageId": "00000000-0000-4000-8000-000000000082",
+                    "body": "Hello!"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/direct-conversations/{id}/read": {
+      "put": {
+        "tags": [
+          "Direct messaging"
+        ],
+        "operationId": "markDirectConversationRead",
+        "summary": "Mark direct conversation read",
+        "description": "Participants only, including after unfriend. lastReadSeq is a canonical nonnegative bigint string, at most lastSeq. Monotonic max(old,new), safe for concurrent devices and retries. Zero is valid. unreadCount includes only incoming messages after the resulting read sequence.",
+        "x-permission": "AUTHENTICATED; conversation participants only",
+        "responses": {
+          "200": {
+            "description": "Mark direct conversation read",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectReadResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "conversationId": "00000000-0000-4000-8000-000000000080",
+                        "lastReadSeq": "1",
+                        "unreadCount": "0"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "404": {
+            "description": "CONVERSATION_NOT_FOUND",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "CONVERSATION_NOT_FOUND": {
+                    "value": {
+                      "requestId": "00000000-0000-4000-8000-000000000090",
+                      "error": {
+                        "code": "CONVERSATION_NOT_FOUND",
+                        "message": "CONVERSATION_NOT_FOUND",
+                        "details": [],
+                        "context": {}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "VALIDATION_ERROR",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "requestId": "00000000-0000-4000-8000-000000000090",
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "VALIDATION_ERROR",
+                        "details": [],
+                        "context": {}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000080"
+            },
+            "description": "Conversation UUID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadDirectConversation"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "lastReadSeq": "1"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -12577,6 +13405,383 @@
           "otp": "123456",
           "newPassword": "NewTripMate2026!"
         }
+      },
+      "OpenDirectConversation": {
+        "type": "object",
+        "properties": {
+          "recipientId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "recipientId"
+        ],
+        "additionalProperties": false
+      },
+      "SendDirectMessage": {
+        "type": "object",
+        "properties": {
+          "clientMessageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000,
+            "pattern": "\\S"
+          }
+        },
+        "required": [
+          "clientMessageId",
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "ReadDirectConversation": {
+        "type": "object",
+        "properties": {
+          "lastReadSeq": {
+            "type": "string",
+            "example": "0",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "maxLength": 19,
+            "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes."
+          }
+        },
+        "required": [
+          "lastReadSeq"
+        ],
+        "additionalProperties": false
+      },
+      "DirectMessage": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "seq": {
+            "type": "string",
+            "example": "0",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "maxLength": 19,
+            "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes."
+          },
+          "sender": {
+            "$ref": "#/components/schemas/UserSummary"
+          },
+          "clientMessageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "conversationId",
+          "seq",
+          "sender",
+          "clientMessageId",
+          "body",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "DirectConversation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserSummary"
+          },
+          "lastMessage": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "conversationId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "seq": {
+                "type": "string",
+                "example": "0",
+                "pattern": "^(0|[1-9][0-9]{0,18})$",
+                "maxLength": 19,
+                "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes."
+              },
+              "sender": {
+                "$ref": "#/components/schemas/UserSummary"
+              },
+              "clientMessageId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "body": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "id",
+              "conversationId",
+              "seq",
+              "sender",
+              "clientMessageId",
+              "body",
+              "createdAt"
+            ],
+            "additionalProperties": false,
+            "nullable": true
+          },
+          "lastSeq": {
+            "type": "string",
+            "example": "0",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "maxLength": 19,
+            "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes."
+          },
+          "lastReadSeq": {
+            "type": "string",
+            "example": "0",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "maxLength": 19,
+            "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes."
+          },
+          "unreadCount": {
+            "type": "string",
+            "example": "0",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "maxLength": 19,
+            "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes."
+          },
+          "canSend": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "user",
+          "lastMessage",
+          "lastSeq",
+          "lastReadSeq",
+          "unreadCount",
+          "canSend",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "DirectConversationPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectConversation"
+            }
+          },
+          "pageInfo": {
+            "$ref": "#/components/schemas/PageInfo"
+          }
+        },
+        "required": [
+          "items",
+          "pageInfo"
+        ],
+        "additionalProperties": false
+      },
+      "DirectMessagePage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectMessage"
+            }
+          },
+          "pageInfo": {
+            "type": "object",
+            "properties": {
+              "hasMore": {
+                "type": "boolean",
+                "example": false
+              },
+              "nextBeforeSeq": {
+                "type": "string",
+                "example": null,
+                "pattern": "^(0|[1-9][0-9]{0,18})$",
+                "maxLength": 19,
+                "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes.",
+                "nullable": true
+              },
+              "nextAfterSeq": {
+                "type": "string",
+                "example": "1",
+                "pattern": "^(0|[1-9][0-9]{0,18})$",
+                "maxLength": 19,
+                "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes."
+              }
+            },
+            "required": [
+              "hasMore",
+              "nextBeforeSeq",
+              "nextAfterSeq"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "items",
+          "pageInfo"
+        ],
+        "additionalProperties": false
+      },
+      "DirectRead": {
+        "type": "object",
+        "properties": {
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lastReadSeq": {
+            "type": "string",
+            "example": "0",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "maxLength": 19,
+            "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes."
+          },
+          "unreadCount": {
+            "type": "string",
+            "example": "0",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "maxLength": 19,
+            "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes."
+          }
+        },
+        "required": [
+          "conversationId",
+          "lastReadSeq",
+          "unreadCount"
+        ],
+        "additionalProperties": false
+      },
+      "DirectConversationResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DirectConversation"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "DirectConversationPageResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DirectConversationPage"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "DirectMessageResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DirectMessage"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "DirectMessagePageResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DirectMessagePage"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "DirectReadResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DirectRead"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
       }
     },
     "responses": {
