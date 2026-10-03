@@ -1,5 +1,6 @@
 import type { Conversation, Message } from './chatModel';
 import type { DirectConversation, DirectMessage, DirectMessageApi } from './directMessageApi';
+import type { DirectRealtimeEvent } from './directRealtime';
 
 export type DeliveryMessage = Message & {
   clientMessageId: string; seq?: string; createdAt: string;
@@ -50,7 +51,10 @@ export class DirectMessagingSession {
   private generation = 0;
   private active = true;
   private listing = false;
+  private refreshAgain = false;
+  private eventIds = new Set<string>();
   private syncing = new Set<string>();
+  private syncAgain = new Set<string>();
   private sending = new Set<string>();
   private reading = new Set<string>();
   private readTargets = new Map<string, string>();
@@ -64,7 +68,7 @@ export class DirectMessagingSession {
   }
   deactivate() {
     this.active = false; this.generation++;
-    this.listing = false; this.syncing.clear(); this.sending.clear(); this.reading.clear(); this.readTargets.clear();
+    this.listing = false; this.refreshAgain = false; this.syncing.clear(); this.syncAgain.clear(); this.sending.clear(); this.reading.clear(); this.readTargets.clear();
   }
   private current(generation: number) { return this.active && generation === this.generation; }
   private publish(next: DirectState) { this.state = next; this.listeners.forEach(listener => listener()); }
@@ -99,7 +103,8 @@ export class DirectMessagingSession {
     if (conversation) this.upsert({ ...conversation, canSend: false });
   }
   async refresh(showLoading = true) {
-    if (!this.active || this.listing) return;
+    if (!this.active) return;
+    if (this.listing) { this.refreshAgain = true; return; }
     const generation = this.generation;
     this.listing = true;
     if (showLoading) this.publish({ ...this.state, loading: true, error: '' });
@@ -110,8 +115,21 @@ export class DirectMessagingSession {
       this.publish({ ...this.state, error: '' });
     } catch (error) { if (this.current(generation)) this.publish({ ...this.state, error: errorText(error) }); }
     finally {
-      if (this.current(generation)) { this.listing = false; this.publish({ ...this.state, loading: false }); }
+      if (this.current(generation)) {
+        this.listing = false; this.publish({ ...this.state, loading: false });
+        if (this.refreshAgain) { this.refreshAgain = false; void this.refresh(false); }
+      }
     }
+  }
+  receive(event: DirectRealtimeEvent) {
+    if (!this.active || this.eventIds.has(event.eventId)) return;
+    this.eventIds.add(event.eventId);
+    if (this.eventIds.size > 500) this.eventIds.delete(this.eventIds.values().next().value!);
+    if (event.type === 'direct.message.created') {
+      // Live delivery improves latency; only REST history advances the durable catch-up cursor.
+      if (this.thread(event.data.conversationId).initialized) this.merge(event.data.conversationId, [event.data]);
+      void this.refresh(false);
+    } else if (event.data.userId === this.userId) void this.refresh(false);
   }
   async open(recipientId: string): Promise<string | null> {
     if (!this.active || this.state.openingId) return null;
@@ -141,7 +159,8 @@ export class DirectMessagingSession {
     } finally { if (this.current(generation)) this.updateThread(id, { loading: false }); }
   }
   async sync(id: string) {
-    if (!this.active || !this.thread(id).initialized || this.syncing.has(id)) return;
+    if (!this.active || !this.thread(id).initialized) return;
+    if (this.syncing.has(id)) { this.syncAgain.add(id); return; }
     const generation = this.generation;
     this.syncing.add(id);
     try {
@@ -156,7 +175,12 @@ export class DirectMessagingSession {
         if (!page.pageInfo.hasMore) break;
       }
     } catch (error) { if (this.current(generation)) { this.blockIfDenied(id, error); this.updateThread(id, { error: errorText(error) }); } }
-    finally { if (this.current(generation)) this.syncing.delete(id); }
+    finally {
+      if (this.current(generation)) {
+        this.syncing.delete(id);
+        if (this.syncAgain.delete(id)) void this.sync(id);
+      }
+    }
   }
   async older(id: string) {
     const thread = this.thread(id);

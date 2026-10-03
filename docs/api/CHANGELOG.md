@@ -1,5 +1,11 @@
 # Contract changelog
 
+## 1.4.1 - 2026-10-03
+
+- Implemented authenticated STOMP 1.2 over native WebSocket at `/ws`. Only `/user/queue/events` is currently subscribable; business SEND and other destinations are rejected. Token expiry, account status and device binding are rechecked before delivery.
+- Added `direct.message.created` and `direct.read.updated` payload schemas. Events reach both participants after transaction commit; retries/no-op reads do not produce extra events. REST remains authoritative for writes and recovery.
+- Frontend subscribes before catch-up, buffers live events, deduplicates messages and reconnects with backoff. Polling remains a fallback and periodic reconciliation. Broker delivery currently requires a single backend instance; group/push/Redis bridging are outside this slice.
+
 ## 1.4.0 - 2026-10-03
 
 - Added five authenticated REST operations for direct text messaging: open/list conversations, send/list messages, and update the caller's read sequence. Frontend integration, WebSocket, push and attachments are outside this implementation slice.

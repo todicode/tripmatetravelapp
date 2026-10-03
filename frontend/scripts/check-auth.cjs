@@ -33,6 +33,31 @@ function deferred() {
 }
 const unauthorized = () => new ApiRequestError('UNAUTHORIZED', 'Expired', 401);
 
+test('realtime credentials share refresh with REST and expose only the current access token', async () => {
+  const response = deferred(); let rotations = 0;
+  const f = fixture(async (path, body, token) => {
+    if (path === '/auth/refresh') { rotations++; return response.promise; }
+    return token;
+  });
+  await f.manager.accept(session());
+  assert.equal(await f.manager.accessToken(), 'access-1');
+  f.advance(890000);
+  const realtime = f.manager.accessToken(true);
+  const rest = f.manager.request('/users/me');
+  response.resolve(session(2));
+  assert.deepEqual(await Promise.all([realtime, rest]), ['access-2', 'access-2']);
+  assert.equal(rotations, 1);
+});
+
+test('late realtime token refresh cannot restore credentials after logout', async () => {
+  const response = deferred(); const f = fixture(async () => response.promise);
+  await f.manager.accept(session());
+  const access = f.manager.accessToken(true);
+  await f.manager.clear(); response.resolve(session(2));
+  await assert.rejects(access, error => error.code === 'SESSION_EXPIRED');
+  assert.equal(f.current(), null);
+});
+
 test('remember me stores only refresh credentials; unchecked removes them', async () => {
   const f = fixture(async () => {});
   await f.manager.accept(session());

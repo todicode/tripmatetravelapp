@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AuthorizedRequest } from '../auth/session';
+import { AuthorizedRequest, RealtimeCredentials } from '../auth/session';
 import { Conversation, Friend, FriendRequest, initialConversations } from './chatModel';
 import { createFriendApi, FriendCode } from './friendApi';
 import { useDirectMessaging } from './useDirectMessaging';
 
 type Route = { kind: 'add' | 'requests' | 'create' } | { kind: 'conversation'; id: string };
-export function useChatSession(request: AuthorizedRequest, userId: string, visible: boolean) {
+export function useChatSession(request: AuthorizedRequest, userId: string, visible: boolean, realtimeCredentials: RealtimeCredentials) {
   const api = useMemo(() => createFriendApi(request), [request]);
   const [conversations, setConversations] = useState(initialConversations);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [routes, setRoutes] = useState<Route[]>([]);
   const route = routes.at(-1);
-  const direct = useDirectMessaging(request, userId, visible, route?.kind === 'conversation' ? route.id : null);
+  const direct = useDirectMessaging(request, userId, visible, route?.kind === 'conversation' ? route.id : null, realtimeCredentials);
   const [socialLoading, setSocialLoading] = useState(true);
   const [socialError, setSocialError] = useState('');
   const [friendCode, setFriendCode] = useState<FriendCode | null>(null);

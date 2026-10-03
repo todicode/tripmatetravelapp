@@ -24,7 +24,8 @@ class DirectMessagingServiceTest {
     private final DirectConversationRepository conversations = mock(DirectConversationRepository.class);
     private final DirectMessageRepository messages = mock(DirectMessageRepository.class);
     private final ConversationCursor cursors = new ConversationCursor("test-secret-for-direct-conversation-cursors");
-    private final DirectMessagingService service = new DirectMessagingService(users, friends, conversations, messages, cursors);
+    private final org.springframework.context.ApplicationEventPublisher events = mock(org.springframework.context.ApplicationEventPublisher.class);
+    private final DirectMessagingService service = new DirectMessagingService(users, friends, conversations, messages, cursors, events);
     private final UserEntity low = user("00000000-0000-4000-8000-000000000001");
     private final UserEntity high = user("ffffffff-ffff-4fff-8fff-ffffffffffff");
     private final DirectConversationEntity conversation = new DirectConversationEntity(UUID.randomUUID(), low.getId(), high.getId());
@@ -86,6 +87,15 @@ class DirectMessagingServiceTest {
         assertCode("IDEMPOTENCY_CONFLICT", () -> service.send(conversation.getId(), clientId, "hello"));
         assertEquals(1, conversation.getLastSeq());
         verify(messages, times(1)).saveAndFlush(any());
+        verify(events, times(1)).publishEvent(isA(DirectRealtimeEvent.class));
+    }
+    @Test void readEventsOnlyPublishWhenTheMarkerAdvances() {
+        conversation.nextSeq(); conversation.nextSeq();
+        service.markRead(conversation.getId(), "1");
+        service.markRead(conversation.getId(), "1");
+        service.markRead(conversation.getId(), "0");
+        verify(events, times(1)).publishEvent(isA(DirectRealtimeEvent.class));
+        assertEquals("1", service.markRead(conversation.getId(), "1").lastReadSeq());
     }
     @Test void nonFriendCannotCreateOrSendButCanReadHistoryAfterUnfriend() {
         when(friends.areFriends(any(), any())).thenReturn(false);

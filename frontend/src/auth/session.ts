@@ -20,6 +20,7 @@ export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 export type RequestOptions = { file?: { uri: string; name: string; type: string }; responseType?: 'arrayBuffer' };
 export type AuthTransport = <T>(path: string, body?: Record<string, unknown>, token?: string, method?: HttpMethod, options?: RequestOptions) => Promise<T>;
 export type AuthorizedRequest = <T>(path: string, body?: Record<string, unknown>, method?: HttpMethod, options?: RequestOptions) => Promise<T>;
+export type RealtimeCredentials = (refresh?: boolean) => Promise<{ url: string; accessToken: string }>;
 type Storage = { read(): Promise<string | null>; write(value: string): Promise<void>; remove(): Promise<void> };
 const expired = () => new ApiRequestError('SESSION_EXPIRED', 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.', 401);
 
@@ -155,6 +156,13 @@ export class SessionManager {
   async ensureFresh() {
     if (!this.current) throw expired();
     return this.expiresAt <= this.now() + 30_000 ? this.refresh() : this.current;
+  }
+
+  async accessToken(forceRefresh = false): Promise<string> {
+    const generation = this.generation;
+    const session = await (forceRefresh ? this.refresh() : this.ensureFresh());
+    if (generation !== this.generation) throw expired();
+    return session.accessToken;
   }
 
   async request<T>(path: string, body?: Record<string, unknown>, method?: HttpMethod, options?: RequestOptions): Promise<T> {

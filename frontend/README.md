@@ -24,7 +24,7 @@ Các máy dùng chung Metro trên cổng 8081: script dùng lại server đang c
 - Khám phá có tìm kiếm địa điểm, danh sách lưu theo tài khoản trên thiết bị và định vị khi người dùng cấp quyền. “Gần bạn” sắp xếp các địa điểm đã lưu theo khoảng cách.
 - Tạo chuyến đi hỗ trợ ngày cụ thể/linh hoạt, khách sạn không trùng đêm, lịch trình thủ công và gợi ý từ danh mục địa điểm. Màn hình lịch trình dùng chung cho chuyến đi mới/đã lưu, bản đồ 35%, nội dung 65%.
 - Theme sáng/tối và tùy chọn thông báo được lưu trên thiết bị. Bản đồ tiếp tục dùng WebView Leaflet/CARTO, tìm kiếm Photon và định tuyến OSRM; không gửi token auth đến các dịch vụ này.
-- Chưa có backend cho chuyến đi, chat, kết bạn, AI, cập nhật hồ sơ hoặc gửi thông báo. Chuyến đi và nội dung chat do người dùng tạo chỉ ở bộ nhớ phiên hiện tại; không chèn người dùng/tin nhắn mẫu và không mô phỏng AI. Hồ sơ hiển thị thông tin thật từ phiên đăng nhập, đổi mật khẩu/đăng xuất vẫn dùng API hiện có.
+- Chuyến đi và chat nhóm hiện giữ dữ liệu ở bộ nhớ phiên; chưa tích hợp backend chuyến đi, chat nhóm, AI hoặc thông báo push. Chat cá nhân, kết bạn và cập nhật hồ sơ dùng API thật như các mục bên dưới; không chèn người dùng/tin nhắn mẫu và không mô phỏng AI.
 - Có thêm AsyncStorage và expo-location: chạy `npm install`, sau đó `npm run android` để build lại development client. Chỉ tải lại JavaScript trên bản cài cũ sẽ thiếu native module.
 
 Kiểm tra: `npm run typecheck`, `node scripts/check-trips.cjs`, `node scripts/check-chat.cjs`, `npx expo export --platform android`. Cần thiết bị/emulator để nghiệm thu bố cục và gesture native.
@@ -33,10 +33,11 @@ Kiểm tra: `npm run typecheck`, `node scripts/check-trips.cjs`, `node scripts/c
 
 - Trong **Tin nhắn → Bạn bè**, nhấn tên hoặc nút nhắn tin để tạo/mở cuộc trò chuyện với bạn bè qua API. Tab **Tất cả** tải các cuộc trò chuyện đã lưu, tin cuối và số tin chưa đọc từ backend.
 - Chat cá nhân có lịch sử phân trang, gửi văn bản giữ nguyên nội dung, trạng thái đang gửi/lỗi và nút thử lại. Retry giữ nguyên `clientMessageId` và nội dung để không tạo tin trùng khi timeout. Số thứ tự được giữ dưới dạng chuỗi/BigInt.
-- Khi đang mở tab chat và app ở foreground, danh sách được cập nhật mỗi 10 giây; cuộc trò chuyện đang mở kiểm tra tin mới mỗi 3 giây qua REST. Không dùng WebSocket hoặc thông báo push. Mốc đã đọc chỉ cập nhật từ tin đang hiển thị, không xóa badge chỉ vì mở cuộc trò chuyện.
+- Khi app ở foreground, chat cá nhân nhận sự kiện tức thì qua WebSocket/STOMP `/ws`, xác thực bằng token trong CONNECT và subscribe queue riêng của tài khoản. Mất kết nối sẽ tự reconnect, tải bù lịch sử và dùng polling dự phòng (tin mới mỗi 3 giây, danh sách mỗi 10 giây khi mở chat); kết nối tốt đối soát REST mỗi 30 giây. Chưa có thông báo push. Mốc đã đọc chỉ cập nhật từ tin đang hiển thị, không xóa badge chỉ vì mở cuộc trò chuyện.
 - Hủy kết bạn giữ lịch sử, khóa ô nhập/gửi khi backend báo không còn quyền. Không lưu nội dung chat cá nhân xuống AsyncStorage; phiên chat được tách theo tài khoản và bỏ qua phản hồi đến muộn sau đăng xuất.
 - Luồng nhóm tiếp tục dùng implementation cũ, chưa tích hợp API nhóm. Chat cá nhân trước mắt chỉ có văn bản; chưa đồng bộ ghim chuyến đi, ảnh/tệp hoặc cuộc gọi.
 - Backend cần khởi động lại để Flyway áp dụng V7. API và ví dụ: [DIRECT_MESSAGING.md](../docs/api/DIRECT_MESSAGING.md). Kiểm tra: `npm run test:messages`, `npm run test:friends`, `npm run test:auth`, `npm run typecheck`, `node scripts/check-chat.cjs` và `npx expo export --platform android`.
+- Chạy `npm install` để thêm STOMP client rồi khởi động lại backend và Metro. Socket tự lấy cùng host/port với API (`http` → `ws`, `https` → `wss`), dùng đường dẫn `/ws` và không đưa token vào URL. Nếu có reverse proxy, cần cho phép WebSocket upgrade ở `/ws`. Bản realtime hiện dùng một backend instance; nhóm và bridge nhiều instance chưa triển khai.
 
 ## Phiên đăng nhập
 

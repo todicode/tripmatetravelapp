@@ -12,13 +12,14 @@
     "test:auth": "node --test scripts/check-auth.cjs",
     "test:profile": "node --test scripts/check-profile.cjs",
     "test:friends": "node --test scripts/check-friends.cjs",
-    "test:messages": "node --test scripts/check-direct-messages.cjs",
+    "test:messages": "node --test scripts/check-direct-messages.cjs scripts/check-direct-realtime.cjs",
     "ios": "expo run:ios"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-google-signin/google-signin": "^16.1.5",
+    "@stomp/stompjs": "7.3.0",
     "expo": "^57.0.23",
     "expo-asset": "^57.0.17",
     "expo-camera": "~57.0.6",

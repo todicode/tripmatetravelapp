@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "TripMate API Contract",
-    "version": "1.4.0",
-    "description": "Contract-first TripMate API for the Spring backend and mobile React Native client. Version 1.4.0 adds REST APIs for direct text messaging between friends. This JSON is the canonical wire format; examples use fixture data. Rules: docs/api/TEAM_RULES.md. Realtime: x-realtime. Bigint values are sent as strings."
+    "version": "1.4.1",
+    "description": "Contract-first TripMate API for the Spring backend and mobile React Native client. Version 1.4.1 adds authenticated STOMP events for private messages and read markers; direct-message writes remain REST. This JSON is the canonical wire format; examples use fixture data. Rules: docs/api/TEAM_RULES.md. Realtime: x-realtime. Bigint values are sent as strings."
   },
   "servers": [
     {
@@ -13782,6 +13782,114 @@
           "requestId"
         ],
         "additionalProperties": false
+      },
+      "DirectReadChanged": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "conversationId",
+          "userId",
+          "lastReadSeq"
+        ],
+        "properties": {
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lastReadSeq": {
+            "type": "string",
+            "example": "0",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "maxLength": 19,
+            "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes."
+          }
+        }
+      },
+      "EventDirectMessageCreated": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "example": "00000000-0000-4000-8000-000000000101",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "direct.message.created"
+            ],
+            "example": "direct.message.created"
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "example": 1,
+            "enum": [
+              1
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "example": "2026-09-17T03:00:00Z",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DirectMessage"
+          }
+        },
+        "required": [
+          "eventId",
+          "type",
+          "schemaVersion",
+          "occurredAt",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "EventDirectReadUpdated": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "example": "00000000-0000-4000-8000-000000000101",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "direct.read.updated"
+            ],
+            "example": "direct.read.updated"
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "example": 1,
+            "enum": [
+              1
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "example": "2026-09-17T03:00:00Z",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DirectReadChanged"
+          }
+        },
+        "required": [
+          "eventId",
+          "type",
+          "schemaVersion",
+          "occurredAt",
+          "data"
+        ],
+        "additionalProperties": false
       }
     },
     "responses": {
@@ -14900,8 +15008,51 @@
             "createdAt": "2026-09-17T03:00:00Z"
           }
         }
+      },
+      "direct.message.created": {
+        "destination": "/user/queue/events",
+        "schema": {
+          "$ref": "#/components/schemas/EventDirectMessageCreated"
+        },
+        "example": {
+          "eventId": "00000000-0000-4000-8000-000000000111",
+          "type": "direct.message.created",
+          "schemaVersion": 1,
+          "occurredAt": "2026-10-03T00:00:00Z",
+          "data": {
+            "id": "00000000-0000-4000-8000-000000000081",
+            "conversationId": "00000000-0000-4000-8000-000000000080",
+            "seq": "1",
+            "sender": {
+              "id": "00000000-0000-4000-8000-000000000002",
+              "displayName": "Recipient",
+              "avatarMediaId": null
+            },
+            "clientMessageId": "00000000-0000-4000-8000-000000000082",
+            "body": "Hello!",
+            "createdAt": "2026-10-03T03:00:00Z"
+          }
+        }
+      },
+      "direct.read.updated": {
+        "destination": "/user/queue/events",
+        "schema": {
+          "$ref": "#/components/schemas/EventDirectReadUpdated"
+        },
+        "example": {
+          "eventId": "00000000-0000-4000-8000-000000000112",
+          "type": "direct.read.updated",
+          "schemaVersion": 1,
+          "occurredAt": "2026-10-03T00:00:00Z",
+          "data": {
+            "conversationId": "00000000-0000-4000-8000-000000000080",
+            "userId": "00000000-0000-4000-8000-000000000002",
+            "lastReadSeq": "1"
+          }
+        }
       }
-    }
+    },
+    "implementation": "Implemented: /ws CONNECT and /user/queue/events for direct.message.created/direct.read.updated only, after transaction commit, to both participants. Other trip/push destinations remain planned. Simple broker serves one backend instance; offline recovery uses REST and no Redis bridge is implemented."
   },
   "x-push": {
     "provider": "FCM native Android",

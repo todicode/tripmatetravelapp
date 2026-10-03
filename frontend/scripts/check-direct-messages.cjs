@@ -139,7 +139,7 @@ test('outgoing response does not skip intervening incoming messages or mark an u
   await f.store.read('conversation', '7'); assert.deepEqual(readSeqs, ['5', '7']);
 });
 
-test('catch-up drains all pages, preserves an empty cursor and ignores overlapping sync calls', async () => {
+test('catch-up drains all pages and coalesces overlapping sync into one follow-up for late events', async () => {
   const response = deferred();
   const queried = [];
   const f = fixture({ history: async (id, bounds) => {
@@ -152,10 +152,27 @@ test('catch-up drains all pages, preserves an empty cursor and ignores overlappi
   await ready(f);
   const syncing = f.store.sync('conversation'); await f.store.sync('conversation');
   response.resolve(page([message('9007199254740994')], { hasMore: true })); await syncing;
-  assert.deepEqual(queried, [undefined, '9007199254740993', '9007199254740994']);
+  assert.deepEqual(queried, [undefined, '9007199254740993', '9007199254740994', '9007199254740995']);
   await f.store.sync('conversation');
   assert.equal(f.store.getSnapshot().threads.conversation.afterSeq, '9007199254740995');
   assert.equal(ids(f.store).length, 3);
+});
+
+test('live events immediately reconcile pending messages but never skip REST gaps or mark unread history', async () => {
+  const response = deferred();
+  const f = fixture({ history: async () => page([message('5')]), send: () => response.promise });
+  await ready(f);
+  const sending = f.store.send('conversation', 'hello');
+  const event = { eventId: 'event-1', type: 'direct.message.created', schemaVersion: 1, occurredAt: time,
+    data: { ...message('7', 'me', 'generated-1'), body: 'hello' } };
+  f.store.receive(event); f.store.receive(event);
+  assert.equal(ids(f.store).length, 2);
+  assert.equal(f.store.getSnapshot().threads.conversation.afterSeq, '5');
+  response.reject(new Error('late timeout')); await sending;
+  assert.equal(f.store.getSnapshot().threads.conversation.messages.at(-1).status, 'sent');
+  f.store.deactivate();
+  f.store.receive({ ...event, eventId: 'late-event', data: message('8') });
+  assert.equal(ids(f.store).length, 2);
 });
 
 test('older history prepends and deduplicates without moving the catch-up cursor backwards', async () => {

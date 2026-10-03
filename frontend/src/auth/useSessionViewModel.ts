@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-import { ApiRequestError, HttpMethod, RequestOptions, SessionManager, SessionResponse } from './session';
+import { ApiRequestError, HttpMethod, RequestOptions, SessionManager, SessionResponse, RealtimeCredentials } from './session';
 import { apiRequest } from './api';
 
 export function useSessionViewModel(baseUrl: string) {
@@ -87,6 +87,12 @@ export function useSessionViewModel(baseUrl: string) {
   const request = useCallback(<T,>(path: string, body?: Record<string, unknown>, method?: HttpMethod, options?: RequestOptions) =>
     manager.request<T>(path, body, method, options), [manager]);
 
-  return { session, request, restoring, restoreError, sessionError, restoreSession,
+  const realtimeCredentials = useCallback<RealtimeCredentials>(async (refresh = false) => {
+    const url = new URL('/ws', baseUrl);
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    return { url: url.toString(), accessToken: await manager.accessToken(refresh) };
+  }, [manager, baseUrl]);
+
+  return { session, request, realtimeCredentials, restoring, restoreError, sessionError, restoreSession,
     authenticate, completePhone, logout, changePassword, discardSavedSession };
 }

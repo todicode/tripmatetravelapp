@@ -10,6 +10,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.*;
@@ -21,12 +22,14 @@ public class DirectMessagingService {
     private final DirectConversationRepository conversations;
     private final DirectMessageRepository messages;
     private final ConversationCursor cursors;
+    private final ApplicationEventPublisher events;
 
     public DirectMessagingService(UserDirectory users, FriendshipAccess friendships,
                                   DirectConversationRepository conversations, DirectMessageRepository messages,
-                                  ConversationCursor cursors) {
+                                  ConversationCursor cursors, ApplicationEventPublisher events) {
         this.users = users; this.friendships = friendships; this.conversations = conversations;
         this.messages = messages; this.cursors = cursors;
+        this.events = events;
     }
 
     @Transactional
@@ -75,7 +78,9 @@ public class DirectMessagingService {
             throw new ApiException(HttpStatus.CONFLICT, "MESSAGE_LIMIT_REACHED", "Cuộc trò chuyện đã đạt giới hạn tin nhắn.");
         DirectMessageEntity created = messages.saveAndFlush(new DirectMessageEntity(UUID.randomUUID(), conversation,
                 actor, clientMessageId, conversation.nextSeq(), body));
-        return message(created);
+        var result = message(created);
+        events.publishEvent(DirectRealtimeEvent.message(conversation.getLowUserId(), conversation.getHighUserId(), result));
+        return result;
     }
 
     @Transactional(readOnly = true)
@@ -108,7 +113,11 @@ public class DirectMessagingService {
         try { seq = sequence(lastReadSeq); }
         catch (RuntimeException error) { throw invalid("lastReadSeq phải là chuỗi số nguyên không âm hợp lệ."); }
         if (seq > conversation.getLastSeq()) throw invalid("lastReadSeq vượt quá tin nhắn cuối cùng.");
+        long previous = conversation.readSeq(actor);
         conversation.markRead(actor, seq);
+        if (conversation.readSeq(actor) > previous)
+            events.publishEvent(DirectRealtimeEvent.read(conversation.getLowUserId(), conversation.getHighUserId(),
+                    conversationId, actor, conversation.readSeq(actor)));
         return new ReadView(conversationId, Long.toString(conversation.readSeq(actor)), unread(conversation, actor));
     }
 

@@ -79,7 +79,9 @@ Authenticated `GET /api/v1/users/lookup-by-phone?phone=...` and `GET /api/v1/use
 
 ## Direct messaging API
 
-Five authenticated REST operations are implemented under `/api/v1/direct-conversations`: POST opens/reuses a conversation with a current friend, GET lists conversations, GET/POST `/{id}/messages` reads/sends text, and PUT `/{id}/read` advances the caller's read sequence. Sending supports `clientMessageId` retries, messages use contiguous string sequences, and unread counts exclude outgoing messages. Unfriend preserves history but blocks sending. Flyway V7 adds the chat tables. No frontend, socket, push or attachment changes in this slice. See [API examples and PostgreSQL test instructions](../docs/api/DIRECT_MESSAGING.md).
+Five authenticated REST operations are implemented under `/api/v1/direct-conversations`: POST opens/reuses a conversation with a current friend, GET lists conversations, GET/POST `/{id}/messages` reads/sends text, and PUT `/{id}/read` advances the caller's read sequence. Sending supports `clientMessageId` retries, messages use contiguous string sequences, and unread counts exclude outgoing messages. Unfriend preserves history but blocks sending. Flyway V7 adds the chat tables. Frontend integration uses these APIs and native WebSocket/STOMP at `/ws` for realtime events; groups, push and attachments remain outside this slice. See [API examples and PostgreSQL test instructions](../docs/api/DIRECT_MESSAGING.md).
+
+WebSocket authenticates bearer tokens in STOMP CONNECT and permits only `/user/queue/events`. Committed message/read events go to both participants; SEND and other destinations are rejected. Account/device binding is checked before delivery and for idle sessions. The simple broker supports one backend instance; reverse proxies must forward WebSocket Upgrade at `/ws`. Reconnect recovery reads durable history through REST. No additional database migration is needed for WebSocket. Integration tests run an isolated server with real STOMP clients and storage/auth doubles; they do not touch application accounts.
 
 ## Authentication API
 

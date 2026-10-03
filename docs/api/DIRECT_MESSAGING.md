@@ -7,13 +7,23 @@ Implemented backend and frontend slice: REST, persisted 1-to-1 text messages. Al
 - Only current friends may open a conversation or send. Each user pair has one conversation, reused when friendship is restored.
 - Unfriend retains history and read-marker access for the two participants, but blocks new sends and send retries. Conversation summaries expose `canSend=false`.
 - Outsiders get `404 CONVERSATION_NOT_FOUND` for message/history/read operations. Summary users contain only `id`, `displayName`, `avatarMediaId`.
-- Group chat, WebSocket, push, attachments, message edits/deletion, typing and online state are outside this slice.
+- Group chat, push, attachments, message edits/deletion, typing and online state are outside this slice.
+
+## Private realtime
+
+Native WebSocket `/ws` uses STOMP 1.2. Send `Authorization: Bearer <accessToken>` in CONNECT headers, never query parameters; subscribe only to `/user/queue/events`. SEND is rejected: use the existing REST writes. The identity module validates token expiry, ACTIVE account and device binding at CONNECT/SUBSCRIBE, before outbound events and periodically for idle connections. Invalid sessions receive a safe ERROR and close.
+
+After a committed new send, both participants receive `direct.message.created` with `{eventId, type, schemaVersion: 1, occurredAt, data: DirectMessage}`. An advanced read marker emits `direct.read.updated` with `data: {conversationId, userId, lastReadSeq}` to both participants. A retry returning an existing message, no-op read or rollback emits nothing. No content is broadcast to a shared topic or another user's queue.
+
+The frontend keeps one socket per account while foregrounded, subscribes before REST catch-up and buffers live events during recovery. Messages merge immediately without advancing the durable catch-up cursor; REST `afterSeq` fills missing sequences. Reconnect uses exponential backoff with jitter, capped at 30 seconds, and the existing shared token-refresh mechanism. Logout/account switch/background stops the connection and suppresses late callbacks.
+
+The simple broker currently runs in one backend process. Deploy one backend instance for private realtime; multiple instances require a shared broker/Redis bridge, which this slice does not implement. Events are not a durable queue: missed events are recovered through REST.
 
 ## Frontend integration
 
 In **Tin nhắn → Bạn bè**, tap a friend's name or message button to open/reuse the server conversation. **Tất cả** shows persisted conversation summaries and unread counts. Individual conversations use `DirectConversationScreen`; group conversations retain the existing screen and local implementation.
 
-`directMessageApi.ts` uses the existing authorized request/refresh transport. `DirectMessagingSession` owns paging, pending sends, UUID-preserving retries, sequence catch-up and monotonic read results; `useDirectMessaging` adapts this state to React and the app lifecycle. New messages are checked every 3 seconds in the open direct conversation, lists every 10 seconds while chat is visible. Poll timers do not issue requests while the app is in the background. No chat contents are persisted to local storage.
+`directMessageApi.ts` uses the existing authorized request/refresh transport. `DirectMessagingSession` owns paging, pending sends, UUID-preserving retries, sequence catch-up and monotonic read results; `useDirectMessaging` adapts this state to React and the app lifecycle. `DirectRealtimeConnection` receives private events via STOMP. Connected chat reconciles via REST every 30 seconds; disconnected chat polls messages every 3 seconds and lists every 10 seconds while visible. Poll timers do not issue requests while the app is in the background. No chat contents are persisted to local storage.
 
 Read markers advance only from confirmed messages actually visible on screen, capped by the loaded catch-up sequence to avoid marking an unseen incoming gap read when a send response arrives first. Failed sends remain visible with retry actions; confirmed messages from polling reconcile with pending messages by sender and `clientMessageId`.
 

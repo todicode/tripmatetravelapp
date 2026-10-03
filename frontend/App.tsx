@@ -984,7 +984,7 @@ function AppContent() {
   const theme = useAppTheme();
   const [activeTab, setActiveTab] = useState<AuthTab>('login');
   const { session, request, restoring, restoreError, sessionError, restoreSession, authenticate,
-    completePhone, logout, changePassword: updatePassword, discardSavedSession } = useSessionViewModel(authApiBaseUrl);
+    completePhone, logout, changePassword: updatePassword, discardSavedSession, realtimeCredentials } = useSessionViewModel(authApiBaseUrl);
   useEffect(() => { if (!session) setActiveTab('login'); }, [session]);
 
   const changePassword = async (currentPassword: string, newPassword: string) => {
@@ -1016,7 +1016,7 @@ function AppContent() {
         </> : session ? <>
           <InlineError message={sessionError} />
           <ProfileProvider key={session.user.id} user={session.user} request={request}>
-            <ExploreHome request={request} onLogout={() => { void logout(); }} onChangePassword={changePassword} />
+            <ExploreHome request={request} realtimeCredentials={realtimeCredentials} onLogout={() => { void logout(); }} onChangePassword={changePassword} />
           </ProfileProvider>
         </> : (
           <>
