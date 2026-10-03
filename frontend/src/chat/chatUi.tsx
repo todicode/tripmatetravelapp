@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AccessibilityInfo, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { c, Icon, s, useTripUi } from '../trips/tripUi';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export { c, Icon, s };
@@ -7,7 +7,13 @@ export function IconButton({ name, label, onPress, blue = false, disabled = fals
   const { c, s, u } = useChatUi();
   return <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={disabled} accessibilityState={{ disabled }} onPress={onPress} style={({ pressed }) => [u.iconButton, blue && { backgroundColor: c.blue, borderColor: c.blue }, (pressed || disabled) && { opacity: 0.5 }]}><Icon name={name} size={18} color={blue ? c.onBlue : c.ink} /></Pressable>;
 }
-export function Avatar({ text, group = false, size = 44 }: { text: string; group?: boolean; size?: number }) { const { c, u } = useChatUi(); return <View style={[u.avatar, { width: size, height: size, borderRadius: size / 2, backgroundColor: group ? c.blue : c.avatar }]}><Text style={u.avatarText}>{text}</Text></View>; }
+export function Avatar({ text, group = false, size = 44, uri }: { text: string; group?: boolean; size?: number; uri?: string }) {
+  const { c, u } = useChatUi();
+  const [failedUri, setFailedUri] = useState<string>();
+  return <View style={[u.avatar, { width: size, height: size, borderRadius: size / 2, backgroundColor: group ? c.blue : c.avatar }]}>
+    {uri && uri !== failedUri ? <Image source={{ uri }} onError={() => setFailedUri(uri)} style={{ width: size, height: size, borderRadius: size / 2 }} /> : <Text style={u.avatarText}>{text}</Text>}
+  </View>;
+}
 export function Tabs({ tabs, value, onChange }: { tabs: { key: string; label: string }[]; value: string; onChange: (key: string) => void }) {
   const { c, s, u } = useChatUi();
   return <View style={u.tabs}>{tabs.map(tab => <Pressable key={tab.key} accessibilityRole="tab" accessibilityState={{ selected: tab.key === value }} onPress={() => onChange(tab.key)} style={({ pressed }) => [u.tab, value === tab.key && { backgroundColor: c.white }, pressed && { opacity: 0.6 }]}><Text style={[s.text, { color: value === tab.key ? c.ink : c.muted, fontWeight: value === tab.key ? '600' : '400', textAlign: 'center' }]}>{tab.label}</Text></Pressable>)}</View>;

@@ -22,7 +22,7 @@ export default function ChatHome({ session, user, trips, onExit, onTrip }: { ses
   if (route?.kind === 'conversation') {
     const directConversation = session.direct.conversations.find(item => item.id === route.id);
     if (directConversation) return <DirectConversationScreen key={directConversation.id} conversation={directConversation}
-      thread={session.direct.threads[directConversation.id]} onBack={back}
+      thread={session.direct.threads[directConversation.id]} onBack={back} loadAvatar={session.loadAvatar}
       onSend={text => session.direct.store.send(directConversation.id, text)}
       onRetry={clientId => { void session.direct.store.retry(directConversation.id, clientId); }}
       onOlder={() => { void session.direct.store.older(directConversation.id); }}

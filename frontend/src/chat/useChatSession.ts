@@ -3,10 +3,12 @@ import { AuthorizedRequest, RealtimeCredentials } from '../auth/session';
 import { Conversation, Friend, FriendRequest, initialConversations } from './chatModel';
 import { createFriendApi, FriendCode } from './friendApi';
 import { useDirectMessaging } from './useDirectMessaging';
+import { createProfileApi } from '../profile/profileApi';
 
 type Route = { kind: 'add' | 'requests' | 'create' } | { kind: 'conversation'; id: string };
 export function useChatSession(request: AuthorizedRequest, userId: string, visible: boolean, realtimeCredentials: RealtimeCredentials) {
   const api = useMemo(() => createFriendApi(request), [request]);
+  const profileApi = useMemo(() => createProfileApi(request, userId), [request, userId]);
   const [conversations, setConversations] = useState(initialConversations);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [requests, setRequests] = useState<FriendRequest[]>([]);
@@ -53,5 +55,5 @@ export function useChatSession(request: AuthorizedRequest, userId: string, visib
   };
   return { conversations: [...direct.listConversations, ...conversations.filter(item => item.type === 'group')], direct, refreshChat,
     setConversations, friends, setFriends, requests, setRequests, routes, setRoutes, push, back, update, open, openFriend,
-    socialLoading, socialError, refreshSocial, friendCode, loadFriendCode, lookupPhone: api.lookupPhone, lookupCode: api.lookupCode, sendRequest, resolveRequest, removeFriend };
+    socialLoading, socialError, refreshSocial, friendCode, loadFriendCode, loadAvatar: profileApi.image, lookupPhone: api.lookupPhone, lookupCode: api.lookupCode, sendRequest, resolveRequest, removeFriend };
 }

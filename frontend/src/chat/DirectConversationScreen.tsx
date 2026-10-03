@@ -9,11 +9,24 @@ type Props = {
   conversation: DirectConversation; thread?: DirectThread; onBack: () => void;
   onSend: (text: string) => Promise<void>; onRetry: (clientId: string) => void;
   onReload: () => void; onOlder: () => void; onRead: (seq: string) => void;
+  loadAvatar?: (mediaId: string) => Promise<string>;
 };
-export default function DirectConversationScreen({ conversation, thread, onBack, onSend, onRetry, onReload, onOlder, onRead }: Props) {
+export default function DirectConversationScreen({ conversation, thread, onBack, onSend, onRetry, onReload, onOlder, onRead, loadAvatar }: Props) {
   const { c, s, u } = useChatUi();
   const [input, setInput] = useState('');
   const [inputError, setInputError] = useState('');
+  const [avatar, setAvatar] = useState<{ mediaId: string; uri: string }>();
+  const avatarId = conversation.user.avatarMediaId;
+  const avatarUri = avatar?.mediaId === avatarId ? avatar?.uri : undefined;
+  const avatarText = conversation.user.displayName.trim().charAt(0).toUpperCase() || '?';
+  useEffect(() => {
+    let active = true;
+    setAvatar(undefined);
+    if (avatarId && loadAvatar) void loadAvatar(avatarId).then(uri => {
+      if (active) setAvatar({ mediaId: avatarId, uri });
+    }).catch(() => { /* Keep the initials when the thumbnail is unavailable. */ });
+    return () => { active = false; };
+  }, [avatarId, loadAvatar]);
   const list = useRef<FlatList<DeliveryMessage>>(null);
   const submitInFlight = useRef(false);
   const atBottom = useRef(true);
@@ -66,7 +79,7 @@ export default function DirectConversationScreen({ conversation, thread, onBack,
   return <KeyboardAvoidingView style={[u.screen, { backgroundColor: c.pale }]} enabled={Platform.OS === 'ios'} behavior="padding">
     <View style={[s.header, { gap: 12 }]}>
       <IconButton name="arrow-left" label="Quay lại danh sách tin nhắn" onPress={onBack} />
-      <Avatar text={conversation.user.displayName.trim().charAt(0).toUpperCase() || '?'} size={40} />
+      <Avatar text={avatarText} uri={avatarUri} size={40} />
       <View style={s.grow}><Text numberOfLines={1} style={s.title}>{conversation.user.displayName}</Text><Text style={s.small}>Trò chuyện cá nhân</Text></View>
     </View>
     {!conversation.canSend && <Text accessibilityRole="alert" style={[s.text, { padding: 16, backgroundColor: c.white }]}>Hiện không thể gửi tin với người này. Bạn vẫn có thể xem lịch sử trò chuyện.</Text>}
@@ -89,7 +102,11 @@ export default function DirectConversationScreen({ conversation, thread, onBack,
           {thread.olderLoading ? <ActivityIndicator color={c.blue} /> : <Text style={s.link}>{thread.olderError ? 'Thử tải lại tin cũ' : 'Xem tin nhắn cũ hơn'}</Text>}
         </Pressable>
       </View> : null}
-      renderItem={({ item }) => <View style={{ alignItems: item.isMe ? 'flex-end' : 'flex-start', gap: 4 }}>
+      renderItem={({ item, index }) => <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+        {!item.isMe && <View style={{ width: 28 }} accessible={false} importantForAccessibility="no-hide-descendants">
+          {(index === 0 || messages[index - 1]?.isMe) && <Avatar text={avatarText} uri={avatarUri} size={28} />}
+        </View>}
+        <View style={{ flex: 1, alignItems: item.isMe ? 'flex-end' : 'flex-start', gap: 4 }}>
         <View style={{ maxWidth: '82%', padding: 12, borderRadius: 18, borderWidth: item.isMe ? 0 : 1,
           borderColor: c.border, backgroundColor: item.isMe ? c.blue : c.white, opacity: item.status === 'sending' ? 0.65 : 1 }}>
           <Text selectable style={{ color: item.isMe ? c.onBlue : c.ink, fontSize: 16, lineHeight: 23 }}>{item.text}</Text>
@@ -98,6 +115,7 @@ export default function DirectConversationScreen({ conversation, thread, onBack,
         {item.status === 'failed' && <View style={{ maxWidth: '82%', gap: 4 }}><Text accessibilityRole="alert" style={s.error}>{item.error ?? 'Chưa gửi được tin nhắn.'}</Text>
           {conversation.canSend && <Pressable accessibilityRole="button" accessibilityLabel="Thử gửi lại tin nhắn" onPress={() => onRetry(item.clientMessageId)} style={{ minHeight: 44, justifyContent: 'center', alignItems: 'flex-end' }}><Text style={s.link}>Thử gửi lại</Text></Pressable>}
         </View>}
+        </View>
       </View>} />
     {!!inputError && <Text accessibilityRole="alert" style={[s.error, { padding: 12, backgroundColor: c.white }]}>{inputError}</Text>}
     <View style={[s.footer, s.row, { padding: 12 }]}>

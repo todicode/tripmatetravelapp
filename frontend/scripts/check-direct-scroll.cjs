@@ -32,7 +32,7 @@ function screen() {
     thread: { initialized: true, messages: [] }, onSend: async () => {}, onRead() {} };
   const render = () => { cursor = 0; return context.exports.default(props); };
   const find = (node, type) => node?.type === type ? node : node?.children?.flat(Infinity).map(child => find(child, type)).find(Boolean);
-  return { render, find, flush: () => { const pending = [...frames.values()]; frames.clear(); pending.forEach(fn => fn()); } };
+  return { render, find, props, flush: () => { const pending = [...frames.values()]; frames.clear(); pending.forEach(fn => fn()); } };
 }
 
 test('sending scrolls after content layout even if preserving the old position reports an offset', () => {
@@ -56,4 +56,19 @@ test('incoming content preserves older reading position and follows the bottom a
   list.props.onContentSizeChange(); h.flush(); assert.deepEqual(offsets, []);
   list.props.onScroll({ nativeEvent: { contentOffset: { y: 0 } } });
   list.props.onLayout(); h.flush(); assert.deepEqual(offsets, [0]);
+});
+
+test('incoming runs show one peer avatar at the newest bubble and outgoing messages have no side avatar', () => {
+  const h = screen();
+  h.props.thread.messages = [
+    { id: '1', isMe: false }, { id: '2', isMe: true },
+    { id: '3', isMe: false }, { id: '4', isMe: false },
+  ];
+  const list = h.find(h.render(), 'FlatList');
+  const rows = list.props.data.map((item, index) => list.props.renderItem({ item, index }));
+  assert.equal(h.find(rows[0], 'Avatar').props.text, 'A');
+  assert.equal(h.find(rows[0], 'Avatar').props.size, 28);
+  assert.equal(h.find(rows[1], 'Avatar'), undefined);
+  assert.equal(h.find(rows[2], 'Avatar'), undefined);
+  assert.equal(h.find(rows[3], 'Avatar').props.text, 'A');
 });
