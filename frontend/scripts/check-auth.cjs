@@ -190,20 +190,22 @@ function apiWith(response) {
     AbortController, setTimeout, clearTimeout }).apiRequest;
 }
 
-test('HTTP transport sends explicit PATCH while preserving GET and POST defaults', async () => {
+test('HTTP transport sends explicit PATCH and PUT while preserving GET and POST defaults', async () => {
   const methods = [];
   const api = load('api.ts', { require: () => ({ ApiRequestError }), AbortController, setTimeout, clearTimeout,
     fetch: async (url, options) => {
       methods.push(options.method);
       assert.equal(options.headers.Authorization, 'Bearer token');
       if (options.method === 'PATCH') assert.equal(JSON.parse(options.body).displayName, 'Bình');
+      if (options.method === 'PUT') assert.equal(JSON.parse(options.body).lastReadSeq, '9007199254740993');
       return new Response(JSON.stringify({ data: {} }));
     },
   }).apiRequest;
   await api('https://example.test', 'API', '/users/me', undefined, 'token');
   await api('https://example.test', 'API', '/auth/logout', {}, 'token');
   await api('https://example.test', 'API', '/users/me', { displayName: 'Bình' }, 'token', 'PATCH');
-  assert.deepEqual(methods, ['GET', 'POST', 'PATCH']);
+  await api('https://example.test', 'API', '/direct-conversations/id/read', { lastReadSeq: '9007199254740993' }, 'token', 'PUT');
+  assert.deepEqual(methods, ['GET', 'POST', 'PATCH', 'PUT']);
 });
 
 test('API adapter handles empty 204 and preserves HTTP status from an HTML error', async () => {

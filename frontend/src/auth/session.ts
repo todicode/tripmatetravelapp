@@ -16,7 +16,7 @@ export class ApiRequestError extends Error {
   }
 }
 
-export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 export type RequestOptions = { file?: { uri: string; name: string; type: string }; responseType?: 'arrayBuffer' };
 export type AuthTransport = <T>(path: string, body?: Record<string, unknown>, token?: string, method?: HttpMethod, options?: RequestOptions) => Promise<T>;
 export type AuthorizedRequest = <T>(path: string, body?: Record<string, unknown>, method?: HttpMethod, options?: RequestOptions) => Promise<T>;

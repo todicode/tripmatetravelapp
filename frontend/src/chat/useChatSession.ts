@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthorizedRequest } from '../auth/session';
 import { Conversation, Friend, FriendRequest, initialConversations } from './chatModel';
-import { createFriendApi, FriendCode, LookupResult } from './friendApi';
+import { createFriendApi, FriendCode } from './friendApi';
+import { useDirectMessaging } from './useDirectMessaging';
 
 type Route = { kind: 'add' | 'requests' | 'create' } | { kind: 'conversation'; id: string };
-export function useChatSession(request: AuthorizedRequest) {
+export function useChatSession(request: AuthorizedRequest, userId: string, visible: boolean) {
   const api = useMemo(() => createFriendApi(request), [request]);
   const [conversations, setConversations] = useState(initialConversations);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [routes, setRoutes] = useState<Route[]>([]);
+  const route = routes.at(-1);
+  const direct = useDirectMessaging(request, userId, visible, route?.kind === 'conversation' ? route.id : null);
   const [socialLoading, setSocialLoading] = useState(true);
   const [socialError, setSocialError] = useState('');
   const [friendCode, setFriendCode] = useState<FriendCode | null>(null);
@@ -38,15 +41,17 @@ export function useChatSession(request: AuthorizedRequest) {
     await refreshSocial();
     return result;
   };
-  const removeFriend = async (id: string) => { await api.remove(id); await refreshSocial(); };
+  const removeFriend = async (id: string) => { await api.remove(id); await Promise.all([refreshSocial(), direct.store.refresh()]); };
+  const refreshChat = async () => { await Promise.all([refreshSocial(), direct.store.refresh()]); };
   const push = (route: Route) => setRoutes(current => [...current, route]);
   const back = () => setRoutes(current => current.slice(0, -1));
   const update = (id: string, fn: (conversation: Conversation) => Conversation) => setConversations(current => current.map(item => item.id === id ? fn(item) : item));
   const open = (id: string) => { update(id, item => ({ ...item, unread: 0 })); push({ kind: 'conversation', id }); };
-  const openFriend = (friend: Friend) => {
-    setConversations(current => current.some(item => item.id === friend.id) ? current : [...current, { id: friend.id, type: 'friend', name: friend.name, avatar: friend.avatar, members: [friend.id], unread: 0, messages: [] }]);
-    open(friend.id);
+  const openFriend = async (friend: Friend) => {
+    const id = await direct.store.open(friend.id);
+    if (id) push({ kind: 'conversation', id });
   };
-  return { conversations, setConversations, friends, setFriends, requests, setRequests, routes, setRoutes, push, back, update, open, openFriend,
+  return { conversations: [...direct.listConversations, ...conversations.filter(item => item.type === 'group')], direct, refreshChat,
+    setConversations, friends, setFriends, requests, setRequests, routes, setRoutes, push, back, update, open, openFriend,
     socialLoading, socialError, refreshSocial, friendCode, loadFriendCode, lookupPhone: api.lookupPhone, lookupCode: api.lookupCode, sendRequest, resolveRequest, removeFriend };
 }

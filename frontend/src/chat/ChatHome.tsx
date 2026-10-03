@@ -6,7 +6,8 @@ import ChatListScreen from './ChatListScreen';
 import ConversationScreen from './ConversationScreen';
 import CreateGroupScreen from './CreateGroupScreen';
 import FriendRequestsScreen from './FriendRequestsScreen';
-import { appendMessage, Conversation, createGroup, Friend, FriendRequest, initialConversations } from './chatModel';
+import { appendMessage, createGroup } from './chatModel';
+import DirectConversationScreen from './DirectConversationScreen';
 
 import { useChatSession } from './useChatSession';
 export { useChatSession } from './useChatSession';
@@ -19,8 +20,19 @@ export default function ChatHome({ session, user, trips, onExit, onTrip }: { ses
   if (route?.kind === 'requests') return <FriendRequestsScreen requests={requests} loading={session.socialLoading} error={session.socialError} onRefresh={session.refreshSocial} onBack={back} onResolve={session.resolveRequest} />;
   if (route?.kind === 'create') return <CreateGroupScreen friends={friends} trips={trips} onBack={back} onCreate={(name, members, tripId) => { const group = createGroup(name, members, tripId); group.tripLabel = trips.find(trip => trip.id === tripId)?.city; session.setConversations(current => [group, ...current]); session.setRoutes([{ kind: 'conversation', id: group.id }]); }} />;
   if (route?.kind === 'conversation') {
+    const directConversation = session.direct.conversations.find(item => item.id === route.id);
+    if (directConversation) return <DirectConversationScreen key={directConversation.id} conversation={directConversation}
+      thread={session.direct.threads[directConversation.id]} onBack={back}
+      onSend={text => session.direct.store.send(directConversation.id, text)}
+      onRetry={clientId => { void session.direct.store.retry(directConversation.id, clientId); }}
+      onOlder={() => { void session.direct.store.older(directConversation.id); }}
+      onReload={() => { void session.direct.store.load(directConversation.id).then(() => session.direct.store.sync(directConversation.id)); }}
+      onRead={seq => session.direct.readVisible(directConversation.id, seq)} />;
     const conversation = conversations.find(item => item.id === route.id);
     if (conversation) return <ConversationScreen key={conversation.id} conversation={conversation} friends={friends} user={user} trips={trips} onPin={id => update(conversation.id, item => ({ ...item, tripId: id, tripLabel: trips.find(trip => trip.id === id)?.city }))} trip={trips.find(trip => trip.id === conversation.tripId)} onBack={back} onTrip={onTrip} onSend={text => update(conversation.id, item => appendMessage(item, text))} onInvite={id => update(conversation.id, item => ({ ...item, members: [...new Set([...item.members, id])] }))} />;
   }
-  return <ChatListScreen conversations={conversations} friends={friends} socialLoading={session.socialLoading} socialError={session.socialError} onRefresh={session.refreshSocial} onRemoveFriend={session.removeFriend} onOpen={open} onAddFriend={() => push({ kind: 'add' })} onCreateGroup={() => push({ kind: 'create' })} />;
+  return <ChatListScreen conversations={conversations} friends={friends} socialLoading={session.socialLoading} socialError={session.socialError}
+    chatLoading={session.direct.loading} chatError={session.direct.error} openingId={session.direct.openingId} openingError={session.direct.openingError}
+    onRefresh={session.refreshChat} onOpenFriend={session.openFriend} onRemoveFriend={session.removeFriend} onOpen={open}
+    onAddFriend={() => push({ kind: 'add' })} onCreateGroup={() => push({ kind: 'create' })} />;
 }

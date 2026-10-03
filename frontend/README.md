@@ -17,6 +17,15 @@ Stack theo kế hoạch: React Native, TypeScript, Expo development build, Expo 
 
 Kiểm tra: `npm run typecheck`, `node scripts/check-trips.cjs`, `node scripts/check-chat.cjs`, `npx expo export --platform android`. Cần thiết bị/emulator để nghiệm thu bố cục và gesture native.
 
+## Nhắn tin cá nhân
+
+- Trong **Tin nhắn → Bạn bè**, nhấn tên hoặc nút nhắn tin để tạo/mở cuộc trò chuyện với bạn bè qua API. Tab **Tất cả** tải các cuộc trò chuyện đã lưu, tin cuối và số tin chưa đọc từ backend.
+- Chat cá nhân có lịch sử phân trang, gửi văn bản giữ nguyên nội dung, trạng thái đang gửi/lỗi và nút thử lại. Retry giữ nguyên `clientMessageId` và nội dung để không tạo tin trùng khi timeout. Số thứ tự được giữ dưới dạng chuỗi/BigInt.
+- Khi đang mở tab chat và app ở foreground, danh sách được cập nhật mỗi 10 giây; cuộc trò chuyện đang mở kiểm tra tin mới mỗi 3 giây qua REST. Không dùng WebSocket hoặc thông báo push. Mốc đã đọc chỉ cập nhật từ tin đang hiển thị, không xóa badge chỉ vì mở cuộc trò chuyện.
+- Hủy kết bạn giữ lịch sử, khóa ô nhập/gửi khi backend báo không còn quyền. Không lưu nội dung chat cá nhân xuống AsyncStorage; phiên chat được tách theo tài khoản và bỏ qua phản hồi đến muộn sau đăng xuất.
+- Luồng nhóm tiếp tục dùng implementation cũ, chưa tích hợp API nhóm. Chat cá nhân trước mắt chỉ có văn bản; chưa đồng bộ ghim chuyến đi, ảnh/tệp hoặc cuộc gọi.
+- Backend cần khởi động lại để Flyway áp dụng V7. API và ví dụ: [DIRECT_MESSAGING.md](../docs/api/DIRECT_MESSAGING.md). Kiểm tra: `npm run test:messages`, `npm run test:friends`, `npm run test:auth`, `npm run typecheck`, `node scripts/check-chat.cjs` và `npx expo export --platform android`.
+
 ## Phiên đăng nhập
 
 - “Ghi nhớ tôi” lưu refresh token và thời hạn trong SecureStore; access token chỉ ở bộ nhớ. Bỏ chọn thì phiên chỉ tồn tại trong lần chạy app. Đăng ký thành công mặc định ghi nhớ phiên.

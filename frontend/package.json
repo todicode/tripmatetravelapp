@@ -10,6 +10,7 @@
     "test:auth": "node --test scripts/check-auth.cjs",
     "test:profile": "node --test scripts/check-profile.cjs",
     "test:friends": "node --test scripts/check-friends.cjs",
+    "test:messages": "node --test scripts/check-direct-messages.cjs",
     "ios": "expo run:ios"
   },
   "dependencies": {

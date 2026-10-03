@@ -1,4 +1,4 @@
-import { ApiRequestError, RequestOptions } from './session';
+import { ApiRequestError, HttpMethod, RequestOptions } from './session';
 import { File } from 'expo-file-system';
 
 export async function apiRequest<T>(
@@ -7,7 +7,7 @@ export async function apiRequest<T>(
   path: string,
   body?: Record<string, unknown>,
   accessToken?: string,
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  method?: HttpMethod,
   options?: RequestOptions,
 ): Promise<T> {
   const controller = new AbortController();

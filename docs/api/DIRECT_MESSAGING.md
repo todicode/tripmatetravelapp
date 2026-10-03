@@ -1,13 +1,23 @@
 # Direct messaging API
 
-Implemented backend slice: REST, persisted 1-to-1 text messages. All paths below use `/api/v1`, require `Authorization: Bearer <access-token>`, and return HTTP 200 with `{data, requestId}`, `X-Request-Id` and `Cache-Control: private, no-store`.
+Implemented backend and frontend slice: REST, persisted 1-to-1 text messages. All paths below use `/api/v1`, require `Authorization: Bearer <access-token>`, and return HTTP 200 with `{data, requestId}`, `X-Request-Id` and `Cache-Control: private, no-store`.
 
 ## Rules
 
 - Only current friends may open a conversation or send. Each user pair has one conversation, reused when friendship is restored.
 - Unfriend retains history and read-marker access for the two participants, but blocks new sends and send retries. Conversation summaries expose `canSend=false`.
 - Outsiders get `404 CONVERSATION_NOT_FOUND` for message/history/read operations. Summary users contain only `id`, `displayName`, `avatarMediaId`.
-- No frontend changes, group chat, WebSocket, push, attachments, message edits/deletion, typing or online state.
+- Group chat, WebSocket, push, attachments, message edits/deletion, typing and online state are outside this slice.
+
+## Frontend integration
+
+In **Tin nhắn → Bạn bè**, tap a friend's name or message button to open/reuse the server conversation. **Tất cả** shows persisted conversation summaries and unread counts. Individual conversations use `DirectConversationScreen`; group conversations retain the existing screen and local implementation.
+
+`directMessageApi.ts` uses the existing authorized request/refresh transport. `DirectMessagingSession` owns paging, pending sends, UUID-preserving retries, sequence catch-up and monotonic read results; `useDirectMessaging` adapts this state to React and the app lifecycle. New messages are checked every 3 seconds in the open direct conversation, lists every 10 seconds while chat is visible. Poll timers do not issue requests while the app is in the background. No chat contents are persisted to local storage.
+
+Read markers advance only from confirmed messages actually visible on screen, capped by the loaded catch-up sequence to avoid marking an unseen incoming gap read when a send response arrives first. Failed sends remain visible with retry actions; confirmed messages from polling reconcile with pending messages by sender and `clientMessageId`.
+
+Frontend checks: `npm run test:messages`, `npm run typecheck`, existing auth/profile/friend tests, `node scripts/check-chat.cjs`, and `npx expo export --platform android`. Device acceptance: open from friends and from an existing conversation; send from two accounts; load more than 50 historical messages; go offline/send/retry; verify unread badges; unfriend and check retained history with disabled sending; switch tabs/background/foreground; test keyboard and dark mode.
 
 ## Open or reuse
 

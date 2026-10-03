@@ -2,7 +2,7 @@ import { makeId, normalizeName } from '../trips/tripModel';
 
 export type Friend = { id: string; name: string; phone: string; avatar: string };
 export type Message = { id: string; text: string; isMe: boolean; senderName: string; time: string };
-export type Conversation = { id: string; type: 'friend' | 'group'; name: string; avatar: string; members: string[]; tripId?: string; tripLabel?: string; unread: number; messages: Message[] };
+export type Conversation = { id: string; type: 'friend' | 'group'; name: string; avatar: string; members: string[]; tripId?: string; tripLabel?: string; unread: number; messages: Message[]; lastMessage?: Message; unreadLabel?: string };
 export type FriendRequest = { id: string; friend: Friend; message: string; direction: 'received' | 'sent' };
 const msg = (text: string, isMe: boolean, senderName: string, time: string): Message => ({ id: makeId(), text, isMe, senderName, time });
 export function initialConversations(): Conversation[] { return []; }
