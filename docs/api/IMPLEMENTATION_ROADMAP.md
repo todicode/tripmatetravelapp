@@ -1,5 +1,7 @@
 # Kế hoạch API theo UI và database hiện tại
 
+**Cập nhật 05/10/2026:** contract hiện tại là 1.5.0. Chat cá nhân đã có API/UI/WebSocket/presence; nhóm độc lập đã có 14 REST API, membership/owner, text history/read và liên kết chuyến chỉ xem. Xem [GROUP_MESSAGING.md](GROUP_MESSAGING.md). UI và realtime nhóm chưa tích hợp. V8 chuẩn bị bảng trip/itinerary cho chia sẻ, nhưng API tạo/sửa chuyến và chuyển dữ liệu trip local lên server vẫn chưa triển khai. Các phần lịch sử bên dưới phản ánh đợt đối chiếu 27/09, không thay thế contract mới.
+
 Ngày đối chiếu: **27/09/2026**. Phạm vi: backend trong repo, UI React Native đang tích hợp từ `template_gui`, OpenAPI **1.3.0** và schema SQL/Flyway.
 
 ## 1. Kết luận và thứ tự nên làm

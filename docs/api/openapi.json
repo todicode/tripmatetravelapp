@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "TripMate API Contract",
-    "version": "1.4.2",
-    "description": "Contract-first TripMate API for the Spring backend and mobile React Native client. Version 1.4.2 adds ephemeral personal-chat presence snapshots and private STOMP updates. Direct-message writes remain REST. This JSON is the canonical wire format; examples use fixture data. Rules: docs/api/TEAM_RULES.md. Realtime: x-realtime. Bigint values are sent as strings."
+    "version": "1.5.0",
+    "description": "Contract-first TripMate API for the Spring backend and mobile React Native client. Version 1.5.0 adds independent group conversations with membership, text history/read markers and optional owner-verified read-only trip sharing. Group frontend and realtime remain a separate slice; personal chat remains unchanged. This JSON is the canonical wire format; examples use fixture data. Rules: docs/api/TEAM_RULES.md. Realtime: x-realtime. Bigint values are sent as strings."
   },
   "servers": [
     {
@@ -7711,6 +7711,1426 @@
         }
       }
     },
+    "/group-conversations": {
+      "post": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "createGroupConversation",
+        "summary": "Create an independent group",
+        "description": "Creator becomes owner. Optional tripId must refer to the creator's undeleted owned trip. memberIds may be empty, otherwise unique current friends of creator; max 100 active including owner. Each POST creates a new group. Text-only REST slice; no group avatar/media/realtime yet.",
+        "x-permission": "AUTHENTICATED; creator; selected members must be current friends",
+        "responses": {
+          "201": {
+            "description": "Create an independent group",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupConversationResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "id": "00000000-0000-4000-8000-000000000180",
+                        "name": "Travel friends",
+                        "ownerId": "00000000-0000-4000-8000-000000000001",
+                        "tripId": null,
+                        "version": "0",
+                        "memberCount": 2,
+                        "lastMessage": null,
+                        "lastSeq": "0",
+                        "lastReadSeq": "0",
+                        "unreadCount": "0",
+                        "archived": false,
+                        "canSend": true,
+                        "createdAt": "2026-10-05T00:00:00Z",
+                        "updatedAt": "2026-10-05T00:00:00Z"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGroupConversation"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "name": "Travel friends",
+                    "memberIds": [
+                      "00000000-0000-4000-8000-000000000002"
+                    ],
+                    "tripId": null
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "listGroupConversations",
+        "summary": "List joined groups",
+        "description": "Only active memberships, including archived groups. updatedAt DESC, id DESC. Signed actor/limit/group-scope keyset cursor. Last message and incoming unread count included.",
+        "x-permission": "AUTHENTICATED ACTIVE group member",
+        "responses": {
+          "200": {
+            "description": "List joined groups",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupConversationPageResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "items": [
+                          {
+                            "id": "00000000-0000-4000-8000-000000000180",
+                            "name": "Travel friends",
+                            "ownerId": "00000000-0000-4000-8000-000000000001",
+                            "tripId": null,
+                            "version": "0",
+                            "memberCount": 2,
+                            "lastMessage": null,
+                            "lastSeq": "0",
+                            "lastReadSeq": "0",
+                            "unreadCount": "0",
+                            "archived": false,
+                            "canSend": true,
+                            "createdAt": "2026-10-05T00:00:00Z",
+                            "updatedAt": "2026-10-05T00:00:00Z"
+                          }
+                        ],
+                        "pageInfo": {
+                          "nextCursor": null,
+                          "hasMore": false
+                        }
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "example": 20
+            }
+          }
+        ]
+      }
+    },
+    "/group-conversations/{id}": {
+      "get": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "getGroupConversation",
+        "summary": "Get group details",
+        "description": "Only active members, otherwise 404. Group version changes for management/membership actions; message seq is independent.",
+        "x-permission": "AUTHENTICATED ACTIVE group member",
+        "responses": {
+          "200": {
+            "description": "Get group details",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupConversationResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "id": "00000000-0000-4000-8000-000000000180",
+                        "name": "Travel friends",
+                        "ownerId": "00000000-0000-4000-8000-000000000001",
+                        "tripId": null,
+                        "version": "0",
+                        "memberCount": 2,
+                        "lastMessage": null,
+                        "lastSeq": "0",
+                        "lastReadSeq": "0",
+                        "unreadCount": "0",
+                        "archived": false,
+                        "canSend": true,
+                        "createdAt": "2026-10-05T00:00:00Z",
+                        "updatedAt": "2026-10-05T00:00:00Z"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000180"
+            }
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "updateGroupConversation",
+        "summary": "Rename or change the linked trip",
+        "description": "expectedVersion prevents lost edits. Omitted tripId keeps link; null unlinks. Link checks current group owner's trip ownership. No trip editing or membership granted. Archived groups reject changes.",
+        "x-permission": "AUTHENTICATED ACTIVE group OWNER",
+        "responses": {
+          "200": {
+            "description": "Rename or change the linked trip",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupConversationResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "id": "00000000-0000-4000-8000-000000000180",
+                        "name": "Renamed",
+                        "ownerId": "00000000-0000-4000-8000-000000000001",
+                        "tripId": "00000000-0000-4000-8000-000000000010",
+                        "version": "1",
+                        "memberCount": 2,
+                        "lastMessage": null,
+                        "lastSeq": "0",
+                        "lastReadSeq": "0",
+                        "unreadCount": "0",
+                        "archived": false,
+                        "canSend": true,
+                        "createdAt": "2026-10-05T00:00:00Z",
+                        "updatedAt": "2026-10-05T00:00:00Z"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000180"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateGroupConversation"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "expectedVersion": "0",
+                    "name": "Renamed",
+                    "tripId": "00000000-0000-4000-8000-000000000010"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "archiveGroupConversation",
+        "summary": "Close the group and retain history",
+        "description": "Soft archive: no new sends or metadata/add/transfer actions. Active members retain history/read and may leave. Retry of already archived group is safe.",
+        "x-permission": "AUTHENTICATED ACTIVE group OWNER",
+        "responses": {
+          "200": {
+            "description": "Close the group and retain history",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupConversationResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "id": "00000000-0000-4000-8000-000000000180",
+                        "name": "Travel friends",
+                        "ownerId": "00000000-0000-4000-8000-000000000001",
+                        "tripId": null,
+                        "version": "1",
+                        "memberCount": 2,
+                        "lastMessage": null,
+                        "lastSeq": "0",
+                        "lastReadSeq": "0",
+                        "unreadCount": "0",
+                        "archived": true,
+                        "canSend": false,
+                        "createdAt": "2026-10-05T00:00:00Z",
+                        "updatedAt": "2026-10-05T00:00:00Z"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000180"
+            }
+          },
+          {
+            "name": "expectedVersion",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,18})$",
+              "maxLength": 19,
+              "example": "0"
+            }
+          }
+        ]
+      }
+    },
+    "/group-conversations/{id}/members": {
+      "get": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "listGroupMembers",
+        "summary": "List active group members",
+        "description": "Limited user summaries, derived OWNER/MEMBER role and per-member read marker. No email/phone.",
+        "x-permission": "AUTHENTICATED ACTIVE group member",
+        "responses": {
+          "200": {
+            "description": "List active group members",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupMemberListResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": [
+                        {
+                          "user": {
+                            "id": "00000000-0000-4000-8000-000000000002",
+                            "displayName": "Member",
+                            "avatarMediaId": null
+                          },
+                          "role": "MEMBER",
+                          "lastReadSeq": "0",
+                          "joinedAt": "2026-10-05T00:00:00Z"
+                        }
+                      ],
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000180"
+            }
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "addGroupMember",
+        "summary": "Add a current friend to the group",
+        "description": "Owner only. Direct addition, not an invitation flow. Active member retry is a no-op; left/removed may be re-added by owner. Read starts at current tail; all retained history becomes readable. Capacity checked under group row lock. Membership does not require continuing friendship.",
+        "x-permission": "AUTHENTICATED ACTIVE group OWNER",
+        "responses": {
+          "200": {
+            "description": "Add a current friend to the group",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupMemberResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "user": {
+                          "id": "00000000-0000-4000-8000-000000000002",
+                          "displayName": "Member",
+                          "avatarMediaId": null
+                        },
+                        "role": "MEMBER",
+                        "lastReadSeq": "0",
+                        "joinedAt": "2026-10-05T00:00:00Z"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000180"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupMemberRequest"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "userId": "00000000-0000-4000-8000-000000000002",
+                    "expectedVersion": "0"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/group-conversations/{id}/members/{userId}": {
+      "delete": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "removeGroupMember",
+        "summary": "Remove a member",
+        "description": "Owner only. Owner cannot remove self; transfer first. Left/removed retry is a no-op. Immediately blocks subsequent group/history/trip access.",
+        "x-permission": "AUTHENTICATED ACTIVE group OWNER",
+        "responses": {
+          "204": {
+            "description": "Remove a member",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000180"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000002"
+            }
+          },
+          {
+            "name": "expectedVersion",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,18})$",
+              "maxLength": 19,
+              "example": "0"
+            }
+          }
+        ]
+      }
+    },
+    "/group-conversations/{id}/members/me": {
+      "delete": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "leaveGroupConversation",
+        "summary": "Leave the group",
+        "description": "Member leaves without group version input. Owner must transfer first. Retry after leaving is safe and does not restore access.",
+        "x-permission": "AUTHENTICATED ACTIVE group member",
+        "responses": {
+          "204": {
+            "description": "Leave the group",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000180"
+            }
+          }
+        ]
+      }
+    },
+    "/group-conversations/{id}/owner": {
+      "put": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "transferGroupOwnership",
+        "summary": "Transfer ownership to an active member",
+        "description": "Owner only; target must be active and enabled. Clears the old owner's optional trip link. New owner may link a trip they own. Archived groups reject transfer.",
+        "x-permission": "AUTHENTICATED ACTIVE group OWNER",
+        "responses": {
+          "200": {
+            "description": "Transfer ownership to an active member",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupConversationResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "id": "00000000-0000-4000-8000-000000000180",
+                        "name": "Travel friends",
+                        "ownerId": "00000000-0000-4000-8000-000000000002",
+                        "tripId": null,
+                        "version": "1",
+                        "memberCount": 2,
+                        "lastMessage": null,
+                        "lastSeq": "0",
+                        "lastReadSeq": "0",
+                        "unreadCount": "0",
+                        "archived": false,
+                        "canSend": true,
+                        "createdAt": "2026-10-05T00:00:00Z",
+                        "updatedAt": "2026-10-05T00:00:00Z"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000180"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupMemberRequest"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "userId": "00000000-0000-4000-8000-000000000002",
+                    "expectedVersion": "0"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/group-conversations/{id}/trip": {
+      "get": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "getGroupLinkedTrip",
+        "summary": "View the linked trip read-only",
+        "description": "Checks active group membership and that trip is undeleted and still owned by current group owner. No link gives TRIP_NOT_LINKED; foreign/deleted trip gives TRIP_NOT_FOUND. Returns trip metadata and current itinerary without GPS/contacts/media. Does not grant trip membership or write access. Trip creation/edit APIs are a separate feature; never accepts frontend-only trip IDs.",
+        "x-permission": "AUTHENTICATED ACTIVE group member",
+        "responses": {
+          "200": {
+            "description": "View the linked trip read-only",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupLinkedTripResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "id": "00000000-0000-4000-8000-000000000010",
+                        "ownerId": "00000000-0000-4000-8000-000000000001",
+                        "title": "Weekend trip",
+                        "description": null,
+                        "cityCode": "DANANG",
+                        "cityName": "Đà Nẵng",
+                        "startDate": "2026-10-05",
+                        "endDate": "2026-10-05",
+                        "budgetVnd": null,
+                        "version": "0",
+                        "itinerary": {
+                          "version": "0",
+                          "days": [
+                            {
+                              "id": "00000000-0000-4000-8000-000000000183",
+                              "dayNumber": 1,
+                              "date": "2026-10-05",
+                              "transportMode": "DRIVE",
+                              "note": null,
+                              "items": []
+                            }
+                          ]
+                        }
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000180"
+            }
+          }
+        ]
+      }
+    },
+    "/group-conversations/{id}/messages": {
+      "get": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "listGroupMessages",
+        "summary": "Page group message history",
+        "description": "Retained history is accessible only while active. Exclusive beforeSeq/afterSeq, never both. Items always ascending. nextAfterSeq preserves empty catch-up cursor. New/rejoining members may view old history; old messages do not start as unread.",
+        "x-permission": "AUTHENTICATED ACTIVE group member",
+        "responses": {
+          "200": {
+            "description": "Page group message history",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupMessagePageResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "items": [
+                          {
+                            "id": "00000000-0000-4000-8000-000000000181",
+                            "conversationId": "00000000-0000-4000-8000-000000000180",
+                            "seq": "1",
+                            "sender": {
+                              "id": "00000000-0000-4000-8000-000000000002",
+                              "displayName": "Member",
+                              "avatarMediaId": null
+                            },
+                            "clientMessageId": "00000000-0000-4000-8000-000000000182",
+                            "body": "Hello group!",
+                            "createdAt": "2026-10-05T00:00:00Z"
+                          }
+                        ],
+                        "pageInfo": {
+                          "hasMore": false,
+                          "nextBeforeSeq": null,
+                          "nextAfterSeq": "1"
+                        }
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000180"
+            }
+          },
+          {
+            "name": "beforeSeq",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,18})$",
+              "maxLength": 19
+            }
+          },
+          {
+            "name": "afterSeq",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,18})$",
+              "maxLength": 19
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "example": 50
+            }
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "sendGroupMessage",
+        "summary": "Send a text message to a group",
+        "description": "Active member only, unarchived. Preserves exact body, max 4000 Unicode code points, no blank whitespace. Sender-scoped clientMessageId retries return same message; different body gives IDEMPOTENCY_CONFLICT. Per-group lock serializes sends and membership changes, allocating contiguous bigint string seq. Committed retry remains readable after archive. No group WebSocket events in this REST slice.",
+        "x-permission": "AUTHENTICATED ACTIVE group member",
+        "responses": {
+          "200": {
+            "description": "Send a text message to a group",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupMessageResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "id": "00000000-0000-4000-8000-000000000181",
+                        "conversationId": "00000000-0000-4000-8000-000000000180",
+                        "seq": "1",
+                        "sender": {
+                          "id": "00000000-0000-4000-8000-000000000002",
+                          "displayName": "Member",
+                          "avatarMediaId": null
+                        },
+                        "clientMessageId": "00000000-0000-4000-8000-000000000182",
+                        "body": "Hello group!",
+                        "createdAt": "2026-10-05T00:00:00Z"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000180"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendGroupMessage"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "clientMessageId": "00000000-0000-4000-8000-000000000182",
+                    "body": "Hello group!"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/group-conversations/{id}/read": {
+      "put": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "readGroupMessages",
+        "summary": "Advance own group read marker",
+        "description": "Monotonic max(previous,input), capped by current lastSeq. Incoming unread excludes own sends. No group version change. Allowed after archive while active.",
+        "x-permission": "AUTHENTICATED ACTIVE group member",
+        "responses": {
+          "200": {
+            "description": "Advance own group read marker",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupReadResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "conversationId": "00000000-0000-4000-8000-000000000180",
+                        "lastReadSeq": "1",
+                        "unreadCount": "0"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000180"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadGroupMessages"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "lastReadSeq": "1"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/direct-conversations": {
       "post": {
         "tags": [
@@ -13828,6 +15248,613 @@
         "properties": {
           "data": {
             "$ref": "#/components/schemas/DirectRead"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "GroupConversation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "[^\\s\\u00a0]"
+          },
+          "ownerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tripId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "version": {
+            "$ref": "#/components/schemas/UInt64String"
+          },
+          "memberCount": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "lastMessage": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "conversationId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "seq": {
+                "$ref": "#/components/schemas/UInt64String"
+              },
+              "sender": {
+                "$ref": "#/components/schemas/UserSummary"
+              },
+              "clientMessageId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "body": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "id",
+              "conversationId",
+              "seq",
+              "sender",
+              "clientMessageId",
+              "body",
+              "createdAt"
+            ],
+            "additionalProperties": false,
+            "nullable": true
+          },
+          "lastSeq": {
+            "$ref": "#/components/schemas/UInt64String"
+          },
+          "lastReadSeq": {
+            "$ref": "#/components/schemas/UInt64String"
+          },
+          "unreadCount": {
+            "$ref": "#/components/schemas/UInt64String"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "canSend": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "ownerId",
+          "tripId",
+          "version",
+          "memberCount",
+          "lastMessage",
+          "lastSeq",
+          "lastReadSeq",
+          "unreadCount",
+          "archived",
+          "canSend",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "GroupConversationPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupConversation"
+            }
+          },
+          "pageInfo": {
+            "type": "object",
+            "properties": {
+              "nextCursor": {
+                "type": "string",
+                "nullable": true
+              },
+              "hasMore": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "nextCursor",
+              "hasMore"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "items",
+          "pageInfo"
+        ],
+        "additionalProperties": false
+      },
+      "GroupMember": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/UserSummary"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "OWNER",
+              "MEMBER"
+            ]
+          },
+          "lastReadSeq": {
+            "$ref": "#/components/schemas/UInt64String"
+          },
+          "joinedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "user",
+          "role",
+          "lastReadSeq",
+          "joinedAt"
+        ],
+        "additionalProperties": false
+      },
+      "CreateGroupConversation": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "[^\\s\\u00a0]"
+          },
+          "memberIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 99,
+            "uniqueItems": true
+          },
+          "tripId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "required": [
+          "name",
+          "memberIds"
+        ],
+        "additionalProperties": false
+      },
+      "UpdateGroupConversation": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "$ref": "#/components/schemas/UInt64String"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "[^\\s\\u00a0]"
+          },
+          "tripId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ],
+        "additionalProperties": false,
+        "minProperties": 2
+      },
+      "GroupMemberRequest": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expectedVersion": {
+            "$ref": "#/components/schemas/UInt64String"
+          }
+        },
+        "required": [
+          "userId",
+          "expectedVersion"
+        ],
+        "additionalProperties": false
+      },
+      "SendGroupMessage": {
+        "type": "object",
+        "properties": {
+          "clientMessageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000,
+            "pattern": "[^\\s\\u00a0]"
+          }
+        },
+        "required": [
+          "clientMessageId",
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "ReadGroupMessages": {
+        "type": "object",
+        "properties": {
+          "lastReadSeq": {
+            "$ref": "#/components/schemas/UInt64String"
+          }
+        },
+        "required": [
+          "lastReadSeq"
+        ],
+        "additionalProperties": false
+      },
+      "GroupLinkedTripItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "NOTE",
+              "PLACE"
+            ]
+          },
+          "placeId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "startTime": {
+            "$ref": "#/components/schemas/LocalTime"
+          },
+          "endTime": {
+            "$ref": "#/components/schemas/LocalTime"
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "estimatedCostVnd": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "maxLength": 19,
+            "nullable": true
+          },
+          "costSource": {
+            "type": "string",
+            "enum": [
+              "UNKNOWN",
+              "USER"
+            ]
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "MANUAL",
+              "AI"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "placeId",
+          "title",
+          "startTime",
+          "endTime",
+          "note",
+          "estimatedCostVnd",
+          "costSource",
+          "origin"
+        ],
+        "additionalProperties": false
+      },
+      "GroupLinkedTripDay": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dayNumber": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "transportMode": {
+            "type": "string",
+            "enum": [
+              "WALK",
+              "DRIVE"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupLinkedTripItem"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "dayNumber",
+          "date",
+          "transportMode",
+          "note",
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "GroupLinkedTrip": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ownerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "cityCode": {
+            "type": "string"
+          },
+          "cityName": {
+            "type": "string"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "budgetVnd": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "maxLength": 19,
+            "nullable": true
+          },
+          "version": {
+            "$ref": "#/components/schemas/UInt64String"
+          },
+          "itinerary": {
+            "type": "object",
+            "properties": {
+              "version": {
+                "$ref": "#/components/schemas/UInt64String"
+              },
+              "days": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/GroupLinkedTripDay"
+                }
+              }
+            },
+            "required": [
+              "version",
+              "days"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "ownerId",
+          "title",
+          "description",
+          "cityCode",
+          "cityName",
+          "startDate",
+          "endDate",
+          "budgetVnd",
+          "version",
+          "itinerary"
+        ],
+        "additionalProperties": false
+      },
+      "GroupConversationResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/GroupConversation"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "GroupConversationPageResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/GroupConversationPage"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "GroupMemberResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/GroupMember"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "GroupMemberListResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupMember"
+            }
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "GroupMessageResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DirectMessage"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "GroupMessagePageResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DirectMessagePage"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "GroupReadResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DirectRead"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "GroupLinkedTripResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/GroupLinkedTrip"
           },
           "requestId": {
             "type": "string",

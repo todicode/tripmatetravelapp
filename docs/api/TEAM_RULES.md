@@ -110,6 +110,11 @@ Ví dụ xung đột:
 
 ### Chuyến, lời mời và kết bạn
 
+- **Nhóm chat độc lập (contract 1.5.0):** `/group-conversations` không bắt buộc có chuyến đi và không dùng bảng chat của chuyến. OWNER tạo nhóm/thêm trực tiếp bạn hiện tại, đổi tên, gắn/gỡ chuyến do mình sở hữu, loại thành viên, chuyển quyền và đóng nhóm. Tối đa 100 ACTIVE gồm OWNER; thêm thành viên không phụ thuộc giới hạn 10 thành viên chuyến đi.
+- Thành viên nhóm và chuyến đi là hai danh sách riêng. `GET /group-conversations/{id}/trip` cấp quyền xem metadata/lịch trình qua nhóm, không cấp quyền sửa, membership, vị trí hoặc media của chuyến. Nhóm chỉ gắn trip thật trên server, chưa hỗ trợ ID chuyến local của frontend. Khi chuyển OWNER, gỡ liên kết trip cũ trong cùng transaction; chat được giữ lại.
+- Thành viên thường tự rời; OWNER phải chuyển quyền trước khi rời. LEFT/REMOVED không đọc/gửi/xem trip nhóm; OWNER có thể thêm lại nếu hiện còn là bạn. Vào mới/vào lại được xem lịch sử giữ lại, nhưng unread bắt đầu tại mốc cuối lúc vào. Hủy kết bạn sau khi đã vào không xóa membership.
+- Đóng nhóm là archive, giữ lịch sử/mốc đọc cho ACTIVE và chặn tin mới, sửa metadata, thêm người hoặc chuyển quyền. Thay đổi quản lý/membership dùng `expectedVersion`; gửi/đọc không tăng version nhóm. Chat nhóm hiện chỉ REST text; socket/push/avatar/media nhóm chưa triển khai.
+
 - Một thành phố VN, 1–5 ngày tính cả hai đầu, tối đa 10 ACTIVE gồm owner. Budget là dự kiến **toàn nhóm**; null là chưa đặt, "0" là đã đặt bằng 0.
 - Tạo chuyến đồng thời tạo owner, itinerary và đủ ngày rỗng. Kiểm tra chỗ cuối trong transaction; invitation chưa nhận không giữ chỗ.
 - Chủ không tự rời/bị loại; v1 không chuyển quyền. LEFT được vào lại bằng mã hợp lệ; REMOVED chỉ vào bằng lời mời mới sau lúc bị loại.

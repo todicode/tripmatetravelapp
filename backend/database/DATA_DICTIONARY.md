@@ -1,5 +1,7 @@
 # TripMate — Từ điển dữ liệu và cách dùng index
 
+**Bổ sung 05/10/2026 — nhóm độc lập:** bảng triển khai chuẩn nằm trong [V9__independent_group_conversations.sql](../src/main/resources/db/migration/V9__independent_group_conversations.sql): `group_conversations`, `group_members`, `group_messages`. OWNER và membership được giữ riêng với trip; `trip_id` có thể null. [V8](../src/main/resources/db/migration/V8__trip_sharing_foundation.sql) chuẩn bị bảng trip/itinerary từ baseline để kiểm tra ownership và xem lịch qua nhóm. Các số liệu và danh sách 23 bảng bên dưới là baseline thiết kế, chưa bao gồm phần mở rộng nhóm/direct chat/identity hiện hành. Xem [API nhóm](../../docs/api/GROUP_MESSAGING.md) để biết transaction, quyền và retry. Không chạy lại SQL baseline lên database app; dùng Flyway migration.
+
 Cập nhật: **17/09/2026**. Dành cho teammate đọc schema trước khi làm backend/mobile.
 
 Nguồn chuẩn là [tripmate_v1.sql](tripmate_v1.sql); [DBML](tripmate_v1.dbml) giúp xem sơ đồ và [ERD v1](../../TRIPMATE_ERD_V1.md) giải thích transaction nghiệp vụ. Tài liệu này mô tả **đúng schema tham chiếu hiện tại**, không tuyên bố backend đã được triển khai.

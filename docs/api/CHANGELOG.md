@@ -1,5 +1,13 @@
 # Contract changelog
 
+## 1.5.0 - 2026-10-05
+
+- Added 14 authenticated REST operations at `/group-conversations` for independent groups, owner management, membership, text messages/read markers and a read-only linked trip view. Existing `/trips/{tripId}/messages` remains planned and is not this group's storage.
+- Optional trip links are checked against the group owner's undeleted server trip; unlinking or transferring ownership retains chat history. Transfer clears the previous owner's link. Viewing through a group does not grant trip membership/edit rights. V8 prepares the planned trip/itinerary schema; trip create/edit APIs and frontend-only trip IDs are not implemented by this slice.
+- V9 adds group/membership/message tables, unique sender retry/sequence constraints and indexes. Group locks serialize writes, membership revocation, capacity and read markers. Management version and chat sequence are independent bigint strings.
+- Owners directly add current friends (max 100 active including owner), remove members, transfer ownership or archive. Members may leave; departed/removed users lose history and linked-trip access. Archived groups retain readable history for active members. REST-only implementation; group UI, WebSocket, avatars, attachments and push remain separate features.
+- Added service/controller tests and PostgreSQL acceptance tests for permissions, retries, concurrent sends/adds, paging, unread state, trip sharing, rejoin and archive. See `GROUP_MESSAGING.md` for the dedicated test database instructions.
+
 ## 1.4.2 - 2026-10-05
 
 - Added `GET /direct-conversations/presence` and `direct.presence.updated` on the existing private queue. Only existing conversation peers are exposed; no arbitrary user status lookup.

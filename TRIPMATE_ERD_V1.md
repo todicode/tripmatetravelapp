@@ -1,5 +1,7 @@
 # TripMate — Database ERD v1
 
+**Mở rộng 05/10/2026:** nhóm chat độc lập không bắt buộc thuộc chuyến đi. Schema triển khai cho phần này là [V9](backend/src/main/resources/db/migration/V9__independent_group_conversations.sql); OWNER, thành viên và lịch sử nhóm tách riêng, tripId nullable và chỉ chia sẻ quyền xem qua nhóm. Bảng trip/itinerary nền được thêm bằng [V8](backend/src/main/resources/db/migration/V8__trip_sharing_foundation.sql). Bản thiết kế 23 bảng bên dưới là baseline lịch sử; API `/trips/{tripId}/messages` dự kiến không phải API nhóm mới. Chi tiết: [GROUP_MESSAGING.md](docs/api/GROUP_MESSAGING.md).
+
 Ngày thiết kế: **13/09/2026**. Trạng thái: **bản thiết kế để triển khai và review**.
 
 Thiết kế gồm **23 bảng PostgreSQL**, dùng chung cho các backend. Redis giữ vị trí ngắn hạn và truyền sự kiện; Cloudflare R2 giữ tệp. Máy cá nhân làm nút thứ 3 không tạo thêm database nghiệp vụ độc lập.

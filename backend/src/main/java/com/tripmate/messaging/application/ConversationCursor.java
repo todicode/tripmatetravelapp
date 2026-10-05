@@ -19,11 +19,17 @@ public class ConversationCursor {
         this.secret = secret.getBytes(StandardCharsets.UTF_8);
     }
     public String encode(UUID actor, int limit, Instant time, UUID id) {
-        String payload = "direct-conversations:v1:" + actor + ":" + limit + ":" + time.getEpochSecond()
+        return encode("direct-conversations", actor, limit, time, id);
+    }
+    public String encode(String scope, UUID actor, int limit, Instant time, UUID id) {
+        String payload = scope + ":v1:" + actor + ":" + limit + ":" + time.getEpochSecond()
                 + ":" + time.getNano() + ":" + id;
         return base64(payload.getBytes(StandardCharsets.UTF_8)) + "." + base64(sign(payload));
     }
     public Position decode(String cursor, UUID actor, int limit) {
+        return decode("direct-conversations", cursor, actor, limit);
+    }
+    public Position decode(String scope, String cursor, UUID actor, int limit) {
         try {
             if (cursor.length() > 2048) throw new IllegalArgumentException();
             String[] parts = cursor.split("\\.", -1);
@@ -32,7 +38,7 @@ public class ConversationCursor {
             if (!MessageDigest.isEqual(sign(payload), Base64.getUrlDecoder().decode(parts[1])))
                 throw new IllegalArgumentException();
             String[] fields = payload.split(":", -1);
-            if (fields.length != 7 || !fields[0].equals("direct-conversations") || !fields[1].equals("v1")
+            if (fields.length != 7 || !fields[0].equals(scope) || !fields[1].equals("v1")
                     || !fields[2].equals(actor.toString()) || Integer.parseInt(fields[3]) != limit)
                 throw new IllegalArgumentException();
             return new Position(Instant.ofEpochSecond(Long.parseLong(fields[4]), Long.parseLong(fields[5])),

@@ -81,7 +81,13 @@ class DirectRealtimeIntegrationTest {
     @Autowired DirectPresence presence;
     private final List<WebSocketStompClient> clients = new ArrayList<>();
     private final List<StompSession> sessions = new ArrayList<>();
-    @AfterEach void closeSockets() { sessions.forEach(session -> { if (session.isConnected()) session.disconnect(); }); clients.forEach(WebSocketStompClient::stop); }
+    @AfterEach void closeSockets() {
+        sessions.forEach(session -> {
+            try { if (session.isConnected()) session.disconnect(); }
+            catch (org.springframework.messaging.MessageDeliveryException ignored) { /* Transport may already be closing. */ }
+        });
+        clients.forEach(WebSocketStompClient::stop);
+    }
     private record Peer(StompSession session, BlockingQueue<String> events, BlockingQueue<String> errors) {}
     private Peer connect(String token) throws Exception {
         var client = new WebSocketStompClient(new StandardWebSocketClient());
