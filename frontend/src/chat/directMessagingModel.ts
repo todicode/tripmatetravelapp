@@ -122,6 +122,7 @@ export class DirectMessagingSession {
     }
   }
   receive(event: DirectRealtimeEvent) {
+    if (event.type === 'direct.presence.updated') return;
     if (!this.active || this.eventIds.has(event.eventId)) return;
     this.eventIds.add(event.eventId);
     if (this.eventIds.size > 500) this.eventIds.delete(this.eventIds.values().next().value!);

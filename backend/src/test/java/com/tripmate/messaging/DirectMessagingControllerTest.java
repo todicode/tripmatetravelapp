@@ -17,7 +17,7 @@ class DirectMessagingControllerTest {
     private final DirectMessagingService service = mock(DirectMessagingService.class);
     private final UUID conversation = UUID.randomUUID(), clientId = UUID.randomUUID(), recipient = UUID.randomUUID();
     private final org.springframework.test.web.servlet.MockMvc mvc = MockMvcBuilders
-            .standaloneSetup(new DirectMessagingController(service)).setControllerAdvice(new GlobalExceptionHandler())
+            .standaloneSetup(new DirectMessagingController(service, org.mockito.Mockito.mock(com.tripmate.messaging.web.DirectPresence.class))).setControllerAdvice(new GlobalExceptionHandler())
             .addFilters(new RequestIdFilter()).build();
 
     @Test void exposesAllFiveRoutesWithStandardEnvelopeAndPrivateHeaders() throws Exception {

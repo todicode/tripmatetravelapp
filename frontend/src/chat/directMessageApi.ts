@@ -18,6 +18,7 @@ type ConversationPage = { items: DirectConversation[]; pageInfo: { hasMore: bool
 export function createDirectMessageApi(request: AuthorizedRequest) {
   const path = (id: string) => `/direct-conversations/${encodeURIComponent(id)}`;
   return {
+    presence: () => request<{ userId: string; online: boolean }[]>('/direct-conversations/presence'),
     conversations: async () => {
       const result = new Map<string, DirectConversation>();
       const seen = new Set<string>();

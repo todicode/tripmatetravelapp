@@ -29,6 +29,56 @@ const event = { eventId: 'event-1', type: 'direct.message.created', schemaVersio
   data: { id: 'message-1', conversationId: 'conversation-1', seq: '9007199254740993', sender: { id: 'peer', displayName: 'Peer' },
     clientMessageId: 'client-1', body: 'Xin chào', createdAt: '2026-10-03T00:00:00Z' } };
 
+test('presence frames accept only a boolean status with a user id', () => {
+  const f = fixture();
+  const presence = { ...event, type: 'direct.presence.updated', data: { userId: 'peer', online: true } };
+  assert.equal(f.parseDirectEvent(JSON.stringify(presence)).data.online, true);
+  assert.equal(f.parseDirectEvent(JSON.stringify({ ...presence, data: { userId: 'peer', online: false } })).data.online, false);
+  assert.equal(f.parseDirectEvent(JSON.stringify({ ...presence, data: { userId: 'peer', online: 'true' } })), null);
+  assert.equal(f.parseDirectEvent(JSON.stringify({ ...presence, data: { online: true } })), null);
+});
+
+test('presence snapshots cannot overwrite a newer event or restore state after disconnect/logout', async () => {
+  const effects = [], requests = [];
+  let online = {}, stateIndex = 0, connection;
+  const react = {
+    useMemo: fn => fn(), useRef: value => ({ current: value }),
+    useEffect: fn => effects.push(fn), useSyncExternalStore: (_, snapshot) => snapshot(),
+    useState: value => { const index = stateIndex++; return [value, next => {
+      if (index === 1) online = typeof next === 'function' ? next(online) : next;
+    }]; },
+  };
+  const store = { subscribe() {}, getSnapshot: () => ({ conversations: [], threads: {} }),
+    refresh: async () => {}, receive() {} };
+  const source = fs.readFileSync(path.resolve(__dirname, '../src/chat/useDirectMessaging.ts'), 'utf8');
+  const context = { exports: {}, setInterval: () => 1, clearInterval() {}, require: name => {
+    if (name === 'react') return react;
+    if (name === 'react-native') return { AppState: { currentState: 'active', addEventListener: () => ({ remove() {} }) } };
+    if (name === './directMessageApi') return { createDirectMessageApi: () => ({ presence: () => new Promise(resolve => requests.push(resolve)) }) };
+    if (name === './directMessagingModel') return { DirectMessagingSession: function () { return store; } };
+    if (name === './directRealtime') return { DirectRealtimeConnection: class {
+      constructor(_, event, ready, status) { Object.assign(this, { event, ready, status }); connection = this; }
+      start() {} stop() { this.status(false); }
+    } };
+    return { randomUUID: () => 'uuid' };
+  } };
+  vm.runInNewContext(ts.transpileModule(source, { compilerOptions: {
+    module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022,
+  } }).outputText, context);
+  context.exports.useDirectMessaging(() => {}, 'me', true, null, () => {});
+  const cleanup = effects[1]();
+  let ready = connection.ready(); await settle();
+  connection.event({ type: 'direct.presence.updated', data: { userId: 'peer', online: true } });
+  requests.shift()([{ userId: 'peer', online: false }]); await ready;
+  assert.equal(online.peer, true);
+  ready = connection.ready(); await settle(); connection.status(false);
+  requests.shift()([{ userId: 'peer', online: true }]); await ready;
+  assert.equal(online.peer, undefined);
+  ready = connection.ready(); await settle(); cleanup();
+  requests.shift()([{ userId: 'peer', online: true }]); await ready;
+  assert.equal(online.peer, undefined);
+});
+
 test('parses only supported private events and preserves bigint sequences', () => {
   const f = fixture();
   assert.equal(f.parseDirectEvent(JSON.stringify(event)).data.seq, '9007199254740993');

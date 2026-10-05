@@ -23,6 +23,7 @@ export default function ChatHome({ session, user, trips, onExit, onTrip }: { ses
     const directConversation = session.direct.conversations.find(item => item.id === route.id);
     if (directConversation) return <DirectConversationScreen key={directConversation.id} conversation={directConversation}
       thread={session.direct.threads[directConversation.id]} onBack={back} loadAvatar={session.loadAvatar}
+      online={session.direct.onlineUsers[directConversation.user.id] === true}
       onSend={text => session.direct.store.send(directConversation.id, text)}
       onRetry={clientId => { void session.direct.store.retry(directConversation.id, clientId); }}
       onOlder={() => { void session.direct.store.older(directConversation.id); }}
@@ -32,6 +33,7 @@ export default function ChatHome({ session, user, trips, onExit, onTrip }: { ses
     if (conversation) return <ConversationScreen key={conversation.id} conversation={conversation} friends={friends} user={user} trips={trips} onPin={id => update(conversation.id, item => ({ ...item, tripId: id, tripLabel: trips.find(trip => trip.id === id)?.city }))} trip={trips.find(trip => trip.id === conversation.tripId)} onBack={back} onTrip={onTrip} onSend={text => update(conversation.id, item => appendMessage(item, text))} onInvite={id => update(conversation.id, item => ({ ...item, members: [...new Set([...item.members, id])] }))} />;
   }
   return <ChatListScreen conversations={conversations} friends={friends} socialLoading={session.socialLoading} socialError={session.socialError}
+    onlineUsers={session.direct.onlineUsers}
     chatLoading={session.direct.loading} chatError={session.direct.error} openingId={session.direct.openingId} openingError={session.direct.openingError}
     onRefresh={session.refreshChat} onOpenFriend={session.openFriend} onRemoveFriend={session.removeFriend} onOpen={open}
     onAddFriend={() => push({ kind: 'add' })} onCreateGroup={() => push({ kind: 'create' })} />;

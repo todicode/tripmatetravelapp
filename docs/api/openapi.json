@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "TripMate API Contract",
-    "version": "1.4.1",
-    "description": "Contract-first TripMate API for the Spring backend and mobile React Native client. Version 1.4.1 adds authenticated STOMP events for private messages and read markers; direct-message writes remain REST. This JSON is the canonical wire format; examples use fixture data. Rules: docs/api/TEAM_RULES.md. Realtime: x-realtime. Bigint values are sent as strings."
+    "version": "1.4.2",
+    "description": "Contract-first TripMate API for the Spring backend and mobile React Native client. Version 1.4.2 adds ephemeral personal-chat presence snapshots and private STOMP updates. Direct-message writes remain REST. This JSON is the canonical wire format; examples use fixture data. Rules: docs/api/TEAM_RULES.md. Realtime: x-realtime. Bigint values are sent as strings."
   },
   "servers": [
     {
@@ -7654,6 +7654,63 @@
         }
       }
     },
+    "/direct-conversations/presence": {
+      "get": {
+        "tags": [
+          "Direct messaging"
+        ],
+        "operationId": "getDirectPresence",
+        "summary": "Get online status of direct conversation peers",
+        "description": "Authenticated foreground STOMP sessions, across devices on one backend. Last disconnect has a 10-second grace period after heartbeat/transport detects loss. Ephemeral status; no last-seen persistence. Reconcile on reconnect and every 30 seconds. No arbitrary user lookup.",
+        "x-permission": "AUTHENTICATED; only existing direct conversation peers",
+        "responses": {
+          "200": {
+            "description": "Peer presence snapshot",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectPresenceResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": [
+                        {
+                          "userId": "00000000-0000-4000-8000-000000000002",
+                          "online": true
+                        }
+                      ],
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        }
+      }
+    },
     "/direct-conversations": {
       "post": {
         "tags": [
@@ -13783,6 +13840,86 @@
         ],
         "additionalProperties": false
       },
+      "DirectPresenceStatus": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "00000000-0000-4000-8000-000000000002"
+          },
+          "online": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "userId",
+          "online"
+        ],
+        "additionalProperties": false
+      },
+      "DirectPresenceResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectPresenceStatus"
+            }
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "00000000-0000-4000-8000-000000000090"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "EventDirectPresenceUpdated": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "00000000-0000-4000-8000-000000000090"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "direct.presence.updated"
+            ],
+            "example": "direct.presence.updated"
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "enum": [
+              1
+            ],
+            "example": 1
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-05T00:00:00Z"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DirectPresenceStatus"
+          }
+        },
+        "required": [
+          "eventId",
+          "type",
+          "schemaVersion",
+          "occurredAt",
+          "data"
+        ],
+        "additionalProperties": false
+      },
       "DirectReadChanged": {
         "type": "object",
         "additionalProperties": false,
@@ -15034,6 +15171,22 @@
           }
         }
       },
+      "direct.presence.updated": {
+        "destination": "/user/queue/events",
+        "schema": {
+          "$ref": "#/components/schemas/EventDirectPresenceUpdated"
+        },
+        "example": {
+          "eventId": "00000000-0000-4000-8000-000000000090",
+          "type": "direct.presence.updated",
+          "schemaVersion": 1,
+          "occurredAt": "2026-10-05T00:00:00Z",
+          "data": {
+            "userId": "00000000-0000-4000-8000-000000000002",
+            "online": true
+          }
+        }
+      },
       "direct.read.updated": {
         "destination": "/user/queue/events",
         "schema": {
@@ -15052,7 +15205,7 @@
         }
       }
     },
-    "implementation": "Implemented: /ws CONNECT and /user/queue/events for direct.message.created/direct.read.updated only, after transaction commit, to both participants. Other trip/push destinations remain planned. Simple broker serves one backend instance; offline recovery uses REST and no Redis bridge is implemented."
+    "implementation": "Implemented: /ws CONNECT and /user/queue/events for direct.message.created/direct.read.updated after commit, and direct.presence.updated for socket lifecycle changes to existing conversation peers. Presence combines devices, delays offline by 10 seconds after disconnect detection, and reconciles via GET /direct-conversations/presence. Other trip/push destinations remain planned. Simple broker and ephemeral presence serve one backend instance; offline recovery uses REST and no Redis bridge is implemented."
   },
   "x-push": {
     "provider": "FCM native Android",

@@ -15,7 +15,13 @@ import java.util.UUID;
 @RequestMapping("/api/v1/direct-conversations")
 public class DirectMessagingController {
     private final DirectMessagingService messaging;
-    public DirectMessagingController(DirectMessagingService messaging) { this.messaging = messaging; }
+    private final DirectPresence presence;
+    public DirectMessagingController(DirectMessagingService messaging, DirectPresence presence) { this.messaging = messaging; this.presence = presence; }
+
+    @GetMapping("/presence")
+    public ResponseEntity<ApiResponse<java.util.List<DirectPresence.Status>>> presence(HttpServletRequest request) {
+        return response(presence.snapshot(), request);
+    }
 
     @PostMapping(consumes = "application/json")
     public ResponseEntity<ApiResponse<ConversationView>> open(@Valid @RequestBody OpenRequest body, HttpServletRequest request) {

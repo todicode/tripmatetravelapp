@@ -11,6 +11,7 @@ export function useDirectMessaging(request: AuthorizedRequest, userId: string, v
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
   const selectedId = state.conversations.some(item => item.id === routeId) ? routeId : null;
   const [realtimeConnected, setRealtimeConnected] = useState(false);
+  const [onlineUsers, setOnlineUsers] = useState<Record<string, boolean>>({});
   const activeThread = useRef<string | null>(null);
   activeThread.current = visible ? selectedId : null;
   useEffect(() => {
@@ -19,21 +20,45 @@ export function useDirectMessaging(request: AuthorizedRequest, userId: string, v
     return () => store.deactivate();
   }, [store]);
   useEffect(() => {
+    let active = true;
+    let revision = 0;
+    setOnlineUsers({});
+    const presenceApi = createDirectMessageApi(request);
+    const refreshPresence = async () => {
+      const before = revision;
+      try {
+        const statuses = await presenceApi.presence();
+        if (active && before === revision && AppState.currentState === 'active')
+          setOnlineUsers(Object.fromEntries(statuses.map(item => [item.userId, item.online])));
+      } catch { /* Unknown presence stays hidden until the next snapshot. */ }
+    };
     const connection = new DirectRealtimeConnection(credentials, event => {
+      if (event.type === 'direct.presence.updated') {
+        revision++;
+        setOnlineUsers(current => ({ ...current, [event.data.userId]: event.data.online }));
+        return;
+      }
       store.receive(event);
       const id = activeThread.current;
       if (event.type === 'direct.message.created' && id === event.data.conversationId) void store.sync(id);
     }, async () => {
       await store.refresh(false);
+      await refreshPresence();
       const id = activeThread.current;
       if (id) { await store.load(id); await store.sync(id); }
-    }, setRealtimeConnected);
+    }, connected => {
+      setRealtimeConnected(connected);
+      if (!connected) { revision++; setOnlineUsers({}); }
+    });
+    const presenceTimer = setInterval(() => {
+      if (AppState.currentState === 'active') void refreshPresence();
+    }, 30_000);
     if (AppState.currentState === 'active') connection.start();
     const subscription = AppState.addEventListener('change', next => {
       if (next === 'active') connection.start(); else connection.stop();
     });
-    return () => { subscription.remove(); connection.stop(); };
-  }, [store, credentials]);
+    return () => { active = false; clearInterval(presenceTimer); subscription.remove(); connection.stop(); };
+  }, [store, credentials, request]);
   useEffect(() => {
     if (!visible) return;
     const foreground = () => AppState.currentState === 'active';
@@ -51,7 +76,7 @@ export function useDirectMessaging(request: AuthorizedRequest, userId: string, v
     return () => { clearInterval(listTimer); clearInterval(messageTimer); subscription.remove(); };
   }, [store, visible, selectedId, realtimeConnected]);
   return {
-    ...state, store, realtimeConnected, listConversations: state.conversations.map(item => toListConversation(item, userId)),
+    ...state, store, realtimeConnected, onlineUsers, listConversations: state.conversations.map(item => toListConversation(item, userId)),
     selected: state.conversations.find(item => item.id === selectedId),
     thread: selectedId ? state.threads[selectedId] : undefined,
     readVisible: (id: string, seq: string) => { if (visible && AppState.currentState === 'active') void store.read(id, seq); },

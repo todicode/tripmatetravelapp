@@ -9,6 +9,9 @@ import java.time.Instant;
 import java.util.*;
 
 public interface DirectConversationRepository extends JpaRepository<DirectConversationEntity, UUID> {
+    @Query("select case when c.lowUserId = :actor then c.highUserId else c.lowUserId end "
+            + "from DirectConversationEntity c where c.lowUserId = :actor or c.highUserId = :actor")
+    List<UUID> peers(@Param("actor") UUID actor);
     Optional<DirectConversationEntity> findByLowUserIdAndHighUserId(UUID lowId, UUID highId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

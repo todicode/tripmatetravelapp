@@ -45,7 +45,7 @@ class DirectRealtimeIntegrationTest {
     @Configuration @EnableAutoConfiguration(exclude = DataSourceAutoConfiguration.class)
     @EnableTransactionManagement
     @Import({DirectRealtimeConfiguration.class, RealtimeSessions.class, RealtimeChannelSecurity.class,
-            DirectRealtimePublisher.class, DirectMessagingController.class, DirectMessagingService.class,
+            DirectRealtimePublisher.class, DirectMessagingController.class, DirectMessagingService.class, DirectPresence.class,
             SecurityConfiguration.class, SecurityErrorHandler.class})
     static class TestApplication {
         @Bean AccessTokenVerifier tokens() {
@@ -78,6 +78,7 @@ class DirectRealtimeIntegrationTest {
     @Autowired ApplicationEventPublisher publisher;
     @Autowired PlatformTransactionManager transactions;
     @Autowired tools.jackson.databind.ObjectMapper json;
+    @Autowired DirectPresence presence;
     private final List<WebSocketStompClient> clients = new ArrayList<>();
     private final List<StompSession> sessions = new ArrayList<>();
     @AfterEach void closeSockets() { sessions.forEach(session -> { if (session.isConnected()) session.disconnect(); }); clients.forEach(WebSocketStompClient::stop); }
@@ -113,6 +114,30 @@ class DirectRealtimeIntegrationTest {
         return HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
                 .header("Authorization", "Bearer " + token).header("Content-Type", "application/json")
                 .method(method, HttpRequest.BodyPublishers.ofString(body)).build(), HttpResponse.BodyHandlers.ofString());
+    }
+    @Test void presenceSnapshotUsesAuthenticatedActorAndTracksRealSocketsAcrossDevices() throws Exception {
+        when(conversations.peers(LOW)).thenReturn(List.of(HIGH));
+        when(conversations.peers(HIGH)).thenReturn(List.of(LOW));
+        try {
+            var recipient = connect("recipient");
+            var first = connect("sender"); var second = connect("sender");
+            var response = post("/api/v1/direct-conversations/presence", "GET", "recipient", "");
+            assertEquals(200, response.statusCode(), response.body());
+            assertTrue(json.readTree(response.body()).get("data").get(0).get("online").asBoolean());
+            assertEquals(LOW.toString(), json.readTree(response.body()).get("data").get(0).get("userId").asText());
+            assertEquals("[]", json.readTree(post("/api/v1/direct-conversations/presence", "GET", "outsider", "").body()).get("data").toString());
+            first.session().disconnect();
+            assertTrue(presence.snapshot(HIGH).getFirst().online());
+            recipient.events().clear(); second.session().disconnect();
+            Thread.sleep(11000); presence.expire();
+            assertFalse(presence.snapshot(HIGH).getFirst().online());
+            String offline = recipient.events().poll(3, TimeUnit.SECONDS);
+            assertNotNull(offline); assertTrue(offline.contains("direct.presence.updated"));
+            assertFalse(json.readTree(offline).get("data").get("online").asBoolean());
+        } finally {
+            when(conversations.peers(LOW)).thenReturn(List.of());
+            when(conversations.peers(HIGH)).thenReturn(List.of());
+        }
     }
     @Test void restCommitImmediatelyReachesBothParticipantsButNotOutsiderAndRetriesDoNotBroadcastAgain() throws Exception {
         var sender = connect("sender"); var recipient = connect("recipient"); var outsider = connect("outsider");

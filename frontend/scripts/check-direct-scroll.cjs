@@ -73,6 +73,17 @@ test('incoming runs show one peer avatar at the newest bubble and outgoing messa
   assert.equal(h.find(rows[3], 'Avatar').props.text, 'A');
 });
 
+test('online presence reaches header and incoming avatars and defaults to hidden', () => {
+  const h = screen();
+  assert.equal(h.find(h.render(), 'Avatar').props.online, false);
+  h.props.online = true;
+  h.props.thread.messages = [{ id: 'incoming', isMe: false }];
+  const tree = h.render();
+  assert.equal(h.find(tree, 'Avatar').props.online, true);
+  const list = h.find(tree, 'FlatList');
+  assert.equal(h.find(list.props.renderItem({ item: list.props.data[0], index: 0 }), 'Avatar').props.online, true);
+});
+
 test('message runs use tight spacing and connected corners in chronological order on both sides', () => {
   for (const isMe of [true, false]) {
     const h = screen();

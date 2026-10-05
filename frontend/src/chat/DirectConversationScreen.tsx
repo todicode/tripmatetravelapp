@@ -10,8 +10,9 @@ type Props = {
   onSend: (text: string) => Promise<void>; onRetry: (clientId: string) => void;
   onReload: () => void; onOlder: () => void; onRead: (seq: string) => void;
   loadAvatar?: (mediaId: string) => Promise<string>;
+  online?: boolean;
 };
-export default function DirectConversationScreen({ conversation, thread, onBack, onSend, onRetry, onReload, onOlder, onRead, loadAvatar }: Props) {
+export default function DirectConversationScreen({ conversation, thread, onBack, onSend, onRetry, onReload, onOlder, onRead, loadAvatar, online = false }: Props) {
   const { c, s, u } = useChatUi();
   const [input, setInput] = useState('');
   const [inputError, setInputError] = useState('');
@@ -79,8 +80,8 @@ export default function DirectConversationScreen({ conversation, thread, onBack,
   return <KeyboardAvoidingView style={[u.screen, { backgroundColor: c.pale }]} enabled={Platform.OS === 'ios'} behavior="padding">
     <View style={[s.header, { gap: 12 }]}>
       <IconButton name="arrow-left" label="Quay lại danh sách tin nhắn" onPress={onBack} />
-      <Avatar text={avatarText} uri={avatarUri} size={40} />
-      <View style={s.grow}><Text numberOfLines={1} style={s.title}>{conversation.user.displayName}</Text><Text style={s.small}>Trò chuyện cá nhân</Text></View>
+      <Avatar text={avatarText} uri={avatarUri} size={40} online={online} />
+      <View style={s.grow}><Text numberOfLines={1} style={s.title}>{conversation.user.displayName}</Text><Text style={s.small}>{online ? 'Đang hoạt động' : 'Trò chuyện cá nhân'}</Text></View>
     </View>
     {!conversation.canSend && <Text accessibilityRole="alert" style={[s.text, { padding: 16, backgroundColor: c.white }]}>Hiện không thể gửi tin với người này. Bạn vẫn có thể xem lịch sử trò chuyện.</Text>}
     {!!thread?.error && <View style={[s.row, { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: c.white }]}><Text accessibilityRole="alert" style={[s.error, s.grow]}>{thread.error}</Text><IconButton name="refresh" label="Thử tải lại tin nhắn" onPress={onReload} /></View>}
@@ -111,7 +112,7 @@ export default function DirectConversationScreen({ conversation, thread, onBack,
         return <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8,
           marginBottom: index === messages.length - 1 ? 0 : joinsAbove ? 2 : 10 }}>
         {!item.isMe && <View style={{ width: 28 }} accessible={false} importantForAccessibility="no-hide-descendants">
-          {!joinsBelow && <Avatar text={avatarText} uri={avatarUri} size={28} />}
+          {!joinsBelow && <Avatar text={avatarText} uri={avatarUri} size={28} online={online} />}
         </View>}
         <View style={{ flex: 1, alignItems: item.isMe ? 'flex-end' : 'flex-start', gap: 4 }}>
         <View style={{ maxWidth: '82%', paddingHorizontal: 14, paddingVertical: 9,

@@ -7,11 +7,14 @@ export function IconButton({ name, label, onPress, blue = false, disabled = fals
   const { c, s, u } = useChatUi();
   return <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={disabled} accessibilityState={{ disabled }} onPress={onPress} style={({ pressed }) => [u.iconButton, blue && { backgroundColor: c.blue, borderColor: c.blue }, (pressed || disabled) && { opacity: 0.5 }]}><Icon name={name} size={18} color={blue ? c.onBlue : c.ink} /></Pressable>;
 }
-export function Avatar({ text, group = false, size = 44, uri }: { text: string; group?: boolean; size?: number; uri?: string }) {
+export function Avatar({ text, group = false, size = 44, uri, online = false }: { text: string; group?: boolean; size?: number; uri?: string; online?: boolean }) {
   const { c, u } = useChatUi();
   const [failedUri, setFailedUri] = useState<string>();
   return <View style={[u.avatar, { width: size, height: size, borderRadius: size / 2, backgroundColor: group ? c.blue : c.avatar }]}>
     {uri && uri !== failedUri ? <Image source={{ uri }} onError={() => setFailedUri(uri)} style={{ width: size, height: size, borderRadius: size / 2 }} /> : <Text style={u.avatarText}>{text}</Text>}
+    {online && <View accessible accessibilityLabel="Đang hoạt động" style={{ position: 'absolute', right: -1, bottom: -1,
+      width: size >= 40 ? 13 : 10, height: size >= 40 ? 13 : 10, borderRadius: 7,
+      backgroundColor: c.green, borderWidth: 2, borderColor: c.white }} />}
   </View>;
 }
 export function Tabs({ tabs, value, onChange }: { tabs: { key: string; label: string }[]; value: string; onChange: (key: string) => void }) {

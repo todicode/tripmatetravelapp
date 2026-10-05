@@ -1,5 +1,11 @@
 # Contract changelog
 
+## 1.4.2 - 2026-10-05
+
+- Added `GET /direct-conversations/presence` and `direct.presence.updated` on the existing private queue. Only existing conversation peers are exposed; no arbitrary user status lookup.
+- Presence combines authenticated foreground connections across devices. The last disconnect has a 10-second grace period after transport loss is detected. State is ephemeral and limited to one backend; reconnect and 30-second REST snapshots reconcile missed updates.
+- Personal chat shows an accessible green dot beside avatars and an active label in the header. Group chat and durable last-seen history are outside this change.
+
 ## 1.4.1 - 2026-10-03
 
 - Implemented authenticated STOMP 1.2 over native WebSocket at `/ws`. Only `/user/queue/events` is currently subscribable; business SEND and other destinations are rejected. Token expiry, account status and device binding are rechecked before delivery.

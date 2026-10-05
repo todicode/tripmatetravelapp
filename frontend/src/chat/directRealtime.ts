@@ -4,13 +4,17 @@ import type { DirectMessage } from './directMessageApi';
 
 export type DirectRealtimeEvent = { eventId: string; schemaVersion: 1; occurredAt: string } & (
   { type: 'direct.message.created'; data: DirectMessage } |
-  { type: 'direct.read.updated'; data: { conversationId: string; userId: string; lastReadSeq: string } });
+  { type: 'direct.read.updated'; data: { conversationId: string; userId: string; lastReadSeq: string } } |
+  { type: 'direct.presence.updated'; data: { userId: string; online: boolean } });
 
 export function parseDirectEvent(body: string): DirectRealtimeEvent | null {
   try {
     const event = JSON.parse(body);
     if (event?.schemaVersion !== 1 || typeof event.eventId !== 'string' || typeof event.occurredAt !== 'string') return null;
     const data = event.data;
+    if (event.type === 'direct.presence.updated') {
+      return data && typeof data.userId === 'string' && typeof data.online === 'boolean' ? event : null;
+    }
     if (!data || typeof data.conversationId !== 'string') return null;
     const seq = event.type === 'direct.message.created' ? data.seq : data.lastReadSeq;
     if (typeof seq !== 'string' || !/^(0|[1-9]\d{0,18})$/.test(seq) || BigInt(seq) > 9223372036854775807n) return null;
