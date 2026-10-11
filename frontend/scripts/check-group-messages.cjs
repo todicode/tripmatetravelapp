@@ -175,3 +175,24 @@ test('group hook connects server metadata, unread counts, messages and creation 
   assert.equal(render().listConversations.length, 2); assert.equal(calls.find(call => call.method === 'POST').body.tripId, null);
   groups = []; await render().store.refresh(); assert.equal(render().listConversations.length, 0);
 });
+
+test('group live delivery updates the open thread immediately and revocation clears private history', async () => {
+  let active = true;
+  const request = async url => url.includes('/messages') ? page([message('1', 'alice')]) : {
+    items: active ? [{ ...conversation(), name: 'Group', ownerId: 'me', version: '0', memberCount: 2, tripId: null, archived: false }] : [],
+    pageInfo: { hasMore: false, nextCursor: null },
+  };
+  const h = hookHarness('useGroupMessaging.ts', {
+    'react-native': { AppState: { currentState: 'active' } }, 'expo-crypto': { randomUUID: () => 'uuid' },
+    './groupMessageApi': { createGroupMessageApi }, './directMessagingModel': load('directMessagingModel.ts'),
+  });
+  const render = () => h.render('useGroupMessaging', request, 'me', true, 'group');
+  await render().store.refresh(); await render().store.load('group');
+  const group = render(); group.realtime.status(true); assert.equal(render().realtimeConnected, true);
+  group.realtime.receive({ eventId: 'live', schemaVersion: 1, occurredAt: time, type: 'group.message.created', data: message('2', 'bob') });
+  assert.equal(render().threads.group.messages.at(-1).senderName, 'bob');
+  assert.equal(render().threads.group.afterSeq, '1'); // REST catch-up owns the cursor.
+  active = false;
+  group.realtime.receive({ eventId: 'revoked', schemaVersion: 1, occurredAt: time, type: 'group.access.revoked', data: { conversationId: 'group' } });
+  assert.equal(render().threads.group, undefined); assert.equal(render().listConversations.length, 0);
+});

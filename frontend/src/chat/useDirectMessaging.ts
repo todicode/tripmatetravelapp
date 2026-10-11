@@ -4,9 +4,9 @@ import * as Crypto from 'expo-crypto';
 import type { AuthorizedRequest, RealtimeCredentials } from '../auth/session';
 import { createDirectMessageApi } from './directMessageApi';
 import { DirectMessagingSession, toListConversation } from './directMessagingModel';
-import { DirectRealtimeConnection } from './directRealtime';
+import { DirectRealtimeConnection, type RealtimeCompanion } from './directRealtime';
 
-export function useDirectMessaging(request: AuthorizedRequest, userId: string, visible: boolean, routeId: string | null, credentials: RealtimeCredentials) {
+export function useDirectMessaging(request: AuthorizedRequest, userId: string, visible: boolean, routeId: string | null, credentials: RealtimeCredentials, companion?: RealtimeCompanion) {
   const store = useMemo(() => new DirectMessagingSession(createDirectMessageApi(request), userId, Crypto.randomUUID), [request, userId]);
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
   const selectedId = state.conversations.some(item => item.id === routeId) ? routeId : null;
@@ -33,6 +33,9 @@ export function useDirectMessaging(request: AuthorizedRequest, userId: string, v
       } catch { /* Unknown presence stays hidden until the next snapshot. */ }
     };
     const connection = new DirectRealtimeConnection(credentials, event => {
+      if (event.type === 'group.message.created' || event.type === 'group.read.updated' || event.type === 'group.changed' || event.type === 'group.access.revoked') {
+        companion?.receive(event); return;
+      }
       if (event.type === 'direct.presence.updated') {
         revision++;
         setOnlineUsers(current => ({ ...current, [event.data.userId]: event.data.online }));
@@ -46,8 +49,10 @@ export function useDirectMessaging(request: AuthorizedRequest, userId: string, v
       await refreshPresence();
       const id = activeThread.current;
       if (id) { await store.load(id); await store.sync(id); }
+      await companion?.ready();
     }, connected => {
       setRealtimeConnected(connected);
+      companion?.status(connected);
       if (!connected) { revision++; setOnlineUsers({}); }
     });
     const presenceTimer = setInterval(() => {
@@ -58,7 +63,7 @@ export function useDirectMessaging(request: AuthorizedRequest, userId: string, v
       if (next === 'active') connection.start(); else connection.stop();
     });
     return () => { active = false; clearInterval(presenceTimer); subscription.remove(); connection.stop(); };
-  }, [store, credentials, request]);
+  }, [store, credentials, request, companion]);
   useEffect(() => {
     if (!visible) return;
     const foreground = () => AppState.currentState === 'active';

@@ -6,8 +6,15 @@ export type DirectRealtimeEvent = { eventId: string; schemaVersion: 1; occurredA
   { type: 'direct.message.created'; data: DirectMessage } |
   { type: 'direct.read.updated'; data: { conversationId: string; userId: string; lastReadSeq: string } } |
   { type: 'direct.presence.updated'; data: { userId: string; online: boolean } });
+export type GroupRealtimeEvent = { eventId: string; schemaVersion: 1; occurredAt: string } & (
+  { type: 'group.message.created'; data: DirectMessage } |
+  { type: 'group.read.updated'; data: { conversationId: string; userId: string; lastReadSeq: string } } |
+  { type: 'group.changed'; data: { conversationId: string } } |
+  { type: 'group.access.revoked'; data: { conversationId: string } });
+export type MessagingRealtimeEvent = DirectRealtimeEvent | GroupRealtimeEvent;
+export type RealtimeCompanion = { receive: (event: GroupRealtimeEvent) => void; ready: () => Promise<void>; status: (connected: boolean) => void };
 
-export function parseDirectEvent(body: string): DirectRealtimeEvent | null {
+export function parseDirectEvent(body: string): MessagingRealtimeEvent | null {
   try {
     const event = JSON.parse(body);
     if (event?.schemaVersion !== 1 || typeof event.eventId !== 'string' || typeof event.occurredAt !== 'string') return null;
@@ -16,12 +23,13 @@ export function parseDirectEvent(body: string): DirectRealtimeEvent | null {
       return data && typeof data.userId === 'string' && typeof data.online === 'boolean' ? event : null;
     }
     if (!data || typeof data.conversationId !== 'string') return null;
-    const seq = event.type === 'direct.message.created' ? data.seq : data.lastReadSeq;
+    if (event.type === 'group.changed' || event.type === 'group.access.revoked') return event;
+    const seq = event.type.endsWith('.message.created') ? data.seq : data.lastReadSeq;
     if (typeof seq !== 'string' || !/^(0|[1-9]\d{0,18})$/.test(seq) || BigInt(seq) > 9223372036854775807n) return null;
-    if (event.type === 'direct.message.created' && typeof data.id === 'string' && typeof data.body === 'string'
+    if (['direct.message.created', 'group.message.created'].includes(event.type) && typeof data.id === 'string' && typeof data.body === 'string'
       && typeof data.clientMessageId === 'string' && typeof data.createdAt === 'string'
       && typeof data.sender?.id === 'string' && typeof data.sender?.displayName === 'string') return event;
-    if (event.type === 'direct.read.updated' && typeof data.userId === 'string') return event;
+    if (['direct.read.updated', 'group.read.updated'].includes(event.type) && typeof data.userId === 'string') return event;
   } catch { }
   return null;
 }
@@ -36,7 +44,7 @@ export class DirectRealtimeConnection {
   private refreshToken = false;
   private refreshedAfterError = false;
   constructor(private credentials: RealtimeCredentials,
-    private onEvent: (event: DirectRealtimeEvent) => void,
+    private onEvent: (event: MessagingRealtimeEvent) => void,
     private onReady: () => Promise<void>, private onStatus: (connected: boolean) => void,
     private createClient: (config: StompConfig) => Client = config => new Client(config)) {}
   start() { if (this.active) return; this.active = true; this.attempt = 0; void this.connect(); }
@@ -55,7 +63,7 @@ export class DirectRealtimeConnection {
       const { url, accessToken } = await this.credentials(this.refreshToken);
       this.refreshToken = false;
       if (!current()) return;
-      const buffered: DirectRealtimeEvent[] = [];
+      const buffered: MessagingRealtimeEvent[] = [];
       let catchingUp = true;
       const client = this.createClient({
         brokerURL: url, connectHeaders: { Authorization: `Bearer ${accessToken}` },

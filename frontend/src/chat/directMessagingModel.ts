@@ -78,6 +78,11 @@ export class DirectMessagingSession {
     this.syncing.delete(id); this.syncAgain.delete(id); this.reading.delete(id); this.readTargets.delete(id);
     for (const key of this.sending) if (key.startsWith(`${id}:`)) this.sending.delete(key);
   }
+  forgetConversation(id: string) {
+    this.forgetThread(id);
+    this.publish({ ...this.state, conversations: this.state.conversations.filter(item => item.id !== id),
+      threads: Object.fromEntries(Object.entries(this.state.threads).filter(([key]) => key !== id)) });
+  }
   private publish(next: DirectState) { this.state = next; this.listeners.forEach(listener => listener()); }
   private thread(id: string) { return this.state.threads[id] ?? emptyThread(); }
   private updateThread(id: string, change: Partial<DirectThread>) {

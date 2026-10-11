@@ -26,7 +26,7 @@ Tab **Nhóm** và mục **Tạo nhóm** dùng `/api/v1/group-conversations` trê
 - Tin gửi lỗi có nút thử lại dùng đúng UUID/nội dung cũ. Bong bóng nối theo từng người gửi, tự kéo xuống sau khi gửi và giữ vị trí khi đang xem tin cũ.
 - Mở thông tin nhóm để xem thành viên. Trưởng nhóm đổi tên, thêm/xóa thành viên, chuyển quyền, gỡ liên kết chuyến đi hoặc lưu trữ nhóm; thành viên khác có thể rời nhóm. Thao tác quản lý gửi `expectedVersion`, khi xung đột sẽ tải lại trạng thái và hiển thị lỗi, không tự lặp mutation.
 - Nhóm đã lưu trữ chỉ xem lịch sử. Khi bị xóa/rời nhóm, danh sách và lịch sử cache được dọn sau lần phản hồi API xác nhận mất quyền.
-- Nhóm chưa có WebSocket: chỉ polling khi tab chat hiển thị và app ở foreground, tin nhắn mỗi 3 giây, danh sách mỗi 10 giây. Chat cá nhân tiếp tục dùng WebSocket hiện có.
+- Nhóm và cá nhân dùng chung một WebSocket STOMP. Tin nhóm đến ngay, thay đổi nhóm làm mới danh sách và mất quyền sẽ xóa lịch sử cache. Sau reconnect, REST tải bù tin; khi socket hoạt động app đối soát mỗi 30 giây, khi mất kết nối thì polling foreground mỗi 3 giây cho tin và 10 giây cho danh sách.
 - Chuyến đi được liên kết từ server có màn hình xem chỉ đọc. Chuyến đang lưu local chưa thể chọn/gắn vào nhóm; cần tích hợp API chuyến đi trước.
 
 Chạy `npm run typecheck`, `npm run test:groups` và `npm run test:messages` để kiểm tra. Test thủ công bằng hai tài khoản đã kết bạn: tạo nhóm trên máy A, mở tab Nhóm trên máy B, gửi qua lại, thử thêm/xóa thành viên và chuyển trưởng nhóm. Backend phải chạy phiên bản có migration V8/V9. Không cần cài dependency mới cho tính năng này.

@@ -29,6 +29,24 @@ const event = { eventId: 'event-1', type: 'direct.message.created', schemaVersio
   data: { id: 'message-1', conversationId: 'conversation-1', seq: '9007199254740993', sender: { id: 'peer', displayName: 'Peer' },
     clientMessageId: 'client-1', body: 'Xin chào', createdAt: '2026-10-03T00:00:00Z' } };
 
+test('one socket parses and delivers group events alongside direct chat', async () => {
+  const f = fixture(); f.connection.start(); await settle();
+  const client = f.clients[0]; client.config.onConnect(); await settle();
+  const receive = client.subscriptions[0].receive;
+  receive({ body: JSON.stringify(event) });
+  const group = { ...event, eventId: 'group-event', type: 'group.message.created' };
+  receive({ body: JSON.stringify(group) });
+  assert.equal(f.clients.length, 1); assert.equal(client.subscriptions.length, 1);
+  assert.deepEqual(Array.from(f.events, item => item.type), ['direct.message.created', 'group.message.created']);
+  for (const type of ['group.changed', 'group.access.revoked']) {
+    assert.equal(f.parseDirectEvent(JSON.stringify({ ...group, type, data: { conversationId: 'group' } })).type, type);
+    assert.equal(f.parseDirectEvent(JSON.stringify({ ...group, type, data: {} })), null);
+  }
+  assert.equal(f.parseDirectEvent(JSON.stringify({ ...group, data: { ...group.data, seq: '9223372036854775808' } })), null);
+  assert.equal(f.parseDirectEvent(JSON.stringify({ ...group, type: 'group.read.updated', data: { conversationId: 'group', userId: 'me', lastReadSeq: '2' } })).type, 'group.read.updated');
+  f.connection.stop(); receive({ body: JSON.stringify(group) }); assert.equal(f.events.length, 2);
+});
+
 test('presence frames accept only a boolean status with a user id', () => {
   const f = fixture();
   const presence = { ...event, type: 'direct.presence.updated', data: { userId: 'peer', online: true } };

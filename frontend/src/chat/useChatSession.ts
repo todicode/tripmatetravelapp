@@ -14,8 +14,8 @@ export function useChatSession(request: AuthorizedRequest, userId: string, visib
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [routes, setRoutes] = useState<Route[]>([]);
   const route = routes.at(-1);
-  const direct = useDirectMessaging(request, userId, visible, route?.kind === 'conversation' ? route.id : null, realtimeCredentials);
   const group = useGroupMessaging(request, userId, visible, route?.kind === 'conversation' ? route.id : null);
+  const direct = useDirectMessaging(request, userId, visible, route?.kind === 'conversation' ? route.id : null, realtimeCredentials, group.realtime);
   const [socialLoading, setSocialLoading] = useState(true);
   const [socialError, setSocialError] = useState('');
   const [friendCode, setFriendCode] = useState<FriendCode | null>(null);
