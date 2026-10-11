@@ -1,8 +1,19 @@
 # Independent group messaging API
 
-Implemented REST endpoints below use `/api/v1`, Bearer authentication and `{data, requestId}` responses with `Cache-Control: private, no-store`. Full request/response examples are in [openapi.json](openapi.json), contract 1.5.0.
+Implemented REST endpoints below use `/api/v1`, Bearer authentication and `{data, requestId}` responses with `Cache-Control: private, no-store`. Full request/response examples are in [openapi.json](openapi.json), contract 1.5.1.
 
-Groups exist independently of trips. The creator is OWNER; membership is separate from friendship and trip membership. This change implements backend APIs only. The group UI is still local; group WebSocket, avatars, attachments, invitations and push are not implemented.
+Groups exist independently of trips. The creator is OWNER; membership is separate from friendship and trip membership. The frontend uses the server APIs and group WebSocket events. Group avatars, attachments, invitations and push are not implemented.
+
+## Group realtime
+
+The authenticated STOMP connection at `/ws` subscribes to `/user/queue/events`, shared with direct chat. Writes remain REST. Payloads use `{eventId, type, schemaVersion: 1, occurredAt, data}`:
+
+- `group.message.created`: the REST message shape, delivered to active members including the sender after a new message commits; idempotent retries do not broadcast again.
+- `group.read.updated`: `{conversationId, userId, lastReadSeq}`, sent only to the reader's own devices when the marker advances.
+- `group.changed`: `{conversationId}`, invalidates group details/list after creation, rename, trip link changes, membership changes, ownership transfer or archive.
+- `group.access.revoked`: `{conversationId}`, sent only to the departed/removed account; clears cached history and linked-trip access without disclosing message content.
+
+Recipients are captured while the group is locked and checked again after commit and at the outbound socket boundary. Rolled-back transactions never publish. Broker failure does not undo a successful REST operation. The frontend subscribes before REST catch-up, deduplicates messages and reconnects through the shared account session. Live frames never advance the durable sequence cursor past missing history. Connected clients reconcile every 30 seconds; disconnected foreground chat falls back to 3-second history and 10-second list polling. This uses the existing single-instance simple broker; multiple backend replicas require a shared broker later.
 
 ## Endpoints
 

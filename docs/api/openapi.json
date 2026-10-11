@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "TripMate API Contract",
-    "version": "1.5.0",
-    "description": "Contract-first TripMate API for the Spring backend and mobile React Native client. Version 1.5.0 adds independent group conversations with membership, text history/read markers and optional owner-verified read-only trip sharing. Group frontend and realtime remain a separate slice; personal chat remains unchanged. This JSON is the canonical wire format; examples use fixture data. Rules: docs/api/TEAM_RULES.md. Realtime: x-realtime. Bigint values are sent as strings."
+    "version": "1.5.1",
+    "description": "Contract-first TripMate API for the Spring backend and mobile React Native client. Version 1.5.1 adds authenticated group realtime events on the same private STOMP queue as personal chat. Independent group REST operations, membership and owner-verified read-only trip sharing are unchanged. This JSON is the canonical wire format; examples use fixture data. Rules: docs/api/TEAM_RULES.md. Realtime: x-realtime. Bigint values are sent as strings."
   },
   "servers": [
     {
@@ -15973,6 +15973,192 @@
           }
         }
       },
+        "EventGroupMessageCreated": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "example": "00000000-0000-4000-8000-000000000101",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "group.message.created"
+            ],
+            "example": "group.message.created"
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "example": 1,
+            "enum": [
+              1
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "example": "2026-09-17T03:00:00Z",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DirectMessage"
+          }
+        },
+        "required": [
+          "eventId",
+          "type",
+          "schemaVersion",
+          "occurredAt",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+        "EventGroupReadUpdated": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "example": "00000000-0000-4000-8000-000000000101",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "group.read.updated"
+            ],
+            "example": "group.read.updated"
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "example": 1,
+            "enum": [
+              1
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "example": "2026-09-17T03:00:00Z",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DirectReadChanged"
+          }
+        },
+        "required": [
+          "eventId",
+          "type",
+          "schemaVersion",
+          "occurredAt",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+        "EventGroupChanged": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "example": "00000000-0000-4000-8000-000000000101",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "group.changed"
+            ],
+            "example": "group.changed"
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "example": 1,
+            "enum": [
+              1
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "example": "2026-09-17T03:00:00Z",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "conversationId": {
+                "type": "string",
+                "format": "uuid",
+                "example": "00000000-0000-4000-8000-000000000080"
+              }
+            },
+            "required": [
+              "conversationId"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "eventId",
+          "type",
+          "schemaVersion",
+          "occurredAt",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+        "EventGroupAccessRevoked": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "example": "00000000-0000-4000-8000-000000000101",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "group.access.revoked"
+            ],
+            "example": "group.access.revoked"
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "example": 1,
+            "enum": [
+              1
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "example": "2026-09-17T03:00:00Z",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "conversationId": {
+                "type": "string",
+                "format": "uuid",
+                "example": "00000000-0000-4000-8000-000000000080"
+              }
+            },
+            "required": [
+              "conversationId"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "eventId",
+          "type",
+          "schemaVersion",
+          "occurredAt",
+          "data"
+        ],
+        "additionalProperties": false
+      },
       "EventDirectMessageCreated": {
         "type": "object",
         "properties": {
@@ -17173,6 +17359,78 @@
           }
         }
       },
+        "group.message.created": {
+        "destination": "/user/queue/events",
+        "schema": {
+          "$ref": "#/components/schemas/EventGroupMessageCreated"
+        },
+        "example": {
+          "eventId": "00000000-0000-4000-8000-000000000120",
+          "type": "group.message.created",
+          "schemaVersion": 1,
+          "occurredAt": "2026-10-03T00:00:00Z",
+          "data": {
+            "id": "00000000-0000-4000-8000-000000000081",
+            "conversationId": "00000000-0000-4000-8000-000000000080",
+            "seq": "1",
+            "sender": {
+              "id": "00000000-0000-4000-8000-000000000002",
+              "displayName": "Recipient",
+              "avatarMediaId": null
+            },
+            "clientMessageId": "00000000-0000-4000-8000-000000000082",
+            "body": "Hello!",
+            "createdAt": "2026-10-03T03:00:00Z"
+          }
+        }
+      },
+        "group.read.updated": {
+        "destination": "/user/queue/events",
+        "schema": {
+          "$ref": "#/components/schemas/EventGroupReadUpdated"
+        },
+        "example": {
+          "eventId": "00000000-0000-4000-8000-000000000121",
+          "type": "group.read.updated",
+          "schemaVersion": 1,
+          "occurredAt": "2026-10-03T00:00:00Z",
+          "data": {
+            "conversationId": "00000000-0000-4000-8000-000000000080",
+            "userId": "00000000-0000-4000-8000-000000000002",
+            "lastReadSeq": "1"
+          }
+        }
+      },
+        "group.changed": {
+        "destination": "/user/queue/events",
+        "schema": {
+          "$ref": "#/components/schemas/EventGroupChanged"
+        },
+        "example": {
+          "eventId": "00000000-0000-4000-8000-000000000122",
+          "type": "group.changed",
+          "schemaVersion": 1,
+          "occurredAt": "2026-10-03T00:00:00Z",
+          "data": {
+            "conversationId": "00000000-0000-4000-8000-000000000080"
+          }
+        }
+      },
+        "group.access.revoked": {
+        "destination": "/user/queue/events",
+        "schema": {
+          "$ref": "#/components/schemas/EventGroupAccessRevoked"
+        },
+        "example": {
+          "eventId": "00000000-0000-4000-8000-000000000123",
+          "type": "group.access.revoked",
+          "schemaVersion": 1,
+          "occurredAt": "2026-10-03T00:00:00Z",
+          "data": {
+            "conversationId": "00000000-0000-4000-8000-000000000080"
+          }
+        }
+      },
       "direct.message.created": {
         "destination": "/user/queue/events",
         "schema": {
@@ -17232,7 +17490,7 @@
         }
       }
     },
-    "implementation": "Implemented: /ws CONNECT and /user/queue/events for direct.message.created/direct.read.updated after commit, and direct.presence.updated for socket lifecycle changes to existing conversation peers. Presence combines devices, delays offline by 10 seconds after disconnect detection, and reconciles via GET /direct-conversations/presence. Other trip/push destinations remain planned. Simple broker and ephemeral presence serve one backend instance; offline recovery uses REST and no Redis bridge is implemented."
+    "implementation": "Implemented: /ws CONNECT and /user/queue/events for direct.message.created/direct.read.updated after commit, and direct.presence.updated for socket lifecycle changes to existing conversation peers. Presence combines devices, delays offline by 10 seconds after disconnect detection, and reconciles via GET /direct-conversations/presence. Other trip/push destinations remain planned. Simple broker and ephemeral presence serve one backend instance; offline recovery uses REST and no Redis bridge is implemented. Group message/read/change/revocation events are implemented on the same private queue. Group delivery is after commit and checks active membership again at publication and outbound; revocation contains only a conversation ID."
   },
   "x-push": {
     "provider": "FCM native Android",

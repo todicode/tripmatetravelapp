@@ -1,6 +1,6 @@
 # API contract TripMate
 
-Bộ giao tiếp để backend và frontend phát triển độc lập, phiên bản **1.5.0 — 05/10/2026**.
+Bộ giao tiếp để backend và frontend phát triển độc lập, phiên bản **1.5.1 — 11/10/2026**.
 
 - [openapi.json](openapi.json): **94 operation REST**, request/response/schema, quyền, lỗi, ví dụ; STOMP và FCM trong x-realtime/x-push.
 - [GROUP_MESSAGING.md](GROUP_MESSAGING.md): API nhóm độc lập, quản lý thành viên, lịch sử/đã đọc và liên kết chuyến đi chỉ xem.

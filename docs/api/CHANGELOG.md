@@ -1,5 +1,11 @@
 # Contract changelog
 
+## 1.5.1 - 2026-10-11
+
+- Added group message, own read marker, group change and access revocation events on the existing authenticated `/user/queue/events` STOMP subscription. REST endpoints and schema migrations remain unchanged.
+- Publish after commit, skip duplicate sends, and check current group membership at publication and outbound delivery. Removed members receive only an ID-only revocation; rollback and broker failure preserve REST semantics.
+- Frontend shares one socket with direct messaging, receives group messages immediately, clears revoked history and catches up through REST after reconnect. Polling remains a fallback when the socket is unavailable.
+
 ## 1.5.0 - 2026-10-05
 
 - Added 14 authenticated REST operations at `/group-conversations` for independent groups, owner management, membership, text messages/read markers and a read-only linked trip view. Existing `/trips/{tripId}/messages` remains planned and is not this group's storage.

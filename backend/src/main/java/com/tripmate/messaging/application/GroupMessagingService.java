@@ -10,6 +10,7 @@ import com.tripmate.trips.api.GroupTripSharing;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -24,9 +25,11 @@ public class GroupMessagingService {
     private final FriendshipAccess friends;
     private final GroupTripSharing trips;
     private final ConversationCursor cursors;
+    private final ApplicationEventPublisher events;
     public GroupMessagingService(GroupConversationRepository groups, UserDirectory users, FriendshipAccess friends,
-                                 GroupTripSharing trips, ConversationCursor cursors) {
+                                 GroupTripSharing trips, ConversationCursor cursors, ApplicationEventPublisher events) {
         this.groups = groups; this.users = users; this.friends = friends; this.trips = trips; this.cursors = cursors;
+        this.events = events;
     }
     public GroupView create(String name, List<UUID> memberIds, UUID tripId) {
         UUID actor = actor(); name = name(name);
@@ -39,6 +42,7 @@ public class GroupMessagingService {
         Group group = new Group(UUID.randomUUID(), actor, name, tripId, 0, 0, null, now, now);
         groups.insert(group); groups.join(group.id(), actor, 0, now);
         for (UUID member : memberIds) groups.join(group.id(), member, 0, now);
+        notifyChanged(group.id());
         return view(group, actor);
     }
     public GroupPage list(String cursor, int limit) {
@@ -60,12 +64,13 @@ public class GroupMessagingService {
         if (changeTrip && nextTrip != null) trips.requireOwned(nextTrip, actor);
         if (!nextName.equals(g.name()) || !Objects.equals(nextTrip, g.tripId())) {
             g = changed(g, actor, nextName, nextTrip, null); groups.save(g);
+            notifyChanged(id);
         }
         return view(g, actor);
     }
     public GroupView archive(UUID id, String expectedVersion) {
         UUID actor = actor(); Group g = access(id, actor, true); owner(g, actor);
-        if (g.archivedAt() == null) { version(g, expectedVersion); g = changed(g, actor, g.name(), g.tripId(), now()); groups.save(g); }
+        if (g.archivedAt() == null) { version(g, expectedVersion); g = changed(g, actor, g.name(), g.tripId(), now()); groups.save(g); notifyChanged(id); }
         return view(g, actor);
     }
     public List<MemberView> members(UUID id) {
@@ -81,6 +86,7 @@ public class GroupMessagingService {
         if (groups.members(id).size() >= MAX_MEMBERS) throw conflict("GROUP_FULL", "Nhóm tối đa 100 thành viên.");
         Instant now = now(); groups.join(id, userId, g.lastSeq(), now);
         groups.save(changed(g, g.ownerId(), g.name(), g.tripId(), null));
+        notifyChanged(id);
         return memberView(g, new Member(userId, "ACTIVE", g.lastSeq(), now));
     }
     public void remove(UUID id, UUID userId, String expectedVersion) {
@@ -90,6 +96,7 @@ public class GroupMessagingService {
         if (!member.status().equals("ACTIVE")) return;
         version(g, expectedVersion); groups.end(id, userId, "REMOVED", now());
         groups.save(changed(g, g.ownerId(), g.name(), g.tripId(), g.archivedAt()));
+        revoke(id, userId); notifyChanged(id);
     }
     public void leave(UUID id) {
         UUID actor = actor(); Group g = groups.find(id, true).orElseThrow(this::notFound);
@@ -97,13 +104,14 @@ public class GroupMessagingService {
         if (!member.status().equals("ACTIVE")) return; // Retry is safe, without restoring access.
         if (g.ownerId().equals(actor)) throw conflict("OWNER_CANNOT_LEAVE", "Chuyển quyền trước khi rời nhóm.");
         groups.end(id, actor, "LEFT", now()); groups.save(changed(g, g.ownerId(), g.name(), g.tripId(), g.archivedAt()));
+        revoke(id, actor); notifyChanged(id);
     }
     public GroupView transfer(UUID id, UUID nextOwner, String expectedVersion) {
         UUID actor = actor(); Group g = access(id, actor, true); owner(g, actor); writable(g); version(g, expectedVersion);
         if (nextOwner == null) throw invalid("Cần userId của trưởng nhóm mới.");
         active(id, nextOwner);
         if (!users.find(nextOwner).active()) throw notFound();
-        if (!actor.equals(nextOwner)) { g = changed(g, nextOwner, g.name(), null, null); groups.save(g); }
+        if (!actor.equals(nextOwner)) { g = changed(g, nextOwner, g.name(), null, null); groups.save(g); notifyChanged(id); }
         return view(g, actor); // Moving ownership clears the previous owner's private trip link.
     }
     public GroupTripSharing.TripView trip(UUID id) {
@@ -126,7 +134,9 @@ public class GroupMessagingService {
         var created = new Message(UUID.randomUUID(), id, actor, clientMessageId, g.lastSeq() + 1, body, now);
         groups.insertMessage(created);
         groups.save(new Group(g.id(), g.ownerId(), g.name(), g.tripId(), g.version(), created.seq(), g.archivedAt(), g.createdAt(), now));
-        return message(created);
+        var result = message(created);
+        events.publishEvent(GroupRealtimeEvent.of(id, recipientIds(id), "group.message.created", result));
+        return result;
     }
     public MessagePage history(UUID id, String beforeSeq, String afterSeq, int limit) {
         UUID actor = actor(); access(id, actor, false); limit(limit);
@@ -142,12 +152,18 @@ public class GroupMessagingService {
     public ReadView read(UUID id, String lastReadSeq) {
         UUID actor = actor(); Group g = access(id, actor, true); long seq = seq(lastReadSeq);
         if (seq > g.lastSeq()) throw invalid("Mốc đọc vượt quá tin nhắn cuối.");
-        long next = Math.max(active(id, actor).readSeq(), seq); groups.read(id, actor, next);
+        long previous = active(id, actor).readSeq();
+        long next = Math.max(previous, seq); groups.read(id, actor, next);
+        if (next > previous) events.publishEvent(GroupRealtimeEvent.of(id, List.of(actor), "group.read.updated",
+                new DirectRealtimeEvent.ReadChanged(id, actor, Long.toString(next))));
         return new ReadView(id, Long.toString(next), Long.toString(groups.unread(id, actor, next)));
     }
     private Group access(UUID id, UUID actor, boolean lock) {
         Group group = groups.find(id, lock).orElseThrow(this::notFound); active(id, actor); return group;
     }
+    private List<UUID> recipientIds(UUID id) { return groups.members(id).stream().map(Member::userId).toList(); }
+    private void notifyChanged(UUID id) { events.publishEvent(GroupRealtimeEvent.of(id, recipientIds(id), "group.changed", new GroupRealtimeEvent.Changed(id))); }
+    private void revoke(UUID id, UUID user) { events.publishEvent(GroupRealtimeEvent.of(id, List.of(user), "group.access.revoked", new GroupRealtimeEvent.Changed(id))); }
     private Member active(UUID id, UUID actor) {
         return groups.member(id, actor).filter(m -> m.status().equals("ACTIVE")).orElseThrow(this::notFound);
     }

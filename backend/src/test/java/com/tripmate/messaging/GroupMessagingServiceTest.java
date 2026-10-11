@@ -22,7 +22,8 @@ class GroupMessagingServiceTest {
     private final FriendshipAccess friends = mock(FriendshipAccess.class);
     private final GroupTripSharing trips = mock(GroupTripSharing.class);
     private final ConversationCursor cursors = new ConversationCursor("group-service-test-cursor-secret");
-    private final GroupMessagingService service = new GroupMessagingService(repo, users, friends, trips, cursors);
+    private final GroupMessagingService service = new GroupMessagingService(repo, users, friends, trips, cursors,
+            mock(org.springframework.context.ApplicationEventPublisher.class));
     private final UUID id = UUID.randomUUID(), owner = UUID.randomUUID(), peer = UUID.randomUUID();
     private Group group;
     @BeforeEach void setup() {

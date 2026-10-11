@@ -7,11 +7,14 @@ import org.springframework.messaging.simp.stomp.*;
 import org.springframework.messaging.support.*;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
+import com.tripmate.messaging.infrastructure.GroupConversationRepository;
+import java.util.UUID;
 
 @Component
 public class RealtimeChannelSecurity implements ChannelInterceptor {
     private final RealtimeSessions sessions;
-    public RealtimeChannelSecurity(RealtimeSessions sessions) { this.sessions = sessions; }
+    private final GroupConversationRepository groups;
+    public RealtimeChannelSecurity(RealtimeSessions sessions, GroupConversationRepository groups) { this.sessions = sessions; this.groups = groups; }
     @Override public Message<?> preSend(Message<?> message, MessageChannel channel) {
         var headers = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
         if (headers == null) return message;
@@ -46,7 +49,17 @@ public class RealtimeChannelSecurity implements ChannelInterceptor {
                 var headers = SimpMessageHeaderAccessor.wrap(message);
                 if (headers.getMessageType() != SimpMessageType.MESSAGE) return message;
                 String sessionId = headers.getSessionId();
-                try { sessions.verify(sessionId); return message; }
+                try {
+                    var actor = sessions.verify(sessionId);
+                    var groupId = headers.getHeader("groupConversationId");
+                    if (groupId != null) {
+                        boolean active = groups.member(UUID.fromString(groupId.toString()), UUID.fromString(actor.getName()))
+                                .filter(member -> member.status().equals("ACTIVE")).isPresent();
+                        // Re-check at the final outbound boundary, including queued frames.
+                        if (Boolean.TRUE.equals(headers.getHeader("groupRevoked")) ? active : !active) return null;
+                    }
+                    return message;
+                }
                 catch (RuntimeException error) { if (sessionId != null) sessions.reject(sessionId); return null; }
             }
         };

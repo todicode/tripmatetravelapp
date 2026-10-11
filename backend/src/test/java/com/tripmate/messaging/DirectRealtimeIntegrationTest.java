@@ -46,6 +46,7 @@ class DirectRealtimeIntegrationTest {
     @EnableTransactionManagement
     @Import({DirectRealtimeConfiguration.class, RealtimeSessions.class, RealtimeChannelSecurity.class,
             DirectRealtimePublisher.class, DirectMessagingController.class, DirectMessagingService.class, DirectPresence.class,
+            GroupRealtimePublisher.class, GroupRealtimeDelivery.class, GroupMessagingService.class, GroupMessagingController.class,
             SecurityConfiguration.class, SecurityErrorHandler.class})
     static class TestApplication {
         @Bean AccessTokenVerifier tokens() {
@@ -59,6 +60,8 @@ class DirectRealtimeIntegrationTest {
         @Bean FriendshipAccess friendships() { return mock(FriendshipAccess.class); }
         @Bean DirectConversationRepository conversations() { return mock(DirectConversationRepository.class); }
         @Bean DirectMessageRepository messages() { return mock(DirectMessageRepository.class); }
+        @Bean GroupConversationRepository groups() { return mock(GroupConversationRepository.class); }
+        @Bean com.tripmate.trips.api.GroupTripSharing trips() { return mock(com.tripmate.trips.api.GroupTripSharing.class); }
         @Bean ConversationCursor cursors() { return new ConversationCursor("isolated-websocket-test-secret-32-chars"); }
         @Bean PlatformTransactionManager transactions() {
             return new AbstractPlatformTransactionManager() {
@@ -79,6 +82,7 @@ class DirectRealtimeIntegrationTest {
     @Autowired PlatformTransactionManager transactions;
     @Autowired tools.jackson.databind.ObjectMapper json;
     @Autowired DirectPresence presence;
+    @Autowired GroupConversationRepository groups;
     private final List<WebSocketStompClient> clients = new ArrayList<>();
     private final List<StompSession> sessions = new ArrayList<>();
     @AfterEach void closeSockets() {
@@ -208,5 +212,53 @@ class DirectRealtimeIntegrationTest {
         assertThrows(Exception.class, () -> client.connectAsync("ws://localhost:" + port + "/ws?token=not-allowed",
                 new org.springframework.web.socket.WebSocketHttpHeaders(), headers, new StompSessionHandlerAdapter() {})
                 .get(3, TimeUnit.SECONDS));
+    }
+    @Test void groupRestSendReachesMembersOnlyAndRemovalRevokesFutureDelivery() throws Exception {
+        var sender = connect("sender"); var recipient = connect("recipient"); var outsider = connect("outsider");
+        UUID id = UUID.randomUUID(), client = UUID.randomUUID(); Instant now = Instant.now();
+        var group = new GroupConversationRepository.Group(id, LOW, "Realtime group", null, 0, 1, null, now, now);
+        var owner = new GroupConversationRepository.Member(LOW, "ACTIVE", 0, now);
+        var member = new GroupConversationRepository.Member(HIGH, "ACTIVE", 0, now);
+        when(groups.find(eq(id), anyBoolean())).thenReturn(Optional.of(group));
+        when(groups.member(id, LOW)).thenReturn(Optional.of(owner)); when(groups.member(id, HIGH)).thenReturn(Optional.of(member));
+        when(groups.members(id)).thenReturn(List.of(owner, member));
+        when(users.find(LOW)).thenReturn(new UserDirectory.UserSummary(LOW, "Sender", null, true));
+        when(users.find(HIGH)).thenReturn(new UserDirectory.UserSummary(HIGH, "Recipient", null, true));
+        String body = "{\"clientMessageId\":\"" + client + "\",\"body\":\"Group realtime\"}";
+        var response = post("/api/v1/group-conversations/" + id + "/messages", "POST", "sender", body);
+        assertEquals(200, response.statusCode(), response.body());
+        var received = recipient.events().poll(3, TimeUnit.SECONDS); assertNotNull(received);
+        assertEquals("group.message.created", json.readTree(received).get("type").asText());
+        assertEquals("Group realtime", json.readTree(received).get("data").get("body").asText());
+        assertNotNull(Instant.parse(json.readTree(received).get("occurredAt").asText()));
+        assertEquals(received, sender.events().poll(3, TimeUnit.SECONDS)); assertNull(outsider.events().poll(200, TimeUnit.MILLISECONDS));
+        var saved = new GroupConversationRepository.Message(UUID.fromString(json.readTree(response.body()).get("data").get("id").asText()), id, LOW, client, 2, "Group realtime", now);
+        when(groups.retry(id, LOW, client)).thenReturn(Optional.of(saved));
+        assertEquals(200, post("/api/v1/group-conversations/" + id + "/messages", "POST", "sender", body).statusCode());
+        assertNull(recipient.events().poll(200, TimeUnit.MILLISECONDS));
+        assertEquals(200, post("/api/v1/group-conversations/" + id + "/read", "PUT", "recipient", "{\"lastReadSeq\":\"1\"}").statusCode());
+        assertTrue(recipient.events().poll(3, TimeUnit.SECONDS).contains("group.read.updated"));
+        assertNull(sender.events().poll(200, TimeUnit.MILLISECONDS));
+        doAnswer(call -> { when(groups.members(id)).thenReturn(List.of(owner));
+            when(groups.member(id, HIGH)).thenReturn(Optional.of(new GroupConversationRepository.Member(HIGH, "REMOVED", 1, now))); return null;
+        }).when(groups).end(eq(id), eq(HIGH), eq("REMOVED"), any());
+        assertEquals(204, post("/api/v1/group-conversations/" + id + "/members/" + HIGH + "?expectedVersion=0", "DELETE", "sender", "").statusCode());
+        assertTrue(recipient.events().poll(3, TimeUnit.SECONDS).contains("group.access.revoked"));
+        assertTrue(sender.events().poll(3, TimeUnit.SECONDS).contains("group.changed"));
+        var event = GroupRealtimeEvent.of(id, List.of(LOW, HIGH, OTHER), "group.message.created", new GroupMessagingService.MessageView(saved.id(), id, "3",
+                new GroupMessagingService.UserSummary(LOW, "Sender", null), UUID.randomUUID(), "after removal", now));
+        new TransactionTemplate(transactions).executeWithoutResult(status -> publisher.publishEvent(event));
+        assertTrue(sender.events().poll(3, TimeUnit.SECONDS).contains("after removal"));
+        assertNull(recipient.events().poll(200, TimeUnit.MILLISECONDS)); assertNull(outsider.events().poll(200, TimeUnit.MILLISECONDS));
+    }
+    @Test void groupRollbackPublishesNothingAndNoGroupEventAppearsBeforeCommit() throws Exception {
+        var recipient = connect("recipient"); UUID id = UUID.randomUUID(); Instant now = Instant.now();
+        when(groups.find(eq(id), anyBoolean())).thenReturn(Optional.of(new GroupConversationRepository.Group(id, LOW, "Group", null, 0, 0, null, now, now)));
+        when(groups.members(id)).thenReturn(List.of(new GroupConversationRepository.Member(HIGH, "ACTIVE", 0, now)));
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            publisher.publishEvent(GroupRealtimeEvent.of(id, List.of(HIGH), "group.changed", new GroupRealtimeEvent.Changed(id)));
+            assertTrue(recipient.events().isEmpty()); status.setRollbackOnly();
+        });
+        assertNull(recipient.events().poll(200, TimeUnit.MILLISECONDS));
     }
 }

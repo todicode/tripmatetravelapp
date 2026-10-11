@@ -15,7 +15,8 @@ import static org.mockito.Mockito.*;
 class DirectRealtimeSecurityTest {
     private final AccessTokenVerifier tokens = mock(AccessTokenVerifier.class);
     private final RealtimeSessions sessions = new RealtimeSessions(tokens);
-    private final RealtimeChannelSecurity security = new RealtimeChannelSecurity(sessions);
+    private final com.tripmate.messaging.infrastructure.GroupConversationRepository groups = mock(com.tripmate.messaging.infrastructure.GroupConversationRepository.class);
+    private final RealtimeChannelSecurity security = new RealtimeChannelSecurity(sessions, groups);
     private final org.springframework.security.core.Authentication user = new UsernamePasswordAuthenticationToken("user-id", null, java.util.List.of());
     private Message<byte[]> frame(StompCommand command, String destination) {
         var accessor = StompHeaderAccessor.create(command);
@@ -64,5 +65,20 @@ class DirectRealtimeSecurityTest {
         var frame = new RealtimeErrorHandler().handleClientMessageProcessingError(null, new IllegalArgumentException("secret-token"));
         var body = new String(frame.getPayload(), java.nio.charset.StandardCharsets.UTF_8);
         assertFalse(body.contains("secret-token")); assertTrue(body.contains("AUTH_REQUIRED")); assertTrue(body.contains("requestId"));
+    }
+    @Test void queuedGroupContentIsDroppedAfterRemovalButIdOnlyRevocationCanBeDelivered() {
+        var id = java.util.UUID.randomUUID(); var userId = java.util.UUID.randomUUID();
+        var actor = new UsernamePasswordAuthenticationToken(userId.toString(), null, java.util.List.of());
+        when(tokens.verify("valid-token")).thenReturn(actor); sessions.authenticate("session", "valid-token");
+        var headers = SimpMessageHeaderAccessor.create(SimpMessageType.MESSAGE); headers.setSessionId("session");
+        headers.setHeader("groupConversationId", id.toString()); headers.setHeader("groupRevoked", false);
+        when(groups.member(id, userId)).thenReturn(java.util.Optional.of(new com.tripmate.messaging.infrastructure.GroupConversationRepository.Member(userId, "ACTIVE", 0, java.time.Instant.now())));
+        var frame = MessageBuilder.createMessage("group content", headers.getMessageHeaders());
+        assertNotNull(security.outbound().preSend(frame, mock(MessageChannel.class)));
+        when(groups.member(id, userId)).thenReturn(java.util.Optional.empty());
+        assertNull(security.outbound().preSend(frame, mock(MessageChannel.class)));
+        var revoked = SimpMessageHeaderAccessor.create(SimpMessageType.MESSAGE); revoked.setSessionId("session");
+        revoked.setHeader("groupConversationId", id.toString()); revoked.setHeader("groupRevoked", true);
+        assertNotNull(security.outbound().preSend(MessageBuilder.createMessage("id only", revoked.getMessageHeaders()), mock(MessageChannel.class)));
     }
 }
