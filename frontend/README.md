@@ -18,6 +18,19 @@ Lệnh tự tìm các emulator đang kết nối qua ADB, build một APK debug 
 
 Các máy dùng chung Metro trên cổng 8081: script dùng lại server đang chạy hoặc khởi động một server mới. Giữ terminal Metro mở khi test; backend cần chạy riêng. Đăng nhập tài khoản khác nhau trên từng máy để test chat. `npm run android` vẫn dùng luồng chạy Android cũ. Kiểm tra script bằng `npm run test:android`.
 
+## Chat nhóm qua API
+
+Tab **Nhóm** và mục **Tạo nhóm** dùng `/api/v1/group-conversations` trên backend thật. Nhóm tồn tại độc lập với chuyến đi; lịch sử được lưu trên server và tải lại khi đăng nhập.
+
+- Tạo nhóm với tối đa 99 bạn bè và người tạo; gửi văn bản, tải tin cũ, xem số chưa đọc và đánh dấu các tin đang hiển thị đã đọc.
+- Tin gửi lỗi có nút thử lại dùng đúng UUID/nội dung cũ. Bong bóng nối theo từng người gửi, tự kéo xuống sau khi gửi và giữ vị trí khi đang xem tin cũ.
+- Mở thông tin nhóm để xem thành viên. Trưởng nhóm đổi tên, thêm/xóa thành viên, chuyển quyền, gỡ liên kết chuyến đi hoặc lưu trữ nhóm; thành viên khác có thể rời nhóm. Thao tác quản lý gửi `expectedVersion`, khi xung đột sẽ tải lại trạng thái và hiển thị lỗi, không tự lặp mutation.
+- Nhóm đã lưu trữ chỉ xem lịch sử. Khi bị xóa/rời nhóm, danh sách và lịch sử cache được dọn sau lần phản hồi API xác nhận mất quyền.
+- Nhóm chưa có WebSocket: chỉ polling khi tab chat hiển thị và app ở foreground, tin nhắn mỗi 3 giây, danh sách mỗi 10 giây. Chat cá nhân tiếp tục dùng WebSocket hiện có.
+- Chuyến đi được liên kết từ server có màn hình xem chỉ đọc. Chuyến đang lưu local chưa thể chọn/gắn vào nhóm; cần tích hợp API chuyến đi trước.
+
+Chạy `npm run typecheck`, `npm run test:groups` và `npm run test:messages` để kiểm tra. Test thủ công bằng hai tài khoản đã kết bạn: tạo nhóm trên máy A, mở tab Nhóm trên máy B, gửi qua lại, thử thêm/xóa thành viên và chuyển trưởng nhóm. Backend phải chạy phiên bản có migration V8/V9. Không cần cài dependency mới cho tính năng này.
+
 ## UI được port từ template_gui
 
 - Màn hình sau đăng nhập dùng component React Native và các hook ViewModel; giữ nguyên luồng auth và cấu trúc API hiện có.

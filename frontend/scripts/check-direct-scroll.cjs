@@ -93,7 +93,7 @@ test('message runs use tight spacing and connected corners in chronological orde
     ];
     const list = h.find(h.render(), 'FlatList');
     const rows = list.props.data.map((item, index) => list.props.renderItem({ item, index }));
-    const bubble = row => row.children.at(-1).children[0].props.style;
+    const bubble = row => row.children.at(-1).children.find(child => child?.props?.style?.borderTopLeftRadius !== undefined).props.style;
     const corners = row => {
       const style = bubble(row);
       return isMe ? [style.borderTopRightRadius, style.borderBottomRightRadius]
@@ -109,4 +109,22 @@ test('message runs use tight spacing and connected corners in chronological orde
     assert.equal(rows[1].props.style.marginBottom, 2);
     assert.equal(rows[0].props.style.marginBottom, 10);
   }
+});
+
+test('group bubbles join only messages from the same sender and show the sender name', () => {
+  const h = screen(); h.props.groupHeader = 'Group header';
+  h.props.thread.messages = [
+    { id: '1', isMe: false, senderId: 'alice', senderName: 'Alice' },
+    { id: '2', isMe: false, senderId: 'alice', senderName: 'Alice' },
+    { id: '3', isMe: false, senderId: 'bob', senderName: 'Bob' },
+  ];
+  const list = h.find(h.render(), 'FlatList');
+  const rows = list.props.data.map((item, index) => list.props.renderItem({ item, index }));
+  assert.equal(h.find(rows[0], 'Avatar').props.text, 'B');
+  assert.equal(h.find(rows[1], 'Avatar').props.text, 'A');
+  assert.equal(h.find(rows[2], 'Avatar'), undefined);
+  assert.equal(rows[0].props.style.marginBottom, 10);
+  assert.equal(rows[1].props.style.marginBottom, 2);
+  assert.equal(h.find(rows[0], 'Text').children[0], 'Bob');
+  assert.equal(h.find(rows[2], 'Text').children[0], 'Alice');
 });

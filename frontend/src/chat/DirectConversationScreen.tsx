@@ -11,8 +11,9 @@ type Props = {
   onReload: () => void; onOlder: () => void; onRead: (seq: string) => void;
   loadAvatar?: (mediaId: string) => Promise<string>;
   online?: boolean;
+  groupHeader?: React.ReactNode;
 };
-export default function DirectConversationScreen({ conversation, thread, onBack, onSend, onRetry, onReload, onOlder, onRead, loadAvatar, online = false }: Props) {
+export default function DirectConversationScreen({ conversation, thread, onBack, onSend, onRetry, onReload, onOlder, onRead, loadAvatar, online = false, groupHeader }: Props) {
   const { c, s, u } = useChatUi();
   const [input, setInput] = useState('');
   const [inputError, setInputError] = useState('');
@@ -78,12 +79,12 @@ export default function DirectConversationScreen({ conversation, thread, onBack,
     finally { submitInFlight.current = false; }
   };
   return <KeyboardAvoidingView style={[u.screen, { backgroundColor: c.pale }]} enabled={Platform.OS === 'ios'} behavior="padding">
-    <View style={[s.header, { gap: 12 }]}>
+    {groupHeader ?? <View style={[s.header, { gap: 12 }]}>
       <IconButton name="arrow-left" label="Quay lại danh sách tin nhắn" onPress={onBack} />
       <Avatar text={avatarText} uri={avatarUri} size={40} online={online} />
       <View style={s.grow}><Text numberOfLines={1} style={s.title}>{conversation.user.displayName}</Text><Text style={s.small}>{online ? 'Đang hoạt động' : 'Trò chuyện cá nhân'}</Text></View>
-    </View>
-    {!conversation.canSend && <Text accessibilityRole="alert" style={[s.text, { padding: 16, backgroundColor: c.white }]}>Hiện không thể gửi tin với người này. Bạn vẫn có thể xem lịch sử trò chuyện.</Text>}
+    </View>}
+    {!conversation.canSend && <Text accessibilityRole="alert" style={[s.text, { padding: 16, backgroundColor: c.white }]}>{groupHeader ? 'Nhóm hiện không nhận tin mới. Bạn vẫn có thể xem lịch sử trò chuyện.' : 'Hiện không thể gửi tin với người này. Bạn vẫn có thể xem lịch sử trò chuyện.'}</Text>}
     {!!thread?.error && <View style={[s.row, { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: c.white }]}><Text accessibilityRole="alert" style={[s.error, s.grow]}>{thread.error}</Text><IconButton name="refresh" label="Thử tải lại tin nhắn" onPress={onReload} /></View>}
     {!!thread?.readError && <Pressable accessibilityRole="button" accessibilityLabel="Thử cập nhật trạng thái đã đọc" onPress={() => onRead(visibleSeq.current)} style={{ padding: 12 }}><Text style={s.error}>{thread.readError}</Text></Pressable>}
     <FlatList ref={list} data={messages} inverted keyExtractor={item => item.id}
@@ -105,16 +106,17 @@ export default function DirectConversationScreen({ conversation, thread, onBack,
       </View> : null}
       renderItem={({ item, index }) => {
         // Data is newest first: index + 1 is the previous message in reading order.
-        const joinsAbove = messages[index + 1]?.isMe === item.isMe;
-        const joinsBelow = messages[index - 1]?.isMe === item.isMe;
+        const joinsAbove = messages[index + 1]?.isMe === item.isMe && (!groupHeader || messages[index + 1]?.senderId === item.senderId);
+        const joinsBelow = messages[index - 1]?.isMe === item.isMe && (!groupHeader || messages[index - 1]?.senderId === item.senderId);
         const topRadius = joinsAbove ? 4 : 24;
         const bottomRadius = joinsBelow ? 4 : 24;
         return <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8,
           marginBottom: index === messages.length - 1 ? 0 : joinsAbove ? 2 : 10 }}>
         {!item.isMe && <View style={{ width: 28 }} accessible={false} importantForAccessibility="no-hide-descendants">
-          {!joinsBelow && <Avatar text={avatarText} uri={avatarUri} size={28} online={online} />}
+          {!joinsBelow && <Avatar text={groupHeader ? item.senderName.trim().charAt(0).toUpperCase() : avatarText} uri={groupHeader ? undefined : avatarUri} size={28} online={!groupHeader && online} />}
         </View>}
         <View style={{ flex: 1, alignItems: item.isMe ? 'flex-end' : 'flex-start', gap: 4 }}>
+        {!!groupHeader && !item.isMe && !joinsAbove && <Text style={s.small}>{item.senderName}</Text>}
         <View style={{ maxWidth: '82%', paddingHorizontal: 14, paddingVertical: 9,
           borderTopLeftRadius: item.isMe ? 24 : topRadius, borderBottomLeftRadius: item.isMe ? 24 : bottomRadius,
           borderTopRightRadius: item.isMe ? topRadius : 24, borderBottomRightRadius: item.isMe ? bottomRadius : 24,
@@ -132,7 +134,7 @@ export default function DirectConversationScreen({ conversation, thread, onBack,
     {!!inputError && <Text accessibilityRole="alert" style={[s.error, { padding: 12, backgroundColor: c.white }]}>{inputError}</Text>}
     <View style={[s.footer, s.row, { padding: 12 }]}>
       <TextInput value={input} onChangeText={text => { setInput(text); setInputError(''); }} editable={canSend}
-        accessibilityLabel="Nhập tin nhắn cá nhân" placeholder={canSend ? 'Nhập tin nhắn...' : 'Chưa thể gửi tin nhắn'}
+        accessibilityLabel={groupHeader ? "Nhập tin nhắn nhóm" : "Nhập tin nhắn cá nhân"} placeholder={canSend ? 'Nhập tin nhắn...' : 'Chưa thể gửi tin nhắn'}
         placeholderTextColor={c.muted} style={[s.input, s.grow, { borderRadius: 24, maxHeight: 120, fontSize: 16 }]} multiline />
       <IconButton name={sending ? 'clock-outline' : 'send-outline'} label={sending ? 'Đang gửi tin nhắn' : 'Gửi tin nhắn'} blue disabled={!canSend || sending || !input.trim()} onPress={() => { void send(); }} />
     </View>
