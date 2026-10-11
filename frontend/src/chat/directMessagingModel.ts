@@ -3,7 +3,7 @@ import type { DirectConversation, DirectMessage, DirectMessageApi } from './dire
 import type { DirectRealtimeEvent } from './directRealtime';
 
 export type DeliveryMessage = Message & {
-  clientMessageId: string; seq?: string; createdAt: string;
+  clientMessageId: string; seq?: string; createdAt: string; senderId?: string;
   status: 'sent' | 'sending' | 'failed'; error?: string;
 };
 export type DirectThread = {
@@ -20,7 +20,7 @@ const errorText = (error: unknown) => error instanceof Error ? error.message : '
 export function compareSeq(a: string, b: string) { return BigInt(a) < BigInt(b) ? -1 : BigInt(a) > BigInt(b) ? 1 : 0; }
 export function unreadLabel(count: string) { return compareSeq(count, '99') > 0 ? '99+' : count; }
 export function toDeliveryMessage(message: DirectMessage, userId: string): DeliveryMessage {
-  return { id: message.id, clientMessageId: message.clientMessageId, seq: message.seq, text: message.body,
+  return { id: message.id, clientMessageId: message.clientMessageId, seq: message.seq, text: message.body, senderId: message.sender.id,
     isMe: message.sender.id === userId, senderName: message.sender.displayName, createdAt: message.createdAt,
     time: new Date(message.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }), status: 'sent' };
 }
@@ -58,7 +58,7 @@ export class DirectMessagingSession {
   private sending = new Set<string>();
   private reading = new Set<string>();
   private readTargets = new Map<string, string>();
-  constructor(private api: DirectMessageApi, private userId: string, private uuid: () => string) {}
+  constructor(private api: DirectMessageApi, private userId: string, private uuid: () => string, private authoritativeList = false) {}
   getSnapshot = () => this.state;
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   activate() {
@@ -71,6 +71,13 @@ export class DirectMessagingSession {
     this.listing = false; this.refreshAgain = false; this.syncing.clear(); this.syncAgain.clear(); this.sending.clear(); this.reading.clear(); this.readTargets.clear();
   }
   private current(generation: number) { return this.active && generation === this.generation; }
+  private currentThread(generation: number, id: string) {
+    return this.current(generation) && (!this.authoritativeList || this.state.conversations.some(item => item.id === id));
+  }
+  private forgetThread(id: string) {
+    this.syncing.delete(id); this.syncAgain.delete(id); this.reading.delete(id); this.readTargets.delete(id);
+    for (const key of this.sending) if (key.startsWith(`${id}:`)) this.sending.delete(key);
+  }
   private publish(next: DirectState) { this.state = next; this.listeners.forEach(listener => listener()); }
   private thread(id: string) { return this.state.threads[id] ?? emptyThread(); }
   private updateThread(id: string, change: Partial<DirectThread>) {
@@ -98,7 +105,13 @@ export class DirectMessagingSession {
   }
   private blockIfDenied(id: string, error: unknown) {
     const code = error && typeof error === 'object' && 'code' in error ? error.code : '';
-    if (!['NOT_FRIENDS', 'USER_NOT_FOUND', 'CONVERSATION_NOT_FOUND'].includes(String(code))) return;
+    if (code === 'GROUP_NOT_FOUND') {
+      this.forgetThread(id);
+      this.publish({ ...this.state, conversations: this.state.conversations.filter(item => item.id !== id),
+        threads: Object.fromEntries(Object.entries(this.state.threads).filter(([key]) => key !== id)) });
+      return;
+    }
+    if (!['NOT_FRIENDS', 'USER_NOT_FOUND', 'CONVERSATION_NOT_FOUND', 'GROUP_ARCHIVED'].includes(String(code))) return;
     const conversation = this.state.conversations.find(item => item.id === id);
     if (conversation) this.upsert({ ...conversation, canSend: false });
   }
@@ -111,6 +124,12 @@ export class DirectMessagingSession {
     try {
       const conversations = await this.api.conversations();
       if (!this.current(generation)) return;
+      if (this.authoritativeList) {
+        const ids = new Set(conversations.map(item => item.id));
+        this.state.conversations.filter(item => !ids.has(item.id)).forEach(item => this.forgetThread(item.id));
+        this.publish({ ...this.state, conversations: this.state.conversations.filter(item => ids.has(item.id)),
+          threads: Object.fromEntries(Object.entries(this.state.threads).filter(([id]) => ids.has(id))) });
+      }
       conversations.forEach(item => this.upsert(item));
       this.publish({ ...this.state, error: '' });
     } catch (error) { if (this.current(generation)) this.publish({ ...this.state, error: errorText(error) }); }
@@ -152,12 +171,12 @@ export class DirectMessagingSession {
     this.updateThread(id, { loading: true, error: '' });
     try {
       const page = await this.api.history(id);
-      if (!this.current(generation)) return;
+      if (!this.currentThread(generation, id)) return;
       this.merge(id, page.items);
       this.updateThread(id, { initialized: true, olderSeq: page.pageInfo.nextBeforeSeq, afterSeq: page.pageInfo.nextAfterSeq });
     } catch (error) {
-      if (this.current(generation)) { this.blockIfDenied(id, error); this.updateThread(id, { error: errorText(error) }); }
-    } finally { if (this.current(generation)) this.updateThread(id, { loading: false }); }
+      if (this.currentThread(generation, id)) { this.blockIfDenied(id, error); this.updateThread(id, { error: errorText(error) }); }
+    } finally { if (this.currentThread(generation, id)) this.updateThread(id, { loading: false }); }
   }
   async sync(id: string) {
     if (!this.active || !this.thread(id).initialized) return;
@@ -166,18 +185,18 @@ export class DirectMessagingSession {
     this.syncing.add(id);
     try {
       let after = this.thread(id).afterSeq;
-      while (this.current(generation)) {
+      while (this.currentThread(generation, id)) {
         const page = await this.api.history(id, { afterSeq: after });
-        if (!this.current(generation)) return;
+        if (!this.currentThread(generation, id)) return;
         if (page.pageInfo.hasMore && compareSeq(page.pageInfo.nextAfterSeq, after) <= 0) throw new Error('Không tải được tin mới. Vui lòng thử lại.');
         this.merge(id, page.items);
         after = page.pageInfo.nextAfterSeq;
         this.updateThread(id, { afterSeq: after, error: '' });
         if (!page.pageInfo.hasMore) break;
       }
-    } catch (error) { if (this.current(generation)) { this.blockIfDenied(id, error); this.updateThread(id, { error: errorText(error) }); } }
+    } catch (error) { if (this.currentThread(generation, id)) { this.blockIfDenied(id, error); this.updateThread(id, { error: errorText(error) }); } }
     finally {
-      if (this.current(generation)) {
+      if (this.currentThread(generation, id)) {
         this.syncing.delete(id);
         if (this.syncAgain.delete(id)) void this.sync(id);
       }
@@ -190,11 +209,14 @@ export class DirectMessagingSession {
     this.updateThread(id, { olderLoading: true, olderError: '' });
     try {
       const page = await this.api.history(id, { beforeSeq: thread.olderSeq });
-      if (!this.current(generation)) return;
+      if (!this.currentThread(generation, id)) return;
       this.merge(id, page.items);
       this.updateThread(id, { olderSeq: page.pageInfo.nextBeforeSeq });
-    } catch (error) { if (this.current(generation)) this.updateThread(id, { olderError: errorText(error) }); }
-    finally { if (this.current(generation)) this.updateThread(id, { olderLoading: false }); }
+    } catch (error) { if (this.currentThread(generation, id)) {
+      this.blockIfDenied(id, error);
+      if (this.currentThread(generation, id)) this.updateThread(id, { olderError: errorText(error) });
+    } }
+    finally { if (this.currentThread(generation, id)) this.updateThread(id, { olderLoading: false }); }
   }
   async send(id: string, text: string) {
     const conversation = this.state.conversations.find(item => item.id === id);
@@ -219,16 +241,16 @@ export class DirectMessagingSession {
     this.updateThread(id, { messages: mergeMessages(this.thread(id).messages, [{ ...pending, status: 'sending', error: undefined }]) });
     try {
       const message = await this.api.send(id, pending.clientMessageId, pending.text);
-      if (!this.current(generation)) return;
+      if (!this.currentThread(generation, id)) return;
       this.merge(id, [message]);
       // A send response may skip incoming sequences. Only history advances the catch-up cursor.
     } catch (error) {
-      if (!this.current(generation)) return;
+      if (!this.currentThread(generation, id)) return;
       this.blockIfDenied(id, error);
       const unresolved = this.thread(id).messages.find(item => item.id === pending.id && item.status !== 'sent');
       if (unresolved) this.updateThread(id, { messages: mergeMessages(this.thread(id).messages,
         [{ ...unresolved, status: 'failed', error: errorText(error) }]) });
-    } finally { if (this.current(generation)) this.sending.delete(key); }
+    } finally { if (this.currentThread(generation, id)) this.sending.delete(key); }
   }
   async read(id: string, seq: string) {
     const conversation = this.state.conversations.find(item => item.id === id);
@@ -243,17 +265,20 @@ export class DirectMessagingSession {
     const generation = this.generation;
     this.reading.add(id);
     try {
-      while (this.current(generation)) {
+      while (this.currentThread(generation, id)) {
         const requested = this.readTargets.get(id)!;
         const result = await this.api.read(id, requested);
-        if (!this.current(generation)) return;
+        if (!this.currentThread(generation, id)) return;
         const current = this.state.conversations.find(item => item.id === id)!;
         if (compareSeq(result.lastReadSeq, current.lastReadSeq) >= 0)
           this.upsert({ ...current, lastReadSeq: result.lastReadSeq, unreadCount: result.unreadCount });
         this.updateThread(id, { readError: '' });
         if (compareSeq(this.readTargets.get(id)!, result.lastReadSeq) <= 0) break;
       }
-    } catch { if (this.current(generation)) this.updateThread(id, { readError: 'Chưa cập nhật được trạng thái đã đọc. Vui lòng thử lại.' }); }
-    finally { if (this.current(generation)) this.reading.delete(id); }
+    } catch (error) { if (this.currentThread(generation, id)) {
+      this.blockIfDenied(id, error);
+      if (this.currentThread(generation, id)) this.updateThread(id, { readError: 'Chưa cập nhật được trạng thái đã đọc. Vui lòng thử lại.' });
+    } }
+    finally { if (this.currentThread(generation, id)) this.reading.delete(id); }
   }
 }
