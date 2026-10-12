@@ -86,7 +86,7 @@ Ví dụ xung đột:
 - Cursor do backend ký/kiểm tra hoặc ánh xạ ở server, gắn với user và bộ lọc. Không dùng offset hoặc timestamp đơn lẻ làm cursor. Thứ tự mặc định createdAt DESC, id DESC; ngoại lệ ghi ở operation.
 - Trang cuối: hasMore=false, nextCursor=null. Trang rỗng trả items=[]; trang trước đã đọc không bảo đảm snapshot bất biến khi có thay đổi đồng thời, FE dedupe theo ID.
 - GET có thể retry giới hạn 3 lần với backoff/jitter khi lỗi mạng/503/429. Không tự retry 4xx trừ quy trình refresh với ACCESS_TOKEN_EXPIRED. STORAGE_QUOTA_EXCEEDED cần dọn dữ liệu, không vòng lặp upload.
-- Mutation chỉ tự retry khi quy tắc của operation cho phép. Create trip/upload/rotate mã không có idempotency key tổng quát; timeout không đồng nghĩa chưa ghi. FE hiển thị lỗi và đối soát danh sách/trạng thái trước thao tác lại.
+- Mutation chỉ tự retry khi quy tắc của operation cho phép. Create trip dùng clientRequestId theo contract 1.7.0; upload/rotate mã không có idempotency key tổng quát; timeout không đồng nghĩa chưa ghi. FE hiển thị lỗi và đối soát danh sách/trạng thái trước thao tác lại.
 - Không tự thêm `Idempotency-Key` rồi giả định backend đã hỗ trợ. Các khóa chống trùng của v1 được mô tả bên dưới.
 
 ## 4. Auth, thiết bị và quyền
@@ -200,3 +200,7 @@ Ví dụ xung đột:
 | Tích hợp | Test hai backend dùng chung DB/Redis | Test hai thiết bị, mạng yếu, đổi mock/backend bằng cấu hình |
 
 Validator trong repo kiểm tra **hình thức contract và ví dụ**, mock là fixture tĩnh. Các ca quyền, transaction, race, provider, upload thực, STOMP và FCM phải được test khi có backend/mobile; không tuyên bố đã qua từ bộ mock.
+
+## Chuyến đi 1.7.0
+
+Ngày cụ thể hoặc linh hoạt 1–30 ngày. Giờ đến/kết thúc nullable; chỉ kiểm tra khoảng khi đủ hai mốc. Tạo chuyến nhận lịch ban đầu nguyên tử và clientRequestId, retry cùng nội dung trả cùng chuyến. Xem TRIP_IMPLEMENTATION_PLAN.md cho trạng thái triển khai.

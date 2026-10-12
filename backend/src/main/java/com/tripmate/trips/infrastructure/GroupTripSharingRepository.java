@@ -15,7 +15,7 @@ public class GroupTripSharingRepository {
                 + "where t.id=:trip and t.owner_id=:owner and t.deleted_at is null for share of t",
                 Map.of("trip", tripId, "owner", ownerId), (r, n) -> new TripView(tripId, ownerId,
                         r.getString("title"), r.getString("description"), r.getString("city_code"), r.getString("city_name"),
-                        r.getDate("start_date").toLocalDate(), r.getDate("end_date").toLocalDate(),
+                        r.getObject("start_date", java.time.LocalDate.class), r.getObject("end_date", java.time.LocalDate.class),
                         r.getString("budget_vnd"), r.getString("version"), null)).stream().findFirst();
     }
     public ItineraryView itinerary(TripView trip) {
@@ -27,11 +27,11 @@ public class GroupTripSharingRepository {
                     UUID day = r.getObject("id", UUID.class);
                     var items = jdbc.query("select * from itinerary_items where day_id=:day order by position", Map.of("day", day),
                             (i, k) -> new ItemView(i.getObject("id", UUID.class), i.getString("kind"), i.getObject("place_id", UUID.class),
-                                    i.getString("custom_title"), i.getTime("start_time").toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm")),
-                                    i.getTime("end_time").toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm")), i.getString("note"),
+                                    i.getString("custom_title"), i.getTime("start_time") == null ? null : i.getTime("start_time").toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm")),
+                                    i.getTime("end_time") == null ? null : i.getTime("end_time").toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm")), i.getString("note"),
                                     i.getString("estimated_cost_vnd"), i.getString("cost_source"), i.getString("origin")));
                     int number = r.getInt("day_number");
-                    return new DayView(day, number, trip.startDate().plusDays(number - 1), r.getString("transport_mode"), r.getString("note"), items);
+                    return new DayView(day, number, trip.startDate() == null ? null : trip.startDate().plusDays(number - 1), r.getString("transport_mode"), r.getString("note"), items);
                 });
         return new ItineraryView(version, days);
     }

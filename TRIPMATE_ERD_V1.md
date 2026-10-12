@@ -527,3 +527,8 @@ Công việc kế tiếp trong kế hoạch là chốt API contract từ các lu
 - Kiểm tra tĩnh tên/kiểu từng cột SQL–DBML–từ điển, các giá trị mặc định và index khai báo; các liên kết Markdown nội bộ hợp lệ.
 - Compose từ chối mẫu mật khẩu rỗng và xác thực cấu hình thành công khi cung cấp giá trị thử. Mật khẩu local thật vẫn được Git bỏ qua.
 - Lần cập nhật này bổ sung tài liệu/onboarding, giữ nguyên schema tham chiếu; chưa có test ứng dụng vì backend/mobile chưa triển khai.
+
+
+## Trip planning extension — contract 1.7.0
+
+Flyway V10 adds date_mode, duration_days (1–30), execution status, nullable dates/times, place snapshots/provider sources, and trip_create_requests keyed by user/clientRequestId. Flexible trips have null dates. Existing fixed-date rows are backfilled. Trip creation, owner membership and initial itinerary commit together; all mutations lock the trip before checking versions. End time is optional; a supplied start/end pair must remain ordered. See docs/api/TRIP_IMPLEMENTATION_PLAN.md.

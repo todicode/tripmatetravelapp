@@ -140,3 +140,11 @@ Nếu thay đổi thư viện native hoặc `app.json`, chạy `npx.cmd expo pre
 Các nút Google, đăng nhập email, đăng ký và OTP đều dùng backend thật ở port `8080`; xem [hướng dẫn chạy auth](../docs/GOOGLE_AUTH_QUICKSTART.md). Mock API ở port `4010` chỉ còn dùng để thử contract riêng, không được app gọi.
 
 Không commit node_modules, token, keystore hoặc API secret của backend. Khi tạo ứng dụng, thêm .gitignore và file cấu hình mẫu tương ứng.
+
+## Chuyến đi và lịch trình thủ công
+
+Luồng chuyến đi đã dùng API và PostgreSQL, hỗ trợ ngày linh hoạt/cụ thể, chỉnh lịch và tiến độ. Xem [kế hoạch và trạng thái](../docs/api/TRIP_IMPLEMENTATION_PLAN.md) và [hướng dẫn test API/UI](../docs/api/TRIP_TESTING.md). Các thao tác Android chính đã được kiểm thử; các ca còn lại ghi trong biên bản TRIP_ANDROID_ACCEPTANCE.md.
+
+Bản đồ chuyến đi dùng OpenStreetMap Standard với cache WebView, attribution và định danh TripMate. Chỉ tải các tile đang xem; không có tải bản đồ offline. Dịch vụ công cộng không có SLA; trước khi mở rộng lưu lượng cần chọn nhà cung cấp phù hợp. [Chính sách tile OSM](https://operations.osmfoundation.org/policies/tiles/).
+
+Kết quả thao tác Android và các ca chưa nghiệm thu: [TRIP_ANDROID_ACCEPTANCE.md](../docs/api/TRIP_ANDROID_ACCEPTANCE.md).

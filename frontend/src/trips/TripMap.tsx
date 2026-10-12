@@ -5,10 +5,12 @@ import { TripStop } from './tripModel';
 import { useTripUi } from './tripUi';
 import { useAppTheme } from '../theme/AppTheme';
 
-const html = `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><style>html,body,#map{height:100%;width:100%;margin:0;background:#f5f5f7}.pin{width:20px;height:20px;border:2px solid white;border-radius:50%;color:white;display:flex;align-items:center;justify-content:center;font:700 10px sans-serif;box-shadow:0 1px 5px #0003}</style></head><body><div id="map"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" onerror="window.ReactNativeWebView.postMessage('map-error')"></script><script>
+const html = `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><style>html,body,#map{height:100%;width:100%;margin:0;background:#f5f5f7}.dark .leaflet-tile-pane{filter:brightness(.7) saturate(.8)}.pin{width:20px;height:20px;border:2px solid white;border-radius:50%;color:white;display:flex;align-items:center;justify-content:center;font:700 10px sans-serif;box-shadow:0 1px 5px #0003}</style></head><body><div id="map"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" onerror="window.ReactNativeWebView.postMessage('map-error')"></script><script>
 const map=L.map('map',{zoomControl:false,attributionControl:true}).setView([16.0544,108.2022],12);
-const tiles=L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:18,attribution:'© OpenStreetMap © CARTO'}).addTo(map);
-window.setTheme=function(dark){tiles.setUrl('https://{s}.basemaps.cartocdn.com/'+(dark?'dark_all':'light_all')+'/{z}/{x}/{y}{r}.png');document.body.style.background=dark?'#191b20':'#f5f5f7';};
+const tiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,updateWhenIdle:true,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'}).addTo(map);
+tiles.on('tileerror',()=>window.ReactNativeWebView.postMessage('map-error'));
+tiles.on('tileload',()=>window.ReactNativeWebView.postMessage('map-ready'));
+window.setTheme=function(dark){document.documentElement.classList.toggle('dark',dark);document.body.style.background=dark?'#191b20':'#f5f5f7';};
 const markers=L.layerGroup().addTo(map);let route=null,version=0,controller=null,cachedKey='',cachedLine=null;
 function drawRoute(line){route=L.polyline(line,{color:'#0066cc',weight:4}).addTo(map);}
 window.setTrip=function(data){
@@ -57,13 +59,14 @@ export default function TripMap({ coords, stops, height = 176, label, rounded = 
   useEffect(() => { if (ready.current) update(); }, [coords, stops, routeEnabled, initialZoom, mode]);
   useEffect(() => { if (focusedStop && typeof focusedStop.lat === 'number' && typeof focusedStop.lng === 'number') ref.current?.injectJavaScript(`window.focusStop&&window.focusStop(${focusedStop.lat},${focusedStop.lng});true;`); }, [focusedStop]);
   return <View style={{ height, borderRadius: rounded ? 16 : 0, overflow: 'hidden', borderWidth: 1, borderColor: c.border }}>
-    <WebView ref={ref} source={{ html, baseUrl: 'https://unpkg.com' }} originWhitelist={['*']} scrollEnabled={false}
+    <WebView ref={ref} applicationNameForUserAgent="TripMate/1.0" cacheEnabled source={{ html }} originWhitelist={['*']} scrollEnabled={false}
       onError={() => setMapError(true)} onMessage={(event) => {
         if (event.nativeEvent.data === 'loaded') { ready.current = true; setMapError(false); update(); }
         if (event.nativeEvent.data === 'map-error') setMapError(true);
+        if (event.nativeEvent.data === 'map-ready') setMapError(false);
         if (event.nativeEvent.data === 'route-error') setRouteError(true);
         try { const message = JSON.parse(event.nativeEvent.data); if (message.type === 'stop') onSelect?.(String(message.id)); } catch {}
       }} />
-    {showLabel && <View pointerEvents="none" style={{ position: 'absolute', bottom: 28, left: 8, right: 8, alignItems: 'flex-start' }}><Text style={[s.badge, { backgroundColor: c.white }]}>{mapError ? 'Không tải được bản đồ' : routeError ? 'Chưa tải được đường bộ • đang hiển thị vị trí các trạm' : label ?? `Lộ trình đường bộ OSRM • ${stops.length} trạm`}</Text></View>}
+    {(showLabel || mapError) && <View pointerEvents="none" style={{ position: 'absolute', bottom: 28, left: 8, right: 8, alignItems: 'flex-start' }}><Text style={[s.badge, { backgroundColor: c.white }]}>{mapError ? 'Không tải được bản đồ' : routeError ? 'Chưa tải được đường bộ • đang hiển thị vị trí các trạm' : label ?? `Lộ trình đường bộ OSRM • ${stops.length} trạm`}</Text></View>}
   </View>;
 }

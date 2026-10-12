@@ -1,3 +1,4 @@
+import { useTrips } from './trips/TripProvider';
 import { useEffect, useRef, useState } from 'react';
 import { BackHandler } from 'react-native';
 import type { Alert } from 'react-native';
@@ -9,7 +10,7 @@ import { parseSavedLists } from './savedPlacesModel';
 
 export function useHomeViewModel({ user, notify, request, realtimeCredentials }: { user: { id: string; displayName: string; email: string }; notify: typeof Alert.alert; request: AuthorizedRequest; realtimeCredentials: RealtimeCredentials }) {
   const [tab, setTab] = useState<'explore' | 'trips' | 'chat' | 'profile'>('explore');
-  const [trips, setTrips] = useState<Trip[]>([]);
+  const { trips } = useTrips();
   const [lists, setLists] = useState<SavedPlaceList[]>([]);
   const [listsReady, setListsReady] = useState(false);
   const writes = useRef(Promise.resolve());
@@ -42,5 +43,5 @@ export function useHomeViewModel({ user, notify, request, realtimeCredentials }:
   const chat = useChatSession(request, user.id, tab === 'chat' && route === null, realtimeCredentials);
   const openCreate = (cityKey?: string) => { setMenu(false); setRoute({ kind: 'create', cityKey }); };
   useEffect(() => { if (route?.kind === 'create' || tab === 'chat' || (tab === 'profile' && profileDetail)) return; const sub = BackHandler.addEventListener('hardwareBackPress', () => { if (route) setRoute(null); else if (tab !== 'explore') setTab('explore'); else return false; return true; }); return () => sub.remove(); }, [route, tab, profileDetail]);
-  return { tab, setTab, trips, setTrips, lists, route, setRoute, menu, setMenu, exploreAction, setExploreAction, profileDetail, setProfileDetail, chat, openCreate, changeLists, savePlace };
+  return { tab, setTab, trips, lists, route, setRoute, menu, setMenu, exploreAction, setExploreAction, profileDetail, setProfileDetail, chat, openCreate, changeLists, savePlace };
 }

@@ -1,5 +1,12 @@
 # Contract changelog
 
+## 1.7.0 - 2026-10-11
+
+- Implemented persisted manual trips and itineraries: specific/flexible dates, 1–30 days, atomic creation with clientRequestId, optimistic versions, progress, cancel/restore and soft deletion.
+- Added V10 migration, supported destination catalog, Photon search and manual place snapshots with nullable coordinates/times. Shared trip DTOs accept flexible dates; deleted trips are unavailable through groups. Chat transport is unchanged.
+- Connected frontend creation, editing and progress to server APIs; preserve drafts on errors/conflicts and safely retry uncertain creation. Deferred features display Sắp có.
+- Automated PostgreSQL, frontend and contract checks pass; native Android acceptance remains pending because the local AVD is missing kernel-ranchu. See [implementation plan](TRIP_IMPLEMENTATION_PLAN.md) and [test guide](TRIP_TESTING.md).
+
 ## 1.5.1 - 2026-10-11
 
 - Added group message, own read marker, group change and access revocation events on the existing authenticated `/user/queue/events` STOMP subscription. REST endpoints and schema migrations remain unchanged.

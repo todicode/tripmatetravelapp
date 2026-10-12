@@ -25,7 +25,7 @@ class GroupSchemaMigrationTest {
         jdbc.update("insert into direct_conversations(id,user_low_id,user_high_id,last_seq,created_at,updated_at) values(?,?,?,1,now(),now())", conversation, low, high);
         jdbc.update("insert into direct_messages(id,conversation_id,sender_id,client_message_id,seq,body,created_at) values(?,?,?,?,1,'Original history',now())",
                 UUID.randomUUID(), conversation, low, UUID.randomUUID());
-        var latest = Flyway.configure().dataSource(data).schemas(schema).defaultSchema(schema).locations("classpath:db/migration").load();
+        var latest = Flyway.configure().dataSource(data).schemas(schema).defaultSchema(schema).locations("classpath:db/migration").target("9").load();
         assertEquals(2, latest.migrate().migrationsExecuted); latest.validate(); assertEquals(0, latest.migrate().migrationsExecuted);
         assertEquals("Original history", jdbc.queryForObject("select body from direct_messages where conversation_id=?", String.class, conversation));
         assertEquals(2, jdbc.queryForObject("select count(*) from app_users", Integer.class));

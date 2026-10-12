@@ -45,6 +45,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class,
             MissingServletRequestParameterException.class})
     ResponseEntity<ApiErrorResponse> handleMalformedRequest(Exception exception, HttpServletRequest request) {
+        for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+            if (cause instanceof tools.jackson.databind.exc.UnrecognizedPropertyException unknown) {
+                return response(HttpStatus.UNPROCESSABLE_ENTITY, "VALIDATION_ERROR", "Thuộc tính không được hỗ trợ.",
+                        List.of(new ErrorDetailResponse(unknown.getPropertyName(), "UNKNOWN_FIELD", "Thuộc tính không được hỗ trợ.")), Map.of(), request);
+            }
+        }
         return response(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "Request không đúng định dạng.",
                 List.of(), Map.of(), request);
     }
