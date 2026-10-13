@@ -10,7 +10,7 @@ Giữ giao diện, API contract, migrations và transport realtime. Luồng chu�
 | FE-02 | Auth MVVM và HTTP boundary | Hoàn thành: App chỉ ghép providers; tách các View, ViewModel, API/native adapters; chặn submit lặp và response sau unmount |
 | FE-03 | Trip draft, version và retry | Hoàn thành: dùng ID/version đã ACK khi GET tiếp theo lỗi; chia sẻ workflow lập lịch qua ViewModel; hydrate từ metadata trang khi version khớp |
 | FE-04 | Khởi tạo form hồ sơ | Hoàn thành: lấy baseline tên/avatar hiện tại sau tải async, giữ tên người dùng đang nhập |
-| FE-05 | Format, CI và Android | Hoàn thành kiểm chứng local; frontend CI được thêm và backend CI bật cho nhánh refactor. Kết quả hosted CI ghi sau push |
+| FE-05 | Format, CI và Android | Hoàn thành kiểm chứng local; frontend CI được thêm và backend CI bật cho nhánh refactor. Hosted CI backend/frontend đều đạt trên code commit 32d4c45 |
 
 ## Những thay đổi có giá trị
 
@@ -65,6 +65,13 @@ Adapter integration chạy HTTP thật qua chính `apiRequest`, `tripApi` và `c
 - Địa điểm yêu thích còn là dữ liệu cục bộ theo tài khoản, không phải cloud sync. Khách sạn/chi phí/checklist/thành viên vẫn “Sắp có”; chưa refactor prototype TripUtilities thành feature hoàn chỉnh.
 - Giữ HTTP adapter ở đường dẫn hiện tại để tương thích các module; thư mục trong CODING_STANDARDS là cấu trúc mục tiêu, không ép di chuyển mọi feature trong lần này.
 - Khi server ACK progress nhưng lần đọc metadata tiếp theo lỗi, ID/version và các điểm đã được cập nhật; trạng thái chuyến tổng thể được đối soát ở lần tải thành công tiếp theo.
-- Hosted CI cần đối chiếu sau push. Chỉ mở PR vào dev khi đã review báo cáo và giới hạn trên; main thực hiện sau theo yêu cầu người dùng.
+- Hosted CI đã đạt trên `32d4c45`: [Frontend quality](https://github.com/todicode/tripmatetravelapp/actions/runs/38397573974) 125 tests, 0 lỗi/bỏ qua; [Backend quality](https://github.com/todicode/tripmatetravelapp/actions/runs/38397573989) 165 tests, 0 lỗi/bỏ qua và Maven verify đạt. Commit bàn giao tiếp theo chỉ sửa báo cáo. Chỉ mở PR vào dev khi đã review báo cáo và giới hạn trên; main thực hiện sau theo yêu cầu người dùng.
 
 Chạy lại: trong frontend dùng `npm ci`, `npm run format:check`, `npm run typecheck`, `npm test`. Integration dùng `npm run test:backend` với TRIPMATE_TEST_BASE_URL và credential của hai tài khoản tổng hợp trên database riêng; xem frontend/README.md. Không gửi secret vào chat hoặc commit.
+
+## Bàn giao
+
+- Backend: `b2d1969` định dạng, `844dab8` refactor và regression.
+- Frontend: `cfc67d4` định dạng bằng Prettier; `32d4c45` MVVM, sửa trạng thái, regression và CI.
+- Đã push các thay đổi lên `refactor/backend-quality`; dev/main không thay đổi trong đợt này.
+- Workspace còn AndroidManifest và các file cá nhân/diagnostic như trước; không được đưa vào commit này. Backup mã hóa và state QA được loại khỏi Git bằng local exclude.
