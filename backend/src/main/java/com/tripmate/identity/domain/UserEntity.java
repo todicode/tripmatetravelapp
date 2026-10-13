@@ -17,20 +17,25 @@ import java.util.UUID;
 public class UserEntity {
 
     @jakarta.persistence.ElementCollection
-    @jakarta.persistence.CollectionTable(name = "user_interests", joinColumns = @jakarta.persistence.JoinColumn(name = "user_id"))
+    @jakarta.persistence.CollectionTable(
+            name = "user_interests",
+            joinColumns = @jakarta.persistence.JoinColumn(name = "user_id"))
     @Column(name = "interest_code", length = 32, nullable = false)
     private java.util.Set<String> interestCodes = new java.util.HashSet<>();
 
-    public java.util.List<String> getInterestCodes() { return interestCodes.stream().sorted().toList(); }
+    public java.util.List<String> getInterestCodes() {
+        return interestCodes.stream().sorted().toList();
+    }
+
     public void setInterestCodes(java.util.List<String> codes) {
         if (!interestCodes.equals(new java.util.HashSet<>(codes))) {
-            interestCodes.clear(); interestCodes.addAll(codes);
+            interestCodes.clear();
+            interestCodes.addAll(codes);
             updatedAt = Instant.now();
         }
     }
 
-    @Id
-    private UUID id;
+    @Id private UUID id;
 
     @Column(nullable = false, unique = true, length = 254)
     private String email;
@@ -66,11 +71,16 @@ public class UserEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    protected UserEntity() {
-    }
+    protected UserEntity() {}
 
-    public UserEntity(UUID id, String email, String passwordHash, String displayName, String phone,
-                      String friendCode, Instant emailVerifiedAt) {
+    public UserEntity(
+            UUID id,
+            String email,
+            String passwordHash,
+            String displayName,
+            String phone,
+            String friendCode,
+            Instant emailVerifiedAt) {
         this.id = id;
         this.email = email;
         this.passwordHash = passwordHash;
@@ -129,7 +139,9 @@ public class UserEntity {
         return avatarMediaId;
     }
 
-    public void setAvatarMediaId(UUID avatarMediaId) { this.avatarMediaId = avatarMediaId; }
+    public void setAvatarMediaId(UUID avatarMediaId) {
+        this.avatarMediaId = avatarMediaId;
+    }
 
     public UserStatus getStatus() {
         return status;

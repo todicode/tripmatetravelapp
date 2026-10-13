@@ -6,24 +6,30 @@ import java.util.UUID;
 
 public final class AuthResponses {
 
-    private AuthResponses() {
-    }
+    private AuthResponses() {}
 
-    public record RegistrationChallengeResponse(UUID verificationId, Instant expiresAt,
-                                                Instant resendAvailableAt) {
-    }
+    public record RegistrationChallengeResponse(
+            UUID verificationId, Instant expiresAt, Instant resendAvailableAt) {}
 
-    public record PasswordResetChallengeResponse(UUID resetId, Instant expiresAt,
-                                                 Instant resendAvailableAt) {
-    }
+    public record PasswordResetChallengeResponse(
+            UUID resetId, Instant expiresAt, Instant resendAvailableAt) {}
 
-    public record SessionResponse(String accessToken, String tokenType, long expiresIn,
-                                  String refreshToken, Instant refreshExpiresAt,
-                                  UUID deviceId, ProfileResponse user) {
-    }
+    public record SessionResponse(
+            String accessToken,
+            String tokenType,
+            long expiresIn,
+            String refreshToken,
+            Instant refreshExpiresAt,
+            UUID deviceId,
+            ProfileResponse user) {}
 
-    public record ProfileResponse(UUID id, String displayName, UUID avatarMediaId,
-                                  String email, String phone, List<String> interestCodes,
-                                  Instant createdAt, Instant updatedAt) {
-    }
+    public record ProfileResponse(
+            UUID id,
+            String displayName,
+            UUID avatarMediaId,
+            String email,
+            String phone,
+            List<String> interestCodes,
+            Instant createdAt,
+            Instant updatedAt) {}
 }

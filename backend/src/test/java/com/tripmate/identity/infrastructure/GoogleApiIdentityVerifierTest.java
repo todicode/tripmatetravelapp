@@ -1,11 +1,12 @@
 package com.tripmate.identity.infrastructure;
 
-import com.tripmate.shared.web.ApiException;
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.tripmate.shared.web.ApiException;
+
+import org.junit.jupiter.api.Test;
 
 class GoogleApiIdentityVerifierTest {
 
@@ -23,7 +24,8 @@ class GoogleApiIdentityVerifierTest {
     void malformedIdTokenIsRejected() {
         GoogleApiIdentityVerifier verifier = new GoogleApiIdentityVerifier("test-web-client-id");
 
-        ApiException exception = assertThrows(ApiException.class, () -> verifier.verify("not-a-jwt"));
+        ApiException exception =
+                assertThrows(ApiException.class, () -> verifier.verify("not-a-jwt"));
 
         assertEquals(401, exception.getStatus().value());
         assertEquals("INVALID_GOOGLE_TOKEN", exception.getCode());

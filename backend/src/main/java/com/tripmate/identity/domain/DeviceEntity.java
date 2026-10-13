@@ -17,8 +17,7 @@ import java.util.UUID;
 @Table(name = "user_devices")
 public class DeviceEntity {
 
-    @Id
-    private UUID id;
+    @Id private UUID id;
 
     @Column(name = "installation_id", nullable = false, unique = true)
     private UUID installationId;
@@ -45,8 +44,7 @@ public class DeviceEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    protected DeviceEntity() {
-    }
+    protected DeviceEntity() {}
 
     public DeviceEntity(UUID id, UUID installationId) {
         this.id = id;

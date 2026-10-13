@@ -1,48 +1,5 @@
 package com.tripmate.identity.application;
 
-import com.tripmate.identity.domain.DeviceEntity;
-import com.tripmate.identity.domain.AuthIdentityEntity;
-import com.tripmate.identity.domain.PendingRegistrationEntity;
-import com.tripmate.identity.domain.RefreshTokenEntity;
-import com.tripmate.identity.domain.UserEntity;
-import com.tripmate.identity.domain.UserStatus;
-import com.tripmate.identity.infrastructure.AuthIdentityRepository;
-import com.tripmate.identity.infrastructure.DeviceRepository;
-import com.tripmate.identity.infrastructure.PendingRegistrationRepository;
-import com.tripmate.identity.infrastructure.RefreshTokenRepository;
-import com.tripmate.identity.infrastructure.UserRepository;
-import com.tripmate.identity.security.AuthenticatedUser;
-import com.tripmate.identity.security.JwtTokenService;
-import com.tripmate.identity.web.AuthRequests.GoogleAuthRequest;
-import com.tripmate.identity.web.AuthRequests.LoginRequest;
-import com.tripmate.identity.web.AuthRequests.RegisterRequest;
-import com.tripmate.identity.web.AuthRequests.RefreshRequest;
-import com.tripmate.identity.web.AuthRequests.VerifyRegistrationRequest;
-import com.tripmate.identity.web.AuthResponses.ProfileResponse;
-import com.tripmate.identity.web.AuthResponses.RegistrationChallengeResponse;
-import com.tripmate.identity.web.AuthResponses.SessionResponse;
-import com.tripmate.shared.web.ApiException;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.http.HttpStatus;
-import org.springframework.security.core.authority.AuthorityUtils;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.crypto.password.PasswordEncoder;
-
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -56,42 +13,97 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.tripmate.identity.domain.AuthIdentityEntity;
+import com.tripmate.identity.domain.DeviceEntity;
+import com.tripmate.identity.domain.PendingRegistrationEntity;
+import com.tripmate.identity.domain.RefreshTokenEntity;
+import com.tripmate.identity.domain.UserEntity;
+import com.tripmate.identity.domain.UserStatus;
+import com.tripmate.identity.infrastructure.AuthIdentityRepository;
+import com.tripmate.identity.infrastructure.DeviceRepository;
+import com.tripmate.identity.infrastructure.PendingRegistrationRepository;
+import com.tripmate.identity.infrastructure.RefreshTokenRepository;
+import com.tripmate.identity.infrastructure.UserRepository;
+import com.tripmate.identity.security.AuthenticatedUser;
+import com.tripmate.identity.security.JwtTokenService;
+import com.tripmate.identity.web.AuthRequests.GoogleAuthRequest;
+import com.tripmate.identity.web.AuthRequests.LoginRequest;
+import com.tripmate.identity.web.AuthRequests.RefreshRequest;
+import com.tripmate.identity.web.AuthRequests.RegisterRequest;
+import com.tripmate.identity.web.AuthRequests.VerifyRegistrationRequest;
+import com.tripmate.identity.web.AuthResponses.ProfileResponse;
+import com.tripmate.identity.web.AuthResponses.RegistrationChallengeResponse;
+import com.tripmate.identity.web.AuthResponses.SessionResponse;
+import com.tripmate.shared.web.ApiException;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
 @ExtendWith(MockitoExtension.class)
 class IdentityServiceTest {
 
-    @Mock
-    private UserRepository userRepository;
-    @Mock
-    private DeviceRepository deviceRepository;
-    @Mock
-    private RefreshTokenRepository refreshTokenRepository;
-    @Mock
-    private PendingRegistrationRepository pendingRegistrationRepository;
-    @Mock
-    private AuthIdentityRepository authIdentityRepository;
-    @Mock
-    private PasswordEncoder passwordEncoder;
-    @Mock
-    private JwtTokenService jwtTokenService;
-    @Mock
-    private GoogleIdentityVerifier googleIdentityVerifier;
-    @Mock
-    private ApplicationEventPublisher eventPublisher;
+    @Mock private UserRepository userRepository;
+    @Mock private DeviceRepository deviceRepository;
+    @Mock private RefreshTokenRepository refreshTokenRepository;
+    @Mock private PendingRegistrationRepository pendingRegistrationRepository;
+    @Mock private AuthIdentityRepository authIdentityRepository;
+    @Mock private PasswordEncoder passwordEncoder;
+    @Mock private JwtTokenService jwtTokenService;
+    @Mock private GoogleIdentityVerifier googleIdentityVerifier;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
     private IdentityService service;
 
     @BeforeEach
     void setUp() {
-        service = new IdentityService(userRepository, deviceRepository, refreshTokenRepository,
-                pendingRegistrationRepository, authIdentityRepository, passwordEncoder, jwtTokenService,
-                googleIdentityVerifier, eventPublisher, Duration.ofMinutes(3), Duration.ofSeconds(60),
-                Duration.ofDays(30), 5);
+        service =
+                new IdentityService(
+                        userRepository,
+                        deviceRepository,
+                        refreshTokenRepository,
+                        pendingRegistrationRepository,
+                        authIdentityRepository,
+                        passwordEncoder,
+                        jwtTokenService,
+                        googleIdentityVerifier,
+                        eventPublisher,
+                        Duration.ofMinutes(3),
+                        Duration.ofSeconds(60),
+                        Duration.ofDays(30),
+                        5);
     }
 
     @Test
     void oversizedRegistrationPasswordDoesNotStoreChallengeOrSendEmail() {
-        ApiException error = assertThrows(ApiException.class, () -> service.startRegistration(
-                new RegisterRequest("an@example.test", "ệ".repeat(25), UUID.randomUUID(), "An", "+84901234567")));
+        ApiException error =
+                assertThrows(
+                        ApiException.class,
+                        () ->
+                                service.startRegistration(
+                                        new RegisterRequest(
+                                                "an@example.test",
+                                                "ệ".repeat(25),
+                                                UUID.randomUUID(),
+                                                "An",
+                                                "+84901234567")));
         assertEquals("PASSWORD_TOO_LONG", error.getCode());
         verify(pendingRegistrationRepository, never()).save(any());
         verify(eventPublisher, never()).publishEvent(any());
@@ -99,8 +111,15 @@ class IdentityServiceTest {
 
     @Test
     void oversizedLoginPasswordReturnsInvalidCredentials() {
-        ApiException error = assertThrows(ApiException.class, () -> service.login(
-                new LoginRequest("an@example.test", "a".repeat(73), UUID.randomUUID())));
+        ApiException error =
+                assertThrows(
+                        ApiException.class,
+                        () ->
+                                service.login(
+                                        new LoginRequest(
+                                                "an@example.test",
+                                                "a".repeat(73),
+                                                UUID.randomUUID())));
         assertEquals("INVALID_CREDENTIALS", error.getCode());
         verify(passwordEncoder, never()).matches(any(), any());
     }
@@ -113,18 +132,28 @@ class IdentityServiceTest {
                 .thenReturn(Optional.empty());
         when(passwordEncoder.encode("secret-password")).thenReturn("bcrypt-hash");
 
-        RegistrationChallengeResponse response = service.startRegistration(new RegisterRequest(
-                " An@Example.Test ", "secret-password", installationId, " Nguyen An ", "+84901234567"));
+        RegistrationChallengeResponse response =
+                service.startRegistration(
+                        new RegisterRequest(
+                                " An@Example.Test ",
+                                "secret-password",
+                                installationId,
+                                " Nguyen An ",
+                                "+84901234567"));
 
         assertNotNull(response.verificationId());
         assertTrue(response.expiresAt().isAfter(Instant.now()));
-        assertTrue(response.expiresAt().isBefore(Instant.now().plus(Duration.ofMinutes(3)).plusSeconds(5)));
+        assertTrue(
+                response.expiresAt()
+                        .isBefore(Instant.now().plus(Duration.ofMinutes(3)).plusSeconds(5)));
         assertTrue(response.resendAvailableAt().isBefore(response.expiresAt()));
-        ArgumentCaptor<PendingRegistrationEntity> pendingCaptor = ArgumentCaptor.forClass(PendingRegistrationEntity.class);
+        ArgumentCaptor<PendingRegistrationEntity> pendingCaptor =
+                ArgumentCaptor.forClass(PendingRegistrationEntity.class);
         verify(pendingRegistrationRepository).save(pendingCaptor.capture());
         assertEquals("an@example.test", pendingCaptor.getValue().getEmail());
         assertEquals("bcrypt-hash", pendingCaptor.getValue().getPasswordHash());
-        ArgumentCaptor<OtpEmailRequested> eventCaptor = ArgumentCaptor.forClass(OtpEmailRequested.class);
+        ArgumentCaptor<OtpEmailRequested> eventCaptor =
+                ArgumentCaptor.forClass(OtpEmailRequested.class);
         verify(eventPublisher).publishEvent(eventCaptor.capture());
         assertEquals(response.verificationId(), eventCaptor.getValue().verificationId());
         assertEquals(response.expiresAt(), eventCaptor.getValue().expiresAt());
@@ -133,14 +162,20 @@ class IdentityServiceTest {
 
     @Test
     void restartingRegistrationReplacesUnfinishedChallenge() {
-        PendingRegistrationEntity existing = pending(UUID.randomUUID(), "123456",
-                Instant.now().plus(Duration.ofMinutes(2)));
+        PendingRegistrationEntity existing =
+                pending(UUID.randomUUID(), "123456", Instant.now().plus(Duration.ofMinutes(2)));
         when(pendingRegistrationRepository.findByEmailAndUsedAtIsNull("an@example.test"))
                 .thenReturn(Optional.of(existing));
         when(passwordEncoder.encode("new-password")).thenReturn("new-hash");
 
-        RegistrationChallengeResponse response = service.startRegistration(new RegisterRequest(
-                "an@example.test", "new-password", UUID.randomUUID(), "New Name", "+84901234567"));
+        RegistrationChallengeResponse response =
+                service.startRegistration(
+                        new RegisterRequest(
+                                "an@example.test",
+                                "new-password",
+                                UUID.randomUUID(),
+                                "New Name",
+                                "+84901234567"));
 
         verify(pendingRegistrationRepository).delete(existing);
         verify(pendingRegistrationRepository).flush();
@@ -151,9 +186,10 @@ class IdentityServiceTest {
     @Test
     void cancelRegistrationDeletesOnlyUnfinishedChallenge() {
         UUID verificationId = UUID.randomUUID();
-        PendingRegistrationEntity pending = pending(verificationId, "123456",
-                Instant.now().plus(Duration.ofMinutes(2)));
-        when(pendingRegistrationRepository.findByIdForUpdate(verificationId)).thenReturn(Optional.of(pending));
+        PendingRegistrationEntity pending =
+                pending(verificationId, "123456", Instant.now().plus(Duration.ofMinutes(2)));
+        when(pendingRegistrationRepository.findByIdForUpdate(verificationId))
+                .thenReturn(Optional.of(pending));
 
         service.cancelRegistration(verificationId);
 
@@ -163,10 +199,11 @@ class IdentityServiceTest {
     @Test
     void cancelRegistrationDoesNotDeleteCompletedChallenge() {
         UUID verificationId = UUID.randomUUID();
-        PendingRegistrationEntity pending = pending(verificationId, "123456",
-                Instant.now().plus(Duration.ofMinutes(2)));
+        PendingRegistrationEntity pending =
+                pending(verificationId, "123456", Instant.now().plus(Duration.ofMinutes(2)));
         pending.markUsed();
-        when(pendingRegistrationRepository.findByIdForUpdate(verificationId)).thenReturn(Optional.of(pending));
+        when(pendingRegistrationRepository.findByIdForUpdate(verificationId))
+                .thenReturn(Optional.of(pending));
 
         service.cancelRegistration(verificationId);
 
@@ -176,7 +213,8 @@ class IdentityServiceTest {
     @Test
     void cancelRegistrationIsIdempotentForMissingChallenge() {
         UUID verificationId = UUID.randomUUID();
-        when(pendingRegistrationRepository.findByIdForUpdate(verificationId)).thenReturn(Optional.empty());
+        when(pendingRegistrationRepository.findByIdForUpdate(verificationId))
+                .thenReturn(Optional.empty());
 
         service.cancelRegistration(verificationId);
 
@@ -195,11 +233,17 @@ class IdentityServiceTest {
     @Test
     void invalidOtpIncrementsAttemptsAndDoesNotCreateUser() {
         UUID verificationId = UUID.randomUUID();
-        PendingRegistrationEntity pending = pending(verificationId, "123456", Instant.now().plus(Duration.ofMinutes(5)));
-        when(pendingRegistrationRepository.findByIdForUpdate(verificationId)).thenReturn(Optional.of(pending));
+        PendingRegistrationEntity pending =
+                pending(verificationId, "123456", Instant.now().plus(Duration.ofMinutes(5)));
+        when(pendingRegistrationRepository.findByIdForUpdate(verificationId))
+                .thenReturn(Optional.of(pending));
 
-        ApiException exception = assertThrows(ApiException.class,
-                () -> service.verifyRegistration(new VerifyRegistrationRequest(verificationId, "000000")));
+        ApiException exception =
+                assertThrows(
+                        ApiException.class,
+                        () ->
+                                service.verifyRegistration(
+                                        new VerifyRegistrationRequest(verificationId, "000000")));
 
         assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, exception.getStatus());
         assertEquals("OTP_INVALID", exception.getCode());
@@ -212,24 +256,43 @@ class IdentityServiceTest {
     void correctOtpCreatesUserDeviceAndSession() {
         UUID verificationId = UUID.randomUUID();
         UUID installationId = UUID.randomUUID();
-        PendingRegistrationEntity pending = new PendingRegistrationEntity(verificationId, "an@example.test",
-                "bcrypt-hash", "Nguyen An", "+84901234567", installationId, sha256("123456"),
-                Instant.now().plus(Duration.ofMinutes(5)), Instant.now().minusSeconds(1));
-        when(pendingRegistrationRepository.findByIdForUpdate(verificationId)).thenReturn(Optional.of(pending));
+        PendingRegistrationEntity pending =
+                new PendingRegistrationEntity(
+                        verificationId,
+                        "an@example.test",
+                        "bcrypt-hash",
+                        "Nguyen An",
+                        "+84901234567",
+                        installationId,
+                        sha256("123456"),
+                        Instant.now().plus(Duration.ofMinutes(5)),
+                        Instant.now().minusSeconds(1));
+        when(pendingRegistrationRepository.findByIdForUpdate(verificationId))
+                .thenReturn(Optional.of(pending));
         when(userRepository.existsByEmail("an@example.test")).thenReturn(false);
         when(userRepository.existsByFriendCode(anyString())).thenReturn(false);
-        when(userRepository.save(any(UserEntity.class))).thenAnswer(invocation -> {
-            UserEntity draft = invocation.getArgument(0);
-            return new UserEntity(draft.getId(), draft.getEmail(), draft.getPasswordHash(),
-                    draft.getDisplayName(), draft.getPhone(), draft.getFriendCode(), draft.getEmailVerifiedAt());
-        });
+        when(userRepository.save(any(UserEntity.class)))
+                .thenAnswer(
+                        invocation -> {
+                            UserEntity draft = invocation.getArgument(0);
+                            return new UserEntity(
+                                    draft.getId(),
+                                    draft.getEmail(),
+                                    draft.getPasswordHash(),
+                                    draft.getDisplayName(),
+                                    draft.getPhone(),
+                                    draft.getFriendCode(),
+                                    draft.getEmailVerifiedAt());
+                        });
         when(deviceRepository.findByInstallationId(installationId)).thenReturn(Optional.empty());
-        when(deviceRepository.save(any(DeviceEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(jwtTokenService.issue(any(UserEntity.class), any(DeviceEntity.class))).thenReturn("access-token");
+        when(deviceRepository.save(any(DeviceEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(jwtTokenService.issue(any(UserEntity.class), any(DeviceEntity.class)))
+                .thenReturn("access-token");
         when(jwtTokenService.accessTokenTtlSeconds()).thenReturn(900L);
 
-        SessionResponse response = service.verifyRegistration(
-                new VerifyRegistrationRequest(verificationId, "123456"));
+        SessionResponse response =
+                service.verifyRegistration(new VerifyRegistrationRequest(verificationId, "123456"));
 
         assertEquals("access-token", response.accessToken());
         assertEquals("+84901234567", response.user().phone());
@@ -239,28 +302,41 @@ class IdentityServiceTest {
         verify(refreshTokenRepository).save(any());
     }
 
-
     @Test
     void googleIdentityLinksExistingManualAccountWithPhone() {
         UUID installationId = UUID.randomUUID();
-        UserEntity existing = new UserEntity(UUID.randomUUID(), "an@example.test", "password-hash",
-                "Nguyen An", "0901234567", "TM-EXIST01", Instant.now());
+        UserEntity existing =
+                new UserEntity(
+                        UUID.randomUUID(),
+                        "an@example.test",
+                        "password-hash",
+                        "Nguyen An",
+                        "0901234567",
+                        "TM-EXIST01",
+                        Instant.now());
         when(googleIdentityVerifier.verify("google-id-token"))
-                .thenReturn(new GoogleIdentityVerifier.GoogleProfile(
-                        "google-subject", "an@example.test", true, "Nguyen An"));
+                .thenReturn(
+                        new GoogleIdentityVerifier.GoogleProfile(
+                                "google-subject", "an@example.test", true, "Nguyen An"));
         when(authIdentityRepository.findByProviderAndProviderSubject("GOOGLE", "google-subject"))
                 .thenReturn(Optional.empty());
-        when(userRepository.findByEmailForUpdate("an@example.test")).thenReturn(Optional.of(existing));
+        when(userRepository.findByEmailForUpdate("an@example.test"))
+                .thenReturn(Optional.of(existing));
         when(deviceRepository.findByInstallationId(installationId)).thenReturn(Optional.empty());
-        when(deviceRepository.save(any(DeviceEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(jwtTokenService.issue(any(UserEntity.class), any(DeviceEntity.class))).thenReturn("access-token");
+        when(deviceRepository.save(any(DeviceEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(jwtTokenService.issue(any(UserEntity.class), any(DeviceEntity.class)))
+                .thenReturn("access-token");
 
-        SessionResponse response = service.authenticateWithGoogle(new GoogleAuthRequest("google-id-token", installationId));
+        SessionResponse response =
+                service.authenticateWithGoogle(
+                        new GoogleAuthRequest("google-id-token", installationId));
 
         assertEquals(existing.getId(), response.user().id());
         assertEquals("0901234567", response.user().phone());
         assertEquals("password-hash", existing.getPasswordHash());
-        ArgumentCaptor<AuthIdentityEntity> identity = ArgumentCaptor.forClass(AuthIdentityEntity.class);
+        ArgumentCaptor<AuthIdentityEntity> identity =
+                ArgumentCaptor.forClass(AuthIdentityEntity.class);
         verify(authIdentityRepository).save(identity.capture());
         assertSame(existing, identity.getValue().getUser());
         verify(userRepository, never()).save(any());
@@ -269,18 +345,30 @@ class IdentityServiceTest {
     @Test
     void googleIdentityLinksExistingManualAccountWithoutPhone() {
         UUID installationId = UUID.randomUUID();
-        UserEntity existing = new UserEntity(UUID.randomUUID(), "an@example.test", "password-hash",
-                "Nguyen An", null, "TM-EXIST01", Instant.now());
+        UserEntity existing =
+                new UserEntity(
+                        UUID.randomUUID(),
+                        "an@example.test",
+                        "password-hash",
+                        "Nguyen An",
+                        null,
+                        "TM-EXIST01",
+                        Instant.now());
         when(googleIdentityVerifier.verify("google-id-token"))
-                .thenReturn(new GoogleIdentityVerifier.GoogleProfile(
-                        "google-subject", "an@example.test", true, "Nguyen An"));
+                .thenReturn(
+                        new GoogleIdentityVerifier.GoogleProfile(
+                                "google-subject", "an@example.test", true, "Nguyen An"));
         when(authIdentityRepository.findByProviderAndProviderSubject("GOOGLE", "google-subject"))
                 .thenReturn(Optional.empty());
-        when(userRepository.findByEmailForUpdate("an@example.test")).thenReturn(Optional.of(existing));
+        when(userRepository.findByEmailForUpdate("an@example.test"))
+                .thenReturn(Optional.of(existing));
         when(deviceRepository.findByInstallationId(installationId)).thenReturn(Optional.empty());
-        when(deviceRepository.save(any(DeviceEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(deviceRepository.save(any(DeviceEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
-        SessionResponse response = service.authenticateWithGoogle(new GoogleAuthRequest("google-id-token", installationId));
+        SessionResponse response =
+                service.authenticateWithGoogle(
+                        new GoogleAuthRequest("google-id-token", installationId));
 
         assertEquals(existing.getId(), response.user().id());
         assertNull(response.user().phone());
@@ -290,18 +378,34 @@ class IdentityServiceTest {
 
     @Test
     void googleIdentityCannotReplaceAnotherGoogleIdentityOnExistingAccount() {
-        UserEntity existing = new UserEntity(UUID.randomUUID(), "an@example.test", "password-hash",
-                "Nguyen An", "0901234567", "TM-EXIST01", Instant.now());
+        UserEntity existing =
+                new UserEntity(
+                        UUID.randomUUID(),
+                        "an@example.test",
+                        "password-hash",
+                        "Nguyen An",
+                        "0901234567",
+                        "TM-EXIST01",
+                        Instant.now());
         when(googleIdentityVerifier.verify("google-id-token"))
-                .thenReturn(new GoogleIdentityVerifier.GoogleProfile(
-                        "new-google-subject", "an@example.test", true, "Nguyen An"));
-        when(authIdentityRepository.findByProviderAndProviderSubject("GOOGLE", "new-google-subject"))
+                .thenReturn(
+                        new GoogleIdentityVerifier.GoogleProfile(
+                                "new-google-subject", "an@example.test", true, "Nguyen An"));
+        when(authIdentityRepository.findByProviderAndProviderSubject(
+                        "GOOGLE", "new-google-subject"))
                 .thenReturn(Optional.empty());
-        when(userRepository.findByEmailForUpdate("an@example.test")).thenReturn(Optional.of(existing));
-        when(authIdentityRepository.existsByUserIdAndProvider(existing.getId(), "GOOGLE")).thenReturn(true);
+        when(userRepository.findByEmailForUpdate("an@example.test"))
+                .thenReturn(Optional.of(existing));
+        when(authIdentityRepository.existsByUserIdAndProvider(existing.getId(), "GOOGLE"))
+                .thenReturn(true);
 
-        ApiException error = assertThrows(ApiException.class,
-                () -> service.authenticateWithGoogle(new GoogleAuthRequest("google-id-token", UUID.randomUUID())));
+        ApiException error =
+                assertThrows(
+                        ApiException.class,
+                        () ->
+                                service.authenticateWithGoogle(
+                                        new GoogleAuthRequest(
+                                                "google-id-token", UUID.randomUUID())));
 
         assertEquals(HttpStatus.CONFLICT, error.getStatus());
         assertEquals("GOOGLE_IDENTITY_CONFLICT", error.getCode());
@@ -310,18 +414,32 @@ class IdentityServiceTest {
 
     @Test
     void googleIdentityDoesNotLinkDisabledAccountWithMatchingEmail() {
-        UserEntity existing = new UserEntity(UUID.randomUUID(), "an@example.test", "password-hash",
-                "Nguyen An", "0901234567", "TM-EXIST01", Instant.now());
+        UserEntity existing =
+                new UserEntity(
+                        UUID.randomUUID(),
+                        "an@example.test",
+                        "password-hash",
+                        "Nguyen An",
+                        "0901234567",
+                        "TM-EXIST01",
+                        Instant.now());
         existing.setStatus(UserStatus.DISABLED);
         when(googleIdentityVerifier.verify("google-id-token"))
-                .thenReturn(new GoogleIdentityVerifier.GoogleProfile(
-                        "google-subject", "an@example.test", true, "Nguyen An"));
+                .thenReturn(
+                        new GoogleIdentityVerifier.GoogleProfile(
+                                "google-subject", "an@example.test", true, "Nguyen An"));
         when(authIdentityRepository.findByProviderAndProviderSubject("GOOGLE", "google-subject"))
                 .thenReturn(Optional.empty());
-        when(userRepository.findByEmailForUpdate("an@example.test")).thenReturn(Optional.of(existing));
+        when(userRepository.findByEmailForUpdate("an@example.test"))
+                .thenReturn(Optional.of(existing));
 
-        ApiException error = assertThrows(ApiException.class,
-                () -> service.authenticateWithGoogle(new GoogleAuthRequest("google-id-token", UUID.randomUUID())));
+        ApiException error =
+                assertThrows(
+                        ApiException.class,
+                        () ->
+                                service.authenticateWithGoogle(
+                                        new GoogleAuthRequest(
+                                                "google-id-token", UUID.randomUUID())));
 
         assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
         assertEquals("ACCOUNT_DISABLED", error.getCode());
@@ -332,13 +450,29 @@ class IdentityServiceTest {
     void googleRegistrationBindsExistingDeviceToSavedUser() {
         UUID installationId = UUID.randomUUID();
         DeviceEntity device = new DeviceEntity(UUID.randomUUID(), installationId);
-        UserEntity previousUser = new UserEntity(UUID.randomUUID(), "old@example.test", "hash",
-                "Old User", null, "TM-OLD", Instant.now());
+        UserEntity previousUser =
+                new UserEntity(
+                        UUID.randomUUID(),
+                        "old@example.test",
+                        "hash",
+                        "Old User",
+                        null,
+                        "TM-OLD",
+                        Instant.now());
         device.bind(previousUser);
-        UserEntity savedUser = new UserEntity(UUID.randomUUID(), "google@example.test", "hash",
-                "Google User", null, "TM-GOOGLE", Instant.now());
-        when(googleIdentityVerifier.verify("google-token")).thenReturn(
-                new GoogleIdentityVerifier.GoogleProfile("subject", "google@example.test", true, "Google User"));
+        UserEntity savedUser =
+                new UserEntity(
+                        UUID.randomUUID(),
+                        "google@example.test",
+                        "hash",
+                        "Google User",
+                        null,
+                        "TM-GOOGLE",
+                        Instant.now());
+        when(googleIdentityVerifier.verify("google-token"))
+                .thenReturn(
+                        new GoogleIdentityVerifier.GoogleProfile(
+                                "subject", "google@example.test", true, "Google User"));
         when(passwordEncoder.encode(anyString())).thenReturn("hash");
         // JPA merge returns a managed copy, not the original object with an assigned UUID.
         when(userRepository.save(any(UserEntity.class))).thenReturn(savedUser);
@@ -346,32 +480,54 @@ class IdentityServiceTest {
         when(deviceRepository.save(device)).thenReturn(device);
         when(jwtTokenService.issue(savedUser, device)).thenReturn("access-token");
 
-        SessionResponse response = service.authenticateWithGoogle(new GoogleAuthRequest("google-token", installationId));
+        SessionResponse response =
+                service.authenticateWithGoogle(
+                        new GoogleAuthRequest("google-token", installationId));
 
         assertSame(savedUser, device.getUser());
         assertEquals(savedUser.getId(), response.user().id());
         assertEquals("access-token", response.accessToken());
-        ArgumentCaptor<AuthIdentityEntity> identity = ArgumentCaptor.forClass(AuthIdentityEntity.class);
+        ArgumentCaptor<AuthIdentityEntity> identity =
+                ArgumentCaptor.forClass(AuthIdentityEntity.class);
         verify(authIdentityRepository).save(identity.capture());
         assertSame(savedUser, identity.getValue().getUser());
-        ArgumentCaptor<RefreshTokenEntity> refresh = ArgumentCaptor.forClass(RefreshTokenEntity.class);
+        ArgumentCaptor<RefreshTokenEntity> refresh =
+                ArgumentCaptor.forClass(RefreshTokenEntity.class);
         verify(refreshTokenRepository).save(refresh.capture());
         assertSame(savedUser, refresh.getValue().getUser());
     }
 
     @Test
     void refreshTokenReuseRevokesItsWholeFamily() {
-        UserEntity user = new UserEntity(UUID.randomUUID(), "an@example.test", "hash", "Nguyen An",
-                "+84901234567", "TM-TEST", Instant.now());
+        UserEntity user =
+                new UserEntity(
+                        UUID.randomUUID(),
+                        "an@example.test",
+                        "hash",
+                        "Nguyen An",
+                        "+84901234567",
+                        "TM-TEST",
+                        Instant.now());
         DeviceEntity device = new DeviceEntity(UUID.randomUUID(), UUID.randomUUID());
-        RefreshTokenEntity reused = new RefreshTokenEntity(UUID.randomUUID(), user, device, UUID.randomUUID(),
-                null, sha256("refresh-token"), Instant.now().plus(Duration.ofDays(1)));
+        RefreshTokenEntity reused =
+                new RefreshTokenEntity(
+                        UUID.randomUUID(),
+                        user,
+                        device,
+                        UUID.randomUUID(),
+                        null,
+                        sha256("refresh-token"),
+                        Instant.now().plus(Duration.ofDays(1)));
         reused.consume();
-        when(refreshTokenRepository.findByTokenHashForUpdate(anyString())).thenReturn(Optional.of(reused));
-        when(refreshTokenRepository.findFamilyForUpdate(reused.getFamilyId())).thenReturn(java.util.List.of(reused));
+        when(refreshTokenRepository.findByTokenHashForUpdate(anyString()))
+                .thenReturn(Optional.of(reused));
+        when(refreshTokenRepository.findFamilyForUpdate(reused.getFamilyId()))
+                .thenReturn(java.util.List.of(reused));
 
-        ApiException exception = assertThrows(ApiException.class,
-                () -> service.refresh(new RefreshRequest("refresh-token")));
+        ApiException exception =
+                assertThrows(
+                        ApiException.class,
+                        () -> service.refresh(new RefreshRequest("refresh-token")));
 
         assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatus());
         assertEquals("REFRESH_TOKEN_REUSE", exception.getCode());
@@ -380,18 +536,42 @@ class IdentityServiceTest {
 
     @Test
     void refreshTokenFromPreviousUserIsRejectedAfterDeviceRebind() {
-        UserEntity previousUser = new UserEntity(UUID.randomUUID(), "old@example.test", "hash", "Old",
-                "+84901234567", "TM-OLD", Instant.now());
-        UserEntity currentUser = new UserEntity(UUID.randomUUID(), "new@example.test", "hash", "New",
-                "+84907654321", "TM-NEW", Instant.now());
+        UserEntity previousUser =
+                new UserEntity(
+                        UUID.randomUUID(),
+                        "old@example.test",
+                        "hash",
+                        "Old",
+                        "+84901234567",
+                        "TM-OLD",
+                        Instant.now());
+        UserEntity currentUser =
+                new UserEntity(
+                        UUID.randomUUID(),
+                        "new@example.test",
+                        "hash",
+                        "New",
+                        "+84907654321",
+                        "TM-NEW",
+                        Instant.now());
         DeviceEntity device = new DeviceEntity(UUID.randomUUID(), UUID.randomUUID());
         device.bind(currentUser);
-        RefreshTokenEntity oldToken = new RefreshTokenEntity(UUID.randomUUID(), previousUser, device,
-                UUID.randomUUID(), null, sha256("old-refresh"), Instant.now().plus(Duration.ofDays(1)));
-        when(refreshTokenRepository.findByTokenHashForUpdate(anyString())).thenReturn(Optional.of(oldToken));
+        RefreshTokenEntity oldToken =
+                new RefreshTokenEntity(
+                        UUID.randomUUID(),
+                        previousUser,
+                        device,
+                        UUID.randomUUID(),
+                        null,
+                        sha256("old-refresh"),
+                        Instant.now().plus(Duration.ofDays(1)));
+        when(refreshTokenRepository.findByTokenHashForUpdate(anyString()))
+                .thenReturn(Optional.of(oldToken));
 
-        ApiException exception = assertThrows(ApiException.class,
-                () -> service.refresh(new RefreshRequest("old-refresh")));
+        ApiException exception =
+                assertThrows(
+                        ApiException.class,
+                        () -> service.refresh(new RefreshRequest("old-refresh")));
 
         assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatus());
         assertEquals("INVALID_REFRESH_TOKEN", exception.getCode());
@@ -400,41 +580,67 @@ class IdentityServiceTest {
     @Test
     void loginBindsInstallationAndReturnsSession() {
         UUID installationId = UUID.randomUUID();
-        UserEntity user = new UserEntity(UUID.randomUUID(), "an@example.test", "bcrypt-hash",
-                "Nguyen An", "+84901234567", "TM-LOGIN", Instant.now());
+        UserEntity user =
+                new UserEntity(
+                        UUID.randomUUID(),
+                        "an@example.test",
+                        "bcrypt-hash",
+                        "Nguyen An",
+                        "+84901234567",
+                        "TM-LOGIN",
+                        Instant.now());
         DeviceEntity device = new DeviceEntity(UUID.randomUUID(), installationId);
         when(userRepository.findByEmail("an@example.test")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("secret-password", "bcrypt-hash")).thenReturn(true);
         when(deviceRepository.findByInstallationId(installationId)).thenReturn(Optional.of(device));
-        when(deviceRepository.save(any(DeviceEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(jwtTokenService.issue(any(UserEntity.class), any(DeviceEntity.class))).thenReturn("access-token");
+        when(deviceRepository.save(any(DeviceEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(jwtTokenService.issue(any(UserEntity.class), any(DeviceEntity.class)))
+                .thenReturn("access-token");
         when(jwtTokenService.accessTokenTtlSeconds()).thenReturn(900L);
 
-        SessionResponse response = service.login(new LoginRequest(
-                "an@example.test", "secret-password", installationId));
+        SessionResponse response =
+                service.login(
+                        new LoginRequest("an@example.test", "secret-password", installationId));
 
         assertEquals("access-token", response.accessToken());
         assertEquals(user.getId(), response.user().id());
         verify(deviceRepository).save(device);
     }
 
-
     @Test
     void logoutRevokesDeviceTokensAndUnbindsDevice() {
         UUID userId = UUID.randomUUID();
         UUID deviceId = UUID.randomUUID();
-        UserEntity user = new UserEntity(userId, "an@example.test", "bcrypt-hash",
-                "Nguyen An", "+84901234567", "TM-LOGOUT", Instant.now());
+        UserEntity user =
+                new UserEntity(
+                        userId,
+                        "an@example.test",
+                        "bcrypt-hash",
+                        "Nguyen An",
+                        "+84901234567",
+                        "TM-LOGOUT",
+                        Instant.now());
         DeviceEntity device = new DeviceEntity(deviceId, UUID.randomUUID());
         device.bind(user);
-        RefreshTokenEntity token = new RefreshTokenEntity(UUID.randomUUID(), user, device,
-                UUID.randomUUID(), null, sha256("refresh-token"), Instant.now().plus(Duration.ofDays(1)));
+        RefreshTokenEntity token =
+                new RefreshTokenEntity(
+                        UUID.randomUUID(),
+                        user,
+                        device,
+                        UUID.randomUUID(),
+                        null,
+                        sha256("refresh-token"),
+                        Instant.now().plus(Duration.ofDays(1)));
         when(deviceRepository.findByIdForUpdate(deviceId)).thenReturn(Optional.of(device));
         when(refreshTokenRepository.findActiveByUserAndDevice(userId, deviceId))
                 .thenReturn(List.of(token));
-        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
-                new AuthenticatedUser(userId, deviceId, device.getBindingVersion()),
-                null, AuthorityUtils.NO_AUTHORITIES));
+        SecurityContextHolder.getContext()
+                .setAuthentication(
+                        new UsernamePasswordAuthenticationToken(
+                                new AuthenticatedUser(userId, deviceId, device.getBindingVersion()),
+                                null,
+                                AuthorityUtils.NO_AUTHORITIES));
 
         try {
             service.logout();
@@ -447,16 +653,25 @@ class IdentityServiceTest {
         verify(deviceRepository).save(device);
     }
 
-
     @Test
     void currentProfileReturnsPublicUserFields() {
         UUID userId = UUID.randomUUID();
-        UserEntity user = new UserEntity(userId, "an@example.test", "bcrypt-hash",
-                "Nguyen An", "+84901234567", "TM-PROFILE", Instant.now());
+        UserEntity user =
+                new UserEntity(
+                        userId,
+                        "an@example.test",
+                        "bcrypt-hash",
+                        "Nguyen An",
+                        "+84901234567",
+                        "TM-PROFILE",
+                        Instant.now());
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
-                new AuthenticatedUser(userId, UUID.randomUUID(), 1L),
-                null, AuthorityUtils.NO_AUTHORITIES));
+        SecurityContextHolder.getContext()
+                .setAuthentication(
+                        new UsernamePasswordAuthenticationToken(
+                                new AuthenticatedUser(userId, UUID.randomUUID(), 1L),
+                                null,
+                                AuthorityUtils.NO_AUTHORITIES));
 
         try {
             ProfileResponse response = service.getCurrentProfile();
@@ -471,15 +686,44 @@ class IdentityServiceTest {
     @Test
     void updatesOnlyAuthenticatedUsersNameAndReadsItBackWithoutRevokingSession() {
         UUID userId = UUID.randomUUID();
-        UserEntity user = new UserEntity(userId, "an@example.test", "hash", "An", "+84901234567", "TM-A", Instant.now());
-        UserEntity other = new UserEntity(UUID.randomUUID(), "b@example.test", "hash-b", "B", null, "TM-B", Instant.now());
+        UserEntity user =
+                new UserEntity(
+                        userId,
+                        "an@example.test",
+                        "hash",
+                        "An",
+                        "+84901234567",
+                        "TM-A",
+                        Instant.now());
+        UserEntity other =
+                new UserEntity(
+                        UUID.randomUUID(),
+                        "b@example.test",
+                        "hash-b",
+                        "B",
+                        null,
+                        "TM-B",
+                        Instant.now());
         when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
-                new AuthenticatedUser(userId, UUID.randomUUID(), 1L), null, AuthorityUtils.NO_AUTHORITIES));
+        SecurityContextHolder.getContext()
+                .setAuthentication(
+                        new UsernamePasswordAuthenticationToken(
+                                new AuthenticatedUser(userId, UUID.randomUUID(), 1L),
+                                null,
+                                AuthorityUtils.NO_AUTHORITIES));
         try {
-            var profiles = new ProfileService(userRepository, org.mockito.Mockito.mock(com.tripmate.media.api.AvatarMedia.class), service, org.mockito.Mockito.mock(com.tripmate.catalog.api.InterestCatalog.class));
-            ProfileResponse response = profiles.update(new com.tripmate.identity.web.ProfileUpdateRequest("Nguyễn An", false, null, null, null));
+            var profiles =
+                    new ProfileService(
+                            userRepository,
+                            org.mockito.Mockito.mock(com.tripmate.media.api.AvatarMedia.class),
+                            service,
+                            org.mockito.Mockito.mock(
+                                    com.tripmate.catalog.api.InterestCatalog.class));
+            ProfileResponse response =
+                    profiles.update(
+                            new com.tripmate.identity.web.ProfileUpdateRequest(
+                                    "Nguyễn An", false, null, null, null));
             assertEquals(userId, response.id());
             assertEquals("Nguyễn An", service.getCurrentProfile().displayName());
             assertEquals("an@example.test", response.email());
@@ -488,23 +732,46 @@ class IdentityServiceTest {
             assertEquals("B", other.getDisplayName());
             verify(userRepository).saveAndFlush(user);
             org.mockito.Mockito.verifyNoInteractions(deviceRepository, refreshTokenRepository);
-        } finally { SecurityContextHolder.clearContext(); }
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 
     @Test
     void rejectsProfileUpdateWithoutAuthentication() {
         SecurityContextHolder.clearContext();
-        var profiles = new ProfileService(userRepository, org.mockito.Mockito.mock(com.tripmate.media.api.AvatarMedia.class), service, org.mockito.Mockito.mock(com.tripmate.catalog.api.InterestCatalog.class));
-        assertEquals(HttpStatus.UNAUTHORIZED,
-                assertThrows(ApiException.class, () -> profiles.update(new com.tripmate.identity.web.ProfileUpdateRequest("An", false, null, null, null))).getStatus());
+        var profiles =
+                new ProfileService(
+                        userRepository,
+                        org.mockito.Mockito.mock(com.tripmate.media.api.AvatarMedia.class),
+                        service,
+                        org.mockito.Mockito.mock(com.tripmate.catalog.api.InterestCatalog.class));
+        assertEquals(
+                HttpStatus.UNAUTHORIZED,
+                assertThrows(
+                                ApiException.class,
+                                () ->
+                                        profiles.update(
+                                                new com.tripmate.identity.web.ProfileUpdateRequest(
+                                                        "An", false, null, null, null)))
+                        .getStatus());
         org.mockito.Mockito.verifyNoInteractions(userRepository);
     }
 
     @Test
     void rejectsRegistrationWhenNormalizedPhoneIsAlreadyUsed() {
         when(userRepository.existsByPhoneLookup("0901234567")).thenReturn(true);
-        ApiException error = assertThrows(ApiException.class, () -> service.startRegistration(
-                new RegisterRequest("new@example.test", "secret-password", UUID.randomUUID(), "New", "0901 234 567")));
+        ApiException error =
+                assertThrows(
+                        ApiException.class,
+                        () ->
+                                service.startRegistration(
+                                        new RegisterRequest(
+                                                "new@example.test",
+                                                "secret-password",
+                                                UUID.randomUUID(),
+                                                "New",
+                                                "0901 234 567")));
         assertEquals("PHONE_ALREADY_REGISTERED", error.getCode());
         verify(pendingRegistrationRepository, never()).save(any());
     }
@@ -512,52 +779,121 @@ class IdentityServiceTest {
     @Test
     void completesMissingPhoneButRejectsChangingAnExistingNumber() {
         UUID userId = UUID.randomUUID();
-        UserEntity user = new UserEntity(userId, "google@example.test", "hash", "Google user", null, "TM-G", Instant.now());
+        UserEntity user =
+                new UserEntity(
+                        userId,
+                        "google@example.test",
+                        "hash",
+                        "Google user",
+                        null,
+                        "TM-G",
+                        Instant.now());
         when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
-                new AuthenticatedUser(userId, UUID.randomUUID(), 1L), null, AuthorityUtils.NO_AUTHORITIES));
+        SecurityContextHolder.getContext()
+                .setAuthentication(
+                        new UsernamePasswordAuthenticationToken(
+                                new AuthenticatedUser(userId, UUID.randomUUID(), 1L),
+                                null,
+                                AuthorityUtils.NO_AUTHORITIES));
         try {
-            var profiles = new ProfileService(userRepository, org.mockito.Mockito.mock(com.tripmate.media.api.AvatarMedia.class),
-                    service, org.mockito.Mockito.mock(com.tripmate.catalog.api.InterestCatalog.class));
-            assertEquals("+84901234567", profiles.update(com.tripmate.identity.web.ProfileUpdateRequest.parse(
-                    java.util.Map.of("phone", " +84901234567 "))).phone());
-            assertEquals("PHONE_ALREADY_SET", assertThrows(ApiException.class,
-                    () -> profiles.update(com.tripmate.identity.web.ProfileUpdateRequest.parse(
-                            java.util.Map.of("phone", "+84907654321")))).getCode());
+            var profiles =
+                    new ProfileService(
+                            userRepository,
+                            org.mockito.Mockito.mock(com.tripmate.media.api.AvatarMedia.class),
+                            service,
+                            org.mockito.Mockito.mock(
+                                    com.tripmate.catalog.api.InterestCatalog.class));
+            assertEquals(
+                    "+84901234567",
+                    profiles.update(
+                                    com.tripmate.identity.web.ProfileUpdateRequest.parse(
+                                            java.util.Map.of("phone", " +84901234567 ")))
+                            .phone());
+            assertEquals(
+                    "PHONE_ALREADY_SET",
+                    assertThrows(
+                                    ApiException.class,
+                                    () ->
+                                            profiles.update(
+                                                    com.tripmate.identity.web.ProfileUpdateRequest
+                                                            .parse(
+                                                                    java.util.Map.of(
+                                                                            "phone",
+                                                                            "+84907654321"))))
+                            .getCode());
             assertEquals("+84901234567", user.getPhone());
             verify(userRepository).saveAndFlush(user);
-        } finally { SecurityContextHolder.clearContext(); }
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 
     @Test
     void rejectsGooglePhoneCompletionWhenNormalizedPhoneIsAlreadyUsed() {
         UUID userId = UUID.randomUUID();
-        UserEntity user = new UserEntity(userId, "google@example.test", "hash", "Google user", null, "TM-G", Instant.now());
+        UserEntity user =
+                new UserEntity(
+                        userId,
+                        "google@example.test",
+                        "hash",
+                        "Google user",
+                        null,
+                        "TM-G",
+                        Instant.now());
         when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
         when(userRepository.existsByPhoneLookup("0901234567")).thenReturn(true);
-        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
-                new AuthenticatedUser(userId, UUID.randomUUID(), 1L), null, AuthorityUtils.NO_AUTHORITIES));
+        SecurityContextHolder.getContext()
+                .setAuthentication(
+                        new UsernamePasswordAuthenticationToken(
+                                new AuthenticatedUser(userId, UUID.randomUUID(), 1L),
+                                null,
+                                AuthorityUtils.NO_AUTHORITIES));
         try {
-            var profiles = new ProfileService(userRepository, org.mockito.Mockito.mock(com.tripmate.media.api.AvatarMedia.class),
-                    service, org.mockito.Mockito.mock(com.tripmate.catalog.api.InterestCatalog.class));
-            assertEquals("PHONE_ALREADY_REGISTERED", assertThrows(ApiException.class,
-                    () -> profiles.update(com.tripmate.identity.web.ProfileUpdateRequest.parse(
-                            java.util.Map.of("phone", "0901 234 567")))).getCode());
+            var profiles =
+                    new ProfileService(
+                            userRepository,
+                            org.mockito.Mockito.mock(com.tripmate.media.api.AvatarMedia.class),
+                            service,
+                            org.mockito.Mockito.mock(
+                                    com.tripmate.catalog.api.InterestCatalog.class));
+            assertEquals(
+                    "PHONE_ALREADY_REGISTERED",
+                    assertThrows(
+                                    ApiException.class,
+                                    () ->
+                                            profiles.update(
+                                                    com.tripmate.identity.web.ProfileUpdateRequest
+                                                            .parse(
+                                                                    java.util.Map.of(
+                                                                            "phone",
+                                                                            "0901 234 567"))))
+                            .getCode());
             assertNull(user.getPhone());
             verify(userRepository, never()).saveAndFlush(user);
-        } finally { SecurityContextHolder.clearContext(); }
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 
     private PendingRegistrationEntity pending(UUID id, String otp, Instant expiresAt) {
-        return new PendingRegistrationEntity(id, "an@example.test", "bcrypt-hash", "Nguyen An",
-                "+84901234567", UUID.randomUUID(), sha256(otp), expiresAt, Instant.now().minusSeconds(1));
+        return new PendingRegistrationEntity(
+                id,
+                "an@example.test",
+                "bcrypt-hash",
+                "Nguyen An",
+                "+84901234567",
+                UUID.randomUUID(),
+                sha256(otp),
+                expiresAt,
+                Instant.now().minusSeconds(1));
     }
 
     private static String sha256(String value) {
         try {
-            byte[] digest = MessageDigest.getInstance("SHA-256")
-                    .digest(value.getBytes(StandardCharsets.UTF_8));
+            byte[] digest =
+                    MessageDigest.getInstance("SHA-256")
+                            .digest(value.getBytes(StandardCharsets.UTF_8));
             StringBuilder result = new StringBuilder(64);
             for (byte item : digest) {
                 result.append(String.format("%02x", item));

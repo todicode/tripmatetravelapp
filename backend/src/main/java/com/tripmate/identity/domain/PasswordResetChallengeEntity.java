@@ -16,8 +16,7 @@ import java.util.UUID;
 @Table(name = "password_reset_challenges")
 public class PasswordResetChallengeEntity {
 
-    @Id
-    private UUID id;
+    @Id private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
@@ -41,11 +40,14 @@ public class PasswordResetChallengeEntity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    protected PasswordResetChallengeEntity() {
-    }
+    protected PasswordResetChallengeEntity() {}
 
-    public PasswordResetChallengeEntity(UUID id, UserEntity user, String otpHash,
-                                        Instant otpExpiresAt, Instant resendAvailableAt) {
+    public PasswordResetChallengeEntity(
+            UUID id,
+            UserEntity user,
+            String otpHash,
+            Instant otpExpiresAt,
+            Instant resendAvailableAt) {
         this.id = id;
         this.user = user;
         this.otpHash = otpHash;
@@ -58,14 +60,39 @@ public class PasswordResetChallengeEntity {
         createdAt = Instant.now();
     }
 
-    public UUID getId() { return id; }
-    public UserEntity getUser() { return user; }
-    public String getOtpHash() { return otpHash; }
-    public Instant getOtpExpiresAt() { return otpExpiresAt; }
-    public int getAttempts() { return attempts; }
-    public Instant getResendAvailableAt() { return resendAvailableAt; }
-    public Instant getUsedAt() { return usedAt; }
+    public UUID getId() {
+        return id;
+    }
 
-    public void incrementAttempts() { attempts++; }
-    public void markUsed() { usedAt = Instant.now(); }
+    public UserEntity getUser() {
+        return user;
+    }
+
+    public String getOtpHash() {
+        return otpHash;
+    }
+
+    public Instant getOtpExpiresAt() {
+        return otpExpiresAt;
+    }
+
+    public int getAttempts() {
+        return attempts;
+    }
+
+    public Instant getResendAvailableAt() {
+        return resendAvailableAt;
+    }
+
+    public Instant getUsedAt() {
+        return usedAt;
+    }
+
+    public void incrementAttempts() {
+        attempts++;
+    }
+
+    public void markUsed() {
+        usedAt = Instant.now();
+    }
 }

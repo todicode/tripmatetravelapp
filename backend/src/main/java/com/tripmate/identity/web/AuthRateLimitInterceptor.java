@@ -2,8 +2,10 @@ package com.tripmate.identity.web;
 
 import com.tripmate.shared.security.AuthenticatedActor;
 import com.tripmate.shared.web.RateLimitExceededException;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -34,22 +36,28 @@ public class AuthRateLimitInterceptor implements HandlerInterceptor {
     }
 
     @Override
-    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+    public boolean preHandle(
+            HttpServletRequest request, HttpServletResponse response, Object handler) {
         String category = category(request.getMethod(), request.getRequestURI());
         if (category == null) {
             return true;
         }
         int limit = "otp".equals(category) ? otpLimit : generalLimit;
-        Object principal = SecurityContextHolder.getContext().getAuthentication() == null ? null
-                : SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        String subject = ("lookup".equals(category) || "friend-request".equals(category))
-                && principal instanceof AuthenticatedActor actor
-                ? actor.userId().toString() : request.getRemoteAddr();
+        Object principal =
+                SecurityContextHolder.getContext().getAuthentication() == null
+                        ? null
+                        : SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        String subject =
+                ("lookup".equals(category) || "friend-request".equals(category))
+                                && principal instanceof AuthenticatedActor actor
+                        ? actor.userId().toString()
+                        : request.getRemoteAddr();
         String key = category + '|' + subject;
         Bucket bucket = buckets.computeIfAbsent(key, ignored -> new Bucket());
         long now = System.nanoTime();
         synchronized (bucket) {
-            if (bucket.windowStartedNanos == 0 || now - bucket.windowStartedNanos >= window.toNanos()) {
+            if (bucket.windowStartedNanos == 0
+                    || now - bucket.windowStartedNanos >= window.toNanos()) {
                 bucket.windowStartedNanos = now;
                 bucket.count = 0;
             }
@@ -66,21 +74,27 @@ public class AuthRateLimitInterceptor implements HandlerInterceptor {
 
     private String category(String method, String uri) {
         if ("GET".equalsIgnoreCase(method)
-                && (uri.equals("/api/v1/users/lookup") || uri.equals("/api/v1/users/lookup-by-phone"))) {
+                && (uri.equals("/api/v1/users/lookup")
+                        || uri.equals("/api/v1/users/lookup-by-phone"))) {
             return "lookup";
         }
-        if ("POST".equalsIgnoreCase(method) && uri.equals("/api/v1/friend-requests")) return "friend-request";
+        if ("POST".equalsIgnoreCase(method) && uri.equals("/api/v1/friend-requests"))
+            return "friend-request";
         if (!"POST".equalsIgnoreCase(method)) return null;
         if (!uri.startsWith("/api/v1/auth/")) {
             return null;
         }
-        if (uri.endsWith("/register/verify") || uri.endsWith("/register/resend")
+        if (uri.endsWith("/register/verify")
+                || uri.endsWith("/register/resend")
                 || uri.endsWith("/password-reset/confirm")) {
             return "otp";
         }
-        if (uri.endsWith("/register") || uri.endsWith("/login")
-                || uri.endsWith("/password-reset/request") || uri.endsWith("/change-password")
-                || uri.endsWith("/google") || uri.endsWith("/refresh")) {
+        if (uri.endsWith("/register")
+                || uri.endsWith("/login")
+                || uri.endsWith("/password-reset/request")
+                || uri.endsWith("/change-password")
+                || uri.endsWith("/google")
+                || uri.endsWith("/refresh")) {
             return "general";
         }
         return null;

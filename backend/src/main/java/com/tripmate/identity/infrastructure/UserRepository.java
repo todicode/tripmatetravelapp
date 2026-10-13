@@ -1,7 +1,9 @@
 package com.tripmate.identity.infrastructure;
 
 import com.tripmate.identity.domain.UserEntity;
+
 import jakarta.persistence.LockModeType;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;

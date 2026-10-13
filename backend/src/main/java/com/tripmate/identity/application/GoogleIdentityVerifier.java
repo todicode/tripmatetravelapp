@@ -4,6 +4,5 @@ public interface GoogleIdentityVerifier {
 
     GoogleProfile verify(String idToken);
 
-    record GoogleProfile(String subject, String email, boolean emailVerified, String displayName) {
-    }
+    record GoogleProfile(String subject, String email, boolean emailVerified, String displayName) {}
 }
