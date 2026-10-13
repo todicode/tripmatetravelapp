@@ -74,9 +74,9 @@ export default function GroupConversationScreen({ group, session, friends, onBac
       <Text style={s.small}>Chỉ xem lịch trình. Quyền sửa chuyến đi thuộc về chủ chuyến.</Text>
       {tripLoading && <ActivityIndicator color={c.blue} />}{!!tripError && <Text accessibilityRole="alert" style={s.error}>{tripError}</Text>}
       {!group.tripId && <Text style={s.text}>Chuyến đi đã được gỡ khỏi nhóm.</Text>}
-      {trip && <><Text style={s.title}>{trip.title}</Text><Text style={s.text}>{trip.cityName} · {trip.startDate} – {trip.endDate}</Text>
+      {trip && <><Text style={s.title}>{trip.title}</Text><Text style={s.text}>{trip.cityName} · {trip.startDate ? `${trip.startDate} – ${trip.endDate}` : 'Ngày đi linh hoạt'}</Text>
         {!!trip.description && <Text style={s.text}>{trip.description}</Text>}
-        {trip.itinerary?.days.map(day => <View key={day.dayNumber} style={s.card}><Text style={s.title}>Ngày {day.dayNumber} · {day.date}</Text>
+        {trip.itinerary?.days.map(day => <View key={day.dayNumber} style={s.card}><Text style={s.title}>Ngày {day.dayNumber}{day.date ? ` · ${day.date}` : ''}</Text>
           {day.items.map(item => <View key={item.id}><Text style={s.text}>{item.startTime ? `${item.startTime} · ` : ''}{item.title}</Text>{!!item.note && <Text style={s.small}>{item.note}</Text>}</View>)}
         </View>)}{!trip.itinerary && <Text style={s.text}>Chưa có lịch trình.</Text>}
       </>}

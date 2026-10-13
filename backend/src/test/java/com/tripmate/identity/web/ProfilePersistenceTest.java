@@ -125,7 +125,7 @@ class ProfilePersistenceTest {
         assertFalse(found.get("user").has("email"));
         assertEquals(found, call("GET", "/users/lookup?friendCode=" + target.getFriendCode().toLowerCase(),
                 token, null, 200).get("data"));
-        assertEquals("tripmate://friend/" + target.getFriendCode(),
+        assertEquals("tripmate://friend/" + viewer.getFriendCode(),
                 call("GET", "/users/me/friend-code", token, null, 200).get("data").get("qrPayload").asText());
         call("GET", "/users/lookup-by-phone?phone=" + localPhone, null, null, 401);
         UUID incompleteId = UUID.randomUUID();

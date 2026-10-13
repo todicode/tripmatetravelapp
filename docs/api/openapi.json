@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "TripMate API Contract",
-    "version": "1.5.1",
+    "version": "1.7.0",
     "description": "Contract-first TripMate API for the Spring backend and mobile React Native client. Version 1.5.1 adds authenticated group realtime events on the same private STOMP queue as personal chat. Independent group REST operations, membership and owner-verified read-only trip sharing are unchanged. This JSON is the canonical wire format; examples use fixture data. Rules: docs/api/TEAM_RULES.md. Realtime: x-realtime. Bigint values are sent as strings."
   },
   "servers": [
@@ -1983,7 +1983,7 @@
         ],
         "operationId": "createTrip",
         "summary": "Tạo chuyến, owner và lịch rỗng",
-        "description": "Cùng transaction tạo owner ACTIVE và đủ 1–5 ngày lịch rỗng; tối đa 10 thành viên gồm owner. Không tự retry POST nếu timeout không rõ đã commit.",
+        "description": "Tạo chuyến/owner/lịch nguyên tử. SPECIFIC cần ngày hợp lệ và khớp durationDays; FLEXIBLE cần ngày null. clientRequestId theo user: cùng nội dung trả cùng chuyến; khác nội dung 409 IDEMPOTENCY_CONFLICT.",
         "x-permission": "AUTHENTICATED",
         "responses": {
           "201": {
@@ -2059,6 +2059,9 @@
           },
           "415": {
             "$ref": "#/components/responses/Error415"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
           }
         },
         "requestBody": {
@@ -2074,7 +2077,73 @@
                     "title": "Chuyến đi Đà Nẵng",
                     "cityCode": "DANANG",
                     "startDate": "2026-12-01",
-                    "endDate": "2026-12-02"
+                    "endDate": "2026-12-02",
+                    "dateMode": "SPECIFIC",
+                    "durationDays": 2,
+                    "clientRequestId": "00000000-0000-4000-8000-000000000091",
+                    "days": [
+                      {
+                        "dayNumber": 1,
+                        "transportMode": "WALK",
+                        "note": null,
+                        "items": [
+                          {
+                            "kind": "PLACE",
+                            "placeId": "00000000-0000-4000-8000-000000000020",
+                            "customTitle": null,
+                            "startTime": "09:00",
+                            "endTime": "10:30",
+                            "note": null,
+                            "estimatedCostVnd": null
+                          }
+                        ]
+                      },
+                      {
+                        "dayNumber": 2,
+                        "transportMode": "WALK",
+                        "note": null,
+                        "items": []
+                      }
+                    ]
+                  }
+                },
+                "flexible": {
+                  "value": {
+                    "title": "Chuyến đi Đà Nẵng",
+                    "cityCode": "DANANG",
+                    "startDate": null,
+                    "endDate": null,
+                    "dateMode": "FLEXIBLE",
+                    "durationDays": 2,
+                    "clientRequestId": "00000000-0000-4000-8000-000000000092",
+                    "days": [
+                      {
+                        "dayNumber": 1,
+                        "transportMode": "WALK",
+                        "note": null,
+                        "items": [
+                          {
+                            "kind": "PLACE",
+                            "placeId": null,
+                            "customTitle": "Điểm nhập tay",
+                            "startTime": null,
+                            "endTime": null,
+                            "note": null,
+                            "estimatedCostVnd": null,
+                            "placeSnapshot": {
+                              "name": "Điểm nhập tay",
+                              "provider": "MANUAL"
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "dayNumber": 2,
+                        "transportMode": "WALK",
+                        "note": null,
+                        "items": []
+                      }
+                    ]
                   }
                 }
               }
@@ -2135,6 +2204,38 @@
                         "phase": "UPCOMING",
                         "createdAt": "2026-09-17T03:00:00Z",
                         "updatedAt": "2026-09-17T03:00:00Z"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  },
+                  "flexible": {
+                    "value": {
+                      "data": {
+                        "id": "00000000-0000-4000-8000-000000000010",
+                        "ownerId": "00000000-0000-4000-8000-000000000001",
+                        "title": "Chuyến đi Đà Nẵng",
+                        "description": "Ghi chú của nhóm",
+                        "city": {
+                          "code": "DANANG",
+                          "name": "Đà Nẵng",
+                          "countryCode": "VN",
+                          "timezone": "Asia/Ho_Chi_Minh"
+                        },
+                        "startDate": null,
+                        "endDate": null,
+                        "budgetVnd": "5000000",
+                        "timezone": "Asia/Ho_Chi_Minh",
+                        "version": "0",
+                        "itineraryVersion": "0",
+                        "lastChatSeq": "1",
+                        "memberCount": 2,
+                        "myRole": "OWNER",
+                        "phase": "UNSCHEDULED",
+                        "createdAt": "2026-09-17T03:00:00Z",
+                        "updatedAt": "2026-09-17T03:00:00Z",
+                        "dateMode": "FLEXIBLE",
+                        "durationDays": 2,
+                        "status": "UPCOMING"
                       },
                       "requestId": "00000000-0000-4000-8000-000000000090"
                     }
@@ -3809,7 +3910,7 @@
         ],
         "operationId": "searchPlaces",
         "summary": "Tìm địa điểm trong thành phố",
-        "description": "Backend trả/tạo UUID nội bộ và lấy thông tin provider. Cursor opaque gắn bộ lọc; adapter giữ page token, không lộ token/key provider.",
+        "description": "Photon/OSM, biais theo điểm đến hỗ trợ. Tối đa 20 kết quả; không hỗ trợ cursor. 503 PLACES_UNAVAILABLE khi provider lỗi; vẫn cho nhập thủ công.",
         "x-permission": "AUTHENTICATED",
         "responses": {
           "200": {
@@ -3919,8 +4020,8 @@
               "type": "integer",
               "example": 20,
               "minimum": 1,
-              "maximum": 100,
-              "default": 20
+              "maximum": 20,
+              "default": 5
             },
             "description": "limit"
           },
@@ -9955,6 +10056,152 @@
           }
         }
       }
+    },
+    "/trips/{tripId}/itinerary/items/{itemId}/status": {
+      "patch": {
+        "tags": [
+          "Itinerary"
+        ],
+        "operationId": "updateItineraryItemStatus",
+        "summary": "Cập nhật tiến độ điểm dừng",
+        "description": "Kiểm tra expectedVersion; chỉ một ACTIVE. Chuyến CANCELLED cần khôi phục.",
+        "x-permission": "ACTIVE_MEMBER",
+        "responses": {
+          "200": {
+            "description": "Sửa/thêm/xóa/di chuyển/sắp xếp lịch nguyên tử",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItineraryResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "tripId": "00000000-0000-4000-8000-000000000010",
+                        "version": "1",
+                        "tripVersion": "0",
+                        "timezone": "Asia/Ho_Chi_Minh",
+                        "days": [
+                          {
+                            "id": "00000000-0000-4000-8000-000000000030",
+                            "dayNumber": 1,
+                            "date": "2026-12-01",
+                            "transportMode": "DRIVE",
+                            "note": "Ghi chú của nhóm",
+                            "items": [
+                              {
+                                "id": "00000000-0000-4000-8000-000000000031",
+                                "kind": "PLACE",
+                                "placeId": "00000000-0000-4000-8000-000000000020",
+                                "customTitle": "Đi dạo",
+                                "startTime": "09:00",
+                                "endTime": "10:30",
+                                "note": "Ghi chú của nhóm",
+                                "estimatedCostVnd": "100000",
+                                "position": 0,
+                                "costSource": "USER",
+                                "origin": "MANUAL"
+                              }
+                            ]
+                          },
+                          {
+                            "id": "00000000-0000-4000-8000-000000000032",
+                            "dayNumber": 2,
+                            "date": "2026-12-02",
+                            "transportMode": "WALK",
+                            "note": null,
+                            "items": []
+                          }
+                        ],
+                        "updatedBy": "00000000-0000-4000-8000-000000000001",
+                        "updatedAt": "2026-09-17T03:00:00Z"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          }
+        },
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "00000000-0000-4000-8000-000000000010",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000031"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateItineraryItemStatus"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "expectedVersion": "0",
+                    "status": "ACTIVE"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -10186,6 +10433,18 @@
             "enum": [
               "Asia/Ho_Chi_Minh"
             ]
+          },
+          "frontendKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "number",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "nullable": true
           }
         },
         "required": [
@@ -10802,12 +11061,14 @@
           "startDate": {
             "type": "string",
             "example": "2026-12-01",
-            "format": "date"
+            "format": "date",
+            "nullable": true
           },
           "endDate": {
             "type": "string",
             "example": "2026-12-02",
-            "format": "date"
+            "format": "date",
+            "nullable": true
           },
           "budgetVnd": {
             "type": "string",
@@ -10865,7 +11126,8 @@
             "enum": [
               "UPCOMING",
               "ONGOING",
-              "PAST"
+              "PAST",
+              "UNSCHEDULED"
             ]
           },
           "createdAt": {
@@ -10879,6 +11141,29 @@
             "example": "2026-09-17T03:00:00Z",
             "format": "date-time",
             "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+          },
+          "dateMode": {
+            "type": "string",
+            "enum": [
+              "SPECIFIC",
+              "FLEXIBLE"
+            ],
+            "example": "SPECIFIC"
+          },
+          "durationDays": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30,
+            "example": 2
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "UPCOMING",
+              "COMPLETED",
+              "CANCELLED"
+            ],
+            "example": "UPCOMING"
           }
         },
         "required": [
@@ -10926,12 +11211,14 @@
           "startDate": {
             "type": "string",
             "example": "2026-12-01",
-            "format": "date"
+            "format": "date",
+            "nullable": true
           },
           "endDate": {
             "type": "string",
             "example": "2026-12-02",
-            "format": "date"
+            "format": "date",
+            "nullable": true
           },
           "budgetVnd": {
             "type": "string",
@@ -10940,16 +11227,44 @@
             "maxLength": 19,
             "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes.",
             "nullable": true
+          },
+          "dateMode": {
+            "type": "string",
+            "enum": [
+              "SPECIFIC",
+              "FLEXIBLE"
+            ],
+            "example": "SPECIFIC"
+          },
+          "durationDays": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30,
+            "example": 2
+          },
+          "clientRequestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItineraryDayInput"
+            },
+            "minItems": 1,
+            "maxItems": 30
           }
         },
         "required": [
           "title",
           "cityCode",
-          "startDate",
-          "endDate"
+          "dateMode",
+          "durationDays",
+          "clientRequestId",
+          "days"
         ],
         "additionalProperties": false,
-        "description": "description và budgetVnd thiếu được lưu null; ngày bao gồm cả đầu/cuối, tổng 1–5."
+        "description": "Tạo chuyến/owner/lịch nguyên tử. SPECIFIC cần ngày hợp lệ và khớp durationDays; FLEXIBLE cần ngày null. clientRequestId theo user: cùng nội dung trả cùng chuyến; khác nội dung 409 IDEMPOTENCY_CONFLICT."
       },
       "UpdateTrip": {
         "type": "object",
@@ -10982,12 +11297,14 @@
           "startDate": {
             "type": "string",
             "example": "2026-12-01",
-            "format": "date"
+            "format": "date",
+            "nullable": true
           },
           "endDate": {
             "type": "string",
             "example": "2026-12-02",
-            "format": "date"
+            "format": "date",
+            "nullable": true
           },
           "budgetVnd": {
             "type": "string",
@@ -10996,6 +11313,29 @@
             "maxLength": 19,
             "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes.",
             "nullable": true
+          },
+          "dateMode": {
+            "type": "string",
+            "enum": [
+              "SPECIFIC",
+              "FLEXIBLE"
+            ],
+            "example": "SPECIFIC"
+          },
+          "durationDays": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30,
+            "example": 2
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "UPCOMING",
+              "CANCELLED"
+            ],
+            "example": "UPCOMING",
+            "description": "CANCELLED hủy; UPCOMING khôi phục và tính lại trạng thái từ tiến độ. Không đặt COMPLETED trực tiếp."
           }
         },
         "required": [
@@ -11003,7 +11343,7 @@
         ],
         "additionalProperties": false,
         "minProperties": 2,
-        "description": "Thiếu = giữ nguyên; null chỉ xóa description/budgetVnd. Đổi ngày tăng cả hai version. Nếu đổi ngày phải kiểm tra lịch dưới cùng khóa; có ngày bị cắt còn mục thì 409 DAYS_NOT_EMPTY. Đổi thành phố có PLACE/saved places thì 409 CITY_HAS_PLACES."
+        "description": "Owner sửa; thiếu giữ nguyên. FLEXIBLE dùng ngày null. Giảm ngày có mục trả 409 DAYS_NOT_EMPTY. CANCELLED cần khôi phục trước khi sửa. Đổi ngày tăng hai version."
       },
       "Member": {
         "type": "object",
@@ -11340,7 +11680,10 @@
             "type": "string",
             "example": "GOOGLE",
             "enum": [
-              "GOOGLE"
+              "GOOGLE",
+              "OSM",
+              "CATALOG",
+              "MANUAL"
             ]
           },
           "providerPlaceId": {
@@ -11509,12 +11852,16 @@
             "nullable": true
           },
           "startTime": {
-            "$ref": "#/components/schemas/LocalTime"
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "nullable": true,
+            "example": "09:00"
           },
           "endTime": {
             "type": "string",
-            "example": "10:30",
-            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "nullable": true,
+            "example": "10:30"
           },
           "note": {
             "type": "string",
@@ -11529,19 +11876,63 @@
             "maxLength": 19,
             "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes.",
             "nullable": true
+          },
+          "placeSnapshot": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "provider": {
+                "type": "string",
+                "enum": [
+                  "OSM",
+                  "CATALOG",
+                  "MANUAL"
+                ]
+              },
+              "providerPlaceId": {
+                "type": "string",
+                "maxLength": 200,
+                "nullable": true
+              },
+              "lat": {
+                "type": "number",
+                "minimum": -90,
+                "maximum": 90,
+                "nullable": true
+              },
+              "lng": {
+                "type": "number",
+                "minimum": -180,
+                "maximum": 180,
+                "nullable": true
+              },
+              "address": {
+                "type": "string",
+                "maxLength": 500,
+                "nullable": true
+              }
+            },
+            "required": [
+              "name",
+              "provider"
+            ]
           }
         },
         "required": [
           "kind",
           "placeId",
           "customTitle",
-          "startTime",
-          "endTime",
           "note",
           "estimatedCostVnd"
         ],
         "additionalProperties": false,
-        "description": "id có mặt chỉ khi giữ mục hiện có của chính lịch này; mục mới bỏ id. PLACE cần placeId; NOTE cần placeId=null và customTitle không trắng. estimatedCostVnd=null -> UNKNOWN, giá do user nhập -> USER. Array order quyết định position."
+        "description": "Mục mới bỏ id; id cũ phải thuộc lịch. PLACE cần placeId hoặc placeSnapshot; NOTE cần customTitle. Snapshot MANUAL/CATALOG/OSM được lưu cùng lịch. Giờ nullable, end > start khi đủ hai mốc."
       },
       "ItineraryDayInput": {
         "type": "object",
@@ -11550,7 +11941,7 @@
             "type": "integer",
             "example": 1,
             "minimum": 1,
-            "maximum": 5
+            "maximum": 30
           },
           "transportMode": {
             "type": "string",
@@ -11598,7 +11989,7 @@
               "$ref": "#/components/schemas/ItineraryDayInput"
             },
             "minItems": 1,
-            "maxItems": 5
+            "maxItems": 30
           }
         },
         "required": [
@@ -11606,7 +11997,7 @@
           "days"
         ],
         "additionalProperties": false,
-        "description": "Gửi toàn bộ ngày/mục, kể cả ngày rỗng. Mục bị bỏ khỏi payload bị xóa trong transaction. Ngày phải đủ 1..duration; tối đa 50 mục/ngày; giờ tăng và không chồng lấn. Backend giữ origin của mục cũ, mục mới MANUAL.",
+        "description": "Thay toàn lịch nguyên tử; đủ 1..duration, tối đa 50 mục/ngày. Array order quyết định position. Giữ origin và status mục cũ; mục mới MANUAL/PENDING. Không ghi đè khi version cũ.",
         "example": {
           "expectedVersion": "0",
           "days": [
@@ -11666,12 +12057,16 @@
             "nullable": true
           },
           "startTime": {
-            "$ref": "#/components/schemas/LocalTime"
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "nullable": true,
+            "example": "09:00"
           },
           "endTime": {
             "type": "string",
-            "example": "10:30",
-            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "nullable": true,
+            "example": "10:30"
           },
           "note": {
             "type": "string",
@@ -11708,6 +12103,20 @@
               "MANUAL",
               "AI"
             ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "ACTIVE",
+              "COMPLETED"
+            ],
+            "example": "PENDING"
+          },
+          "placeSnapshot": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true
           }
         },
         "required": [
@@ -11737,12 +12146,13 @@
             "type": "integer",
             "example": 1,
             "minimum": 1,
-            "maximum": 5
+            "maximum": 30
           },
           "date": {
             "type": "string",
             "example": "2026-12-01",
-            "format": "date"
+            "format": "date",
+            "nullable": true
           },
           "transportMode": {
             "type": "string",
@@ -11811,7 +12221,7 @@
               "$ref": "#/components/schemas/ItineraryDay"
             },
             "minItems": 1,
-            "maxItems": 5
+            "maxItems": 30
           },
           "updatedBy": {
             "type": "string",
@@ -15618,11 +16028,12 @@
           "dayNumber": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 5
+            "maximum": 30
           },
           "date": {
             "type": "string",
-            "format": "date"
+            "format": "date",
+            "nullable": true
           },
           "transportMode": {
             "type": "string",
@@ -15678,11 +16089,13 @@
           },
           "startDate": {
             "type": "string",
-            "format": "date"
+            "format": "date",
+            "nullable": true
           },
           "endDate": {
             "type": "string",
-            "format": "date"
+            "format": "date",
+            "nullable": true
           },
           "budgetVnd": {
             "type": "string",
@@ -15973,7 +16386,7 @@
           }
         }
       },
-        "EventGroupMessageCreated": {
+      "EventGroupMessageCreated": {
         "type": "object",
         "properties": {
           "eventId": {
@@ -16014,7 +16427,7 @@
         ],
         "additionalProperties": false
       },
-        "EventGroupReadUpdated": {
+      "EventGroupReadUpdated": {
         "type": "object",
         "properties": {
           "eventId": {
@@ -16055,7 +16468,7 @@
         ],
         "additionalProperties": false
       },
-        "EventGroupChanged": {
+      "EventGroupChanged": {
         "type": "object",
         "properties": {
           "eventId": {
@@ -16107,7 +16520,7 @@
         ],
         "additionalProperties": false
       },
-        "EventGroupAccessRevoked": {
+      "EventGroupAccessRevoked": {
         "type": "object",
         "properties": {
           "eventId": {
@@ -16240,6 +16653,28 @@
           "data"
         ],
         "additionalProperties": false
+      },
+      "UpdateItineraryItemStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expectedVersion",
+          "status"
+        ],
+        "properties": {
+          "expectedVersion": {
+            "$ref": "#/components/schemas/UInt64String"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "ACTIVE",
+              "COMPLETED"
+            ],
+            "example": "PENDING"
+          }
+        }
       }
     },
     "responses": {
@@ -17359,7 +17794,7 @@
           }
         }
       },
-        "group.message.created": {
+      "group.message.created": {
         "destination": "/user/queue/events",
         "schema": {
           "$ref": "#/components/schemas/EventGroupMessageCreated"
@@ -17384,7 +17819,7 @@
           }
         }
       },
-        "group.read.updated": {
+      "group.read.updated": {
         "destination": "/user/queue/events",
         "schema": {
           "$ref": "#/components/schemas/EventGroupReadUpdated"
@@ -17401,7 +17836,7 @@
           }
         }
       },
-        "group.changed": {
+      "group.changed": {
         "destination": "/user/queue/events",
         "schema": {
           "$ref": "#/components/schemas/EventGroupChanged"
@@ -17416,7 +17851,7 @@
           }
         }
       },
-        "group.access.revoked": {
+      "group.access.revoked": {
         "destination": "/user/queue/events",
         "schema": {
           "$ref": "#/components/schemas/EventGroupAccessRevoked"

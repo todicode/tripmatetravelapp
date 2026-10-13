@@ -8,8 +8,8 @@ export type GroupConversation = {
   canSend: boolean; archived: boolean; createdAt: string; updatedAt: string;
 };
 export type GroupMember = { user: UserSummary; role: 'OWNER' | 'MEMBER'; lastReadSeq: string; joinedAt: string };
-export type SharedTrip = { id: string; title: string; description: string | null; cityName: string; startDate: string; endDate: string;
-  itinerary: { days: { dayNumber: number; date: string; items: { id: string; title: string; startTime: string | null; endTime: string | null; note: string | null }[] }[] } | null };
+export type SharedTrip = { id: string; title: string; description: string | null; cityName: string; startDate: string | null; endDate: string | null;
+  itinerary: { days: { dayNumber: number; date: string | null; items: { id: string; title: string; startTime: string | null; endTime: string | null; note: string | null }[] }[] } | null };
 export function createGroupMessageApi(request: AuthorizedRequest) {
   const path = (id: string) => `/group-conversations/${encodeURIComponent(id)}`;
   return {

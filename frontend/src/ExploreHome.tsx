@@ -1,3 +1,4 @@
+import { TripProvider, useTrips } from './trips/TripProvider';
 import { useHomeViewModel } from './useHomeViewModel';
 import React from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
@@ -15,16 +16,17 @@ import ScreenTransition from './theme/ScreenTransition';
 import { useProfileState } from './profile/ProfileProvider';
 import { AuthorizedRequest, RealtimeCredentials } from './auth/session';
 
-export default function ExploreHome({ onLogout, onChangePassword, request, realtimeCredentials }: { onLogout: () => void; onChangePassword: (currentPassword: string, newPassword: string) => Promise<void>; request: AuthorizedRequest; realtimeCredentials: RealtimeCredentials }) {
+function HomeContent({ onLogout, onChangePassword, request, realtimeCredentials }: { onLogout: () => void; onChangePassword: (currentPassword: string, newPassword: string) => Promise<void>; request: AuthorizedRequest; realtimeCredentials: RealtimeCredentials }) {
   const { user } = useProfileState();
   const { c, s } = useTripUi();
   const toast = useToast();
-  const { tab, setTab, trips, setTrips, lists, route, setRoute, menu, setMenu, exploreAction, setExploreAction, profileDetail, setProfileDetail, chat, openCreate, changeLists, savePlace } = useHomeViewModel({ user, notify: toast, request, realtimeCredentials });
-  if (route?.kind === 'create') return <ScreenTransition key="create" duration={320} slide><TripSetupScreen initialCityKey={route.cityKey} lists={lists} onBack={() => setRoute(null)} onSave={trip => { setTrips(current => [trip, ...current]); setTab('trips'); setRoute({ kind: 'trip', id: trip.id }); }} /></ScreenTransition>;
+  const { tab, setTab, trips, lists, route, setRoute, menu, setMenu, exploreAction, setExploreAction, profileDetail, setProfileDetail, chat, openCreate, changeLists, savePlace } = useHomeViewModel({ user, notify: toast, request, realtimeCredentials });
+  const tripSession = useTrips();
+  if (route?.kind === 'create') return <ScreenTransition key="create" duration={320} slide><TripSetupScreen initialCityKey={route.cityKey} lists={lists} onBack={() => setRoute(null)} onRetrySave={async () => { const saved = await tripSession.retryCreate(); setTab('trips'); setRoute({ kind: 'trip', id: saved.id }); }} onSave={async trip => { const saved = await tripSession.create(trip); setTab('trips'); setRoute({ kind: 'trip', id: saved.id }); }} /></ScreenTransition>;
   if (route?.kind === 'trip') {
     const trip = trips.find(item => item.id === route.id);
     if (trip) {
-      return <ScreenTransition key={trip.id} duration={320} slide><TrackTripScreen onSavePlace={savePlace} trip={trip} companions={chat.friends} onBack={() => setRoute(null)} onUpdate={updated => setTrips(current => current.map(item => item.id === updated.id ? updated : item))} /></ScreenTransition>;
+      return <ScreenTransition key={trip.id} duration={320} slide><TrackTripScreen onSavePlace={savePlace} trip={trip} companions={chat.friends} onBack={() => setRoute(null)} /></ScreenTransition>;
     }
   }
   const hideTabs = (tab === 'chat' && chat.routes.length > 0) || (tab === 'profile' && profileDetail);
@@ -37,4 +39,9 @@ export default function ExploreHome({ onLogout, onChangePassword, request, realt
     </View>}
     <CreateMenu visible={menu} onClose={() => setMenu(false)} onTrip={() => openCreate()} onList={() => { setMenu(false); setTab('explore'); setExploreAction('list'); }} onPlace={() => { setMenu(false); setTab('explore'); setExploreAction('place'); }} />
   </View>;
+}
+
+export default function ExploreHome(props: React.ComponentProps<typeof HomeContent>) {
+  const { user } = useProfileState();
+  return <TripProvider key={user.id} request={props.request} userId={user.id}><HomeContent {...props} /></TripProvider>;
 }

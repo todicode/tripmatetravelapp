@@ -162,3 +162,7 @@ Create an OAuth web client in the same Google Cloud project as the mobile creden
 - Auth endpoints have a per-instance in-memory rate limit (`10` general requests or `5` OTP requests per minute per remote address). Replace it with a shared store such as Redis before running multiple backend instances.
 - Google-created users initially have `phone: null`. The app requires a phone before entering its main interface; authenticated `PATCH /users/me` accepts `phone` only while it is missing (repeating the same value is safe). This records a number but does not verify ownership by SMS.
 - The local logging email sender is a development adapter. Configure SMTP and a verified Resend sender before integration testing real email delivery.
+
+## Chuyến đi và lịch trình thủ công
+
+Luồng chuyến đi đã dùng API và PostgreSQL, hỗ trợ ngày linh hoạt/cụ thể, chỉnh lịch và tiến độ. Xem [kế hoạch và trạng thái](../docs/api/TRIP_IMPLEMENTATION_PLAN.md) và [hướng dẫn test API/UI](../docs/api/TRIP_TESTING.md). Các thao tác Android chính đã được kiểm thử; các ca còn lại ghi trong biên bản TRIP_ANDROID_ACCEPTANCE.md.
