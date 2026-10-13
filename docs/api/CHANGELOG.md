@@ -1,5 +1,64 @@
 # Contract changelog
 
+## 1.7.0 - 2026-10-11
+
+- Implemented persisted manual trips and itineraries: specific/flexible dates, 1–30 days, atomic creation with clientRequestId, optimistic versions, progress, cancel/restore and soft deletion.
+- Added V10 migration, supported destination catalog, Photon search and manual place snapshots with nullable coordinates/times. Shared trip DTOs accept flexible dates; deleted trips are unavailable through groups. Chat transport is unchanged.
+- Connected frontend creation, editing and progress to server APIs; preserve drafts on errors/conflicts and safely retry uncertain creation. Deferred features display Sắp có.
+- Automated PostgreSQL, frontend and contract checks pass; native Android acceptance remains pending because the local AVD is missing kernel-ranchu. See [implementation plan](TRIP_IMPLEMENTATION_PLAN.md) and [test guide](TRIP_TESTING.md).
+
+## 1.5.1 - 2026-10-11
+
+- Added group message, own read marker, group change and access revocation events on the existing authenticated `/user/queue/events` STOMP subscription. REST endpoints and schema migrations remain unchanged.
+- Publish after commit, skip duplicate sends, and check current group membership at publication and outbound delivery. Removed members receive only an ID-only revocation; rollback and broker failure preserve REST semantics.
+- Frontend shares one socket with direct messaging, receives group messages immediately, clears revoked history and catches up through REST after reconnect. Polling remains a fallback when the socket is unavailable.
+
+## 1.5.0 - 2026-10-05
+
+- Added 14 authenticated REST operations at `/group-conversations` for independent groups, owner management, membership, text messages/read markers and a read-only linked trip view. Existing `/trips/{tripId}/messages` remains planned and is not this group's storage.
+- Optional trip links are checked against the group owner's undeleted server trip; unlinking or transferring ownership retains chat history. Transfer clears the previous owner's link. Viewing through a group does not grant trip membership/edit rights. V8 prepares the planned trip/itinerary schema; trip create/edit APIs and frontend-only trip IDs are not implemented by this slice.
+- V9 adds group/membership/message tables, unique sender retry/sequence constraints and indexes. Group locks serialize writes, membership revocation, capacity and read markers. Management version and chat sequence are independent bigint strings.
+- Owners directly add current friends (max 100 active including owner), remove members, transfer ownership or archive. Members may leave; departed/removed users lose history and linked-trip access. Archived groups retain readable history for active members. REST-only implementation; group UI, WebSocket, avatars, attachments and push remain separate features.
+- Added service/controller tests and PostgreSQL acceptance tests for permissions, retries, concurrent sends/adds, paging, unread state, trip sharing, rejoin and archive. See `GROUP_MESSAGING.md` for the dedicated test database instructions.
+
+## 1.4.2 - 2026-10-05
+
+- Added `GET /direct-conversations/presence` and `direct.presence.updated` on the existing private queue. Only existing conversation peers are exposed; no arbitrary user status lookup.
+- Presence combines authenticated foreground connections across devices. The last disconnect has a 10-second grace period after transport loss is detected. State is ephemeral and limited to one backend; reconnect and 30-second REST snapshots reconcile missed updates.
+- Personal chat shows an accessible green dot beside avatars and an active label in the header. Group chat and durable last-seen history are outside this change.
+
+## 1.4.1 - 2026-10-03
+
+- Implemented authenticated STOMP 1.2 over native WebSocket at `/ws`. Only `/user/queue/events` is currently subscribable; business SEND and other destinations are rejected. Token expiry, account status and device binding are rechecked before delivery.
+- Added `direct.message.created` and `direct.read.updated` payload schemas. Events reach both participants after transaction commit; retries/no-op reads do not produce extra events. REST remains authoritative for writes and recovery.
+- Frontend subscribes before catch-up, buffers live events, deduplicates messages and reconnects with backoff. Polling remains a fallback and periodic reconciliation. Broker delivery currently requires a single backend instance; group/push/Redis bridging are outside this slice.
+
+## 1.4.0 - 2026-10-03
+
+- Added five authenticated REST operations for direct text messaging: open/list conversations, send/list messages, and update the caller's read sequence. Frontend integration, WebSocket, push and attachments are outside this implementation slice.
+- Only current friends may open a conversation or send; unfriend retains participant access to history and read markers. One canonical conversation per pair, contiguous per-conversation sequences and sender-scoped `clientMessageId` retries are transaction protected.
+- New `DirectConversation`, `DirectMessage`, page, read and request schemas. Bigint sequence/read/unread values are strings; text is preserved exactly and limited to 4,000 Unicode code points. Conversation lists use signed actor-bound keyset cursors; message pages use exclusive `beforeSeq`/`afterSeq` and return ascending sequences.
+- Flyway V7 adds `direct_conversations` and `direct_messages` without altering identity/social data. Examples and database acceptance instructions: `DIRECT_MESSAGING.md`.
+
+## Interests implementation - 2026-10-02
+
+- Implemented authenticated GET `/interests` and profile `interestCodes` persistence. No wire schema change: the list is unique, has at most 50 codes, omission preserves selections, and `[]` clears them. Null, unknown codes and invalid shapes return 422 atomically with other profile changes.
+- Flyway V4 creates `interests` and `user_interests`, seeded with FOOD, NATURE, CULTURE, HIGHLIGHTS, MUSEUMS, HISTORY and SHOPPING. Frontend reads labels/codes from the catalog API. Trip setup's existing local preferences remain separate until the trip implementation slice.
+- Implementation and acceptance checklist: `INTEREST_IMPLEMENTATION_PLAN.md`.
+
+## 1.3.1 - 2026-10-01
+
+- Added the avatar implementation slice: multipart upload, protected metadata/content/thumbnail, orphan deletion and atomic profile avatar attachment/removal. CHAT and friend/trip visibility remain unimplemented; avatar access currently requires ownership.
+- Avatar images accept JPEG/PNG/WebP up to 10,000,000 bytes and 40,000,000 pixels, then normalize to square JPEG up to 1024px and a thumbnail up to 256px. Response MIME and dimensions describe the normalized object.
+- Media content/thumbnail operations document `503 SERVICE_UNAVAILABLE` for storage failures. Public wire schemas otherwise remain unchanged.
+- Flyway V3 introduces avatar media metadata, ownership FK and global quota reservation. R2 remains private; storage configuration and manual acceptance steps are in `R2_AVATAR_SETUP.md`.
+
+## Auth completion - 2026-09-30
+
+- Registration, password reset and password change enforce the BCrypt limit of 72 UTF-8 bytes in addition to 8–128 characters. Oversized new passwords return `422 PASSWORD_TOO_LONG` before hashing or consuming an OTP; oversized login passwords return `401 INVALID_CREDENTIALS`.
+- Mobile remembers refresh credentials in SecureStore when requested, restores sessions, shares concurrent refresh requests and retries protected requests at most once after `401`. The current backend emits `UNAUTHORIZED` for expired or invalid access tokens, so the client supports this code as well as token-expiry responses. Refresh failure with `401` clears the session; transient failures remain retryable.
+- Registration/reset resend controls now respect `resendAvailableAt` and server retry windows. No new endpoint or database migration.
+
 ## Documentation corrections - 2026-09-27
 
 - Added the missing request example for `POST /auth/change-password` so the mock contract suite can exercise its existing schema. No endpoint or wire schema changed.

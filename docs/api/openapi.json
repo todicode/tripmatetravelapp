@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "TripMate API Contract",
-    "version": "1.3.0",
-    "description": "Contract-first TripMate API for the Spring backend and mobile React Native client. Version 1.3.0 adds email OTP password reset. This JSON is the canonical wire format; examples use fixture data. Rules: docs/api/TEAM_RULES.md. Realtime: x-realtime. Bigint values are sent as strings."
+    "version": "1.7.0",
+    "description": "Contract-first TripMate API for the Spring backend and mobile React Native client. Version 1.5.1 adds authenticated group realtime events on the same private STOMP queue as personal chat. Independent group REST operations, membership and owner-verified read-only trip sharing are unchanged. This JSON is the canonical wire format; examples use fixture data. Rules: docs/api/TEAM_RULES.md. Realtime: x-realtime. Bigint values are sent as strings."
   },
   "servers": [
     {
@@ -60,6 +60,9 @@
     },
     {
       "name": "Location"
+    },
+    {
+      "name": "Direct messaging"
     }
   ],
   "security": [
@@ -931,6 +934,9 @@
           "404": {
             "$ref": "#/components/responses/Error404"
           },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
           "429": {
             "$ref": "#/components/responses/Error429"
           },
@@ -951,6 +957,89 @@
               "pattern": "\\S"
             },
             "description": "friendCode"
+          }
+        ]
+      }
+    },
+    "/users/lookup-by-phone": {
+      "get": {
+        "tags": [
+          "Friends"
+        ],
+        "operationId": "lookupUserByPhone",
+        "summary": "Look up a limited profile by phone number",
+        "description": "Authenticated exact lookup using a normalized phone number. Spaces, dashes and parentheses are ignored; Vietnamese +84 and leading 0 are equivalent. Returns no email or phone. One normalized phone belongs to at most one account. Lookup uses the configured per-user rate limit (10 requests per minute by default).",
+        "x-permission": "AUTHENTICATED",
+        "responses": {
+          "200": {
+            "description": "Limited profile matching the phone number",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserLookupResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "user": {
+                          "id": "00000000-0000-4000-8000-000000000001",
+                          "displayName": "Nguyễn An",
+                          "avatarMediaId": null
+                        },
+                        "relationship": "NONE",
+                        "pendingRequestId": null
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "phone",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "+84901234567",
+              "minLength": 7,
+              "maxLength": 32
+            },
+            "description": "Phone number to look up"
           }
         ]
       }
@@ -1092,7 +1181,7 @@
         ],
         "operationId": "listFriends",
         "summary": "Danh sách bạn bè",
-        "description": "Cursor thứ tự createdAt DESC, user.id DESC.",
+        "description": "List friendships ordered by creation time descending. The opaque cursor is tied to the requested limit; changes between pages can shift offset-based results.",
         "x-permission": "AUTHENTICATED",
         "responses": {
           "200": {
@@ -1259,7 +1348,7 @@
         ],
         "operationId": "listFriendRequests",
         "summary": "Lời mời kết bạn gửi/nhận",
-        "description": "Lời mời kết bạn gửi/nhận",
+        "description": "List incoming or outgoing requests by status, newest first. The opaque cursor is tied to the requested limit; changes between pages can shift offset-based results.",
         "x-permission": "AUTHENTICATED",
         "responses": {
           "200": {
@@ -1297,7 +1386,8 @@
                             },
                             "status": "PENDING",
                             "createdAt": "2026-09-17T03:00:00Z",
-                            "resolvedAt": null
+                            "resolvedAt": null,
+                            "message": "Chao ban, minh ket ban nhe!"
                           }
                         ],
                         "pageInfo": {
@@ -1408,7 +1498,7 @@
         ],
         "operationId": "createFriendRequest",
         "summary": "Gửi hoặc lấy lời mời/quan hệ đã có",
-        "description": "Luôn 200: PENDING kèm request đang chờ ở bất kỳ chiều nào, hoặc ALREADY_FRIENDS kèm friendship. Không tự chấp nhận lời mời ngược chiều. Tự mời mình -> 422 SELF_FRIEND_REQUEST.",
+        "description": "Send a friend request with an optional message (maximum 500 characters). Always 200: return an existing pending request in either direction or an existing friendship. A reverse request does not auto-accept. Sending to self returns 422 SELF_FRIEND_REQUEST.",
         "x-permission": "AUTHENTICATED",
         "responses": {
           "200": {
@@ -1446,7 +1536,8 @@
                           },
                           "status": "PENDING",
                           "createdAt": "2026-09-17T03:00:00Z",
-                          "resolvedAt": null
+                          "resolvedAt": null,
+                          "message": "Chao ban, minh ket ban nhe!"
                         }
                       },
                       "requestId": "00000000-0000-4000-8000-000000000090"
@@ -1491,7 +1582,8 @@
               "examples": {
                 "default": {
                   "value": {
-                    "recipientId": "00000000-0000-4000-8000-000000000003"
+                    "recipientId": "00000000-0000-4000-8000-000000000003",
+                    "message": "Chao ban, minh ket ban nhe!"
                   }
                 }
               }
@@ -1543,7 +1635,8 @@
                         },
                         "status": "ACCEPTED",
                         "createdAt": "2026-09-17T03:00:00Z",
-                        "resolvedAt": "2026-09-17T03:00:00Z"
+                        "resolvedAt": "2026-09-17T03:00:00Z",
+                        "message": "Chao ban, minh ket ban nhe!"
                       },
                       "requestId": "00000000-0000-4000-8000-000000000090"
                     }
@@ -1628,7 +1721,8 @@
                         },
                         "status": "REJECTED",
                         "createdAt": "2026-09-17T03:00:00Z",
-                        "resolvedAt": "2026-09-17T03:00:00Z"
+                        "resolvedAt": "2026-09-17T03:00:00Z",
+                        "message": "Chao ban, minh ket ban nhe!"
                       },
                       "requestId": "00000000-0000-4000-8000-000000000090"
                     }
@@ -1713,7 +1807,8 @@
                         },
                         "status": "CANCELLED",
                         "createdAt": "2026-09-17T03:00:00Z",
-                        "resolvedAt": "2026-09-17T03:00:00Z"
+                        "resolvedAt": "2026-09-17T03:00:00Z",
+                        "message": "Chao ban, minh ket ban nhe!"
                       },
                       "requestId": "00000000-0000-4000-8000-000000000090"
                     }
@@ -1888,7 +1983,7 @@
         ],
         "operationId": "createTrip",
         "summary": "Tạo chuyến, owner và lịch rỗng",
-        "description": "Cùng transaction tạo owner ACTIVE và đủ 1–5 ngày lịch rỗng; tối đa 10 thành viên gồm owner. Không tự retry POST nếu timeout không rõ đã commit.",
+        "description": "Tạo chuyến/owner/lịch nguyên tử. SPECIFIC cần ngày hợp lệ và khớp durationDays; FLEXIBLE cần ngày null. clientRequestId theo user: cùng nội dung trả cùng chuyến; khác nội dung 409 IDEMPOTENCY_CONFLICT.",
         "x-permission": "AUTHENTICATED",
         "responses": {
           "201": {
@@ -1964,6 +2059,9 @@
           },
           "415": {
             "$ref": "#/components/responses/Error415"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
           }
         },
         "requestBody": {
@@ -1979,7 +2077,73 @@
                     "title": "Chuyến đi Đà Nẵng",
                     "cityCode": "DANANG",
                     "startDate": "2026-12-01",
-                    "endDate": "2026-12-02"
+                    "endDate": "2026-12-02",
+                    "dateMode": "SPECIFIC",
+                    "durationDays": 2,
+                    "clientRequestId": "00000000-0000-4000-8000-000000000091",
+                    "days": [
+                      {
+                        "dayNumber": 1,
+                        "transportMode": "WALK",
+                        "note": null,
+                        "items": [
+                          {
+                            "kind": "PLACE",
+                            "placeId": "00000000-0000-4000-8000-000000000020",
+                            "customTitle": null,
+                            "startTime": "09:00",
+                            "endTime": "10:30",
+                            "note": null,
+                            "estimatedCostVnd": null
+                          }
+                        ]
+                      },
+                      {
+                        "dayNumber": 2,
+                        "transportMode": "WALK",
+                        "note": null,
+                        "items": []
+                      }
+                    ]
+                  }
+                },
+                "flexible": {
+                  "value": {
+                    "title": "Chuyến đi Đà Nẵng",
+                    "cityCode": "DANANG",
+                    "startDate": null,
+                    "endDate": null,
+                    "dateMode": "FLEXIBLE",
+                    "durationDays": 2,
+                    "clientRequestId": "00000000-0000-4000-8000-000000000092",
+                    "days": [
+                      {
+                        "dayNumber": 1,
+                        "transportMode": "WALK",
+                        "note": null,
+                        "items": [
+                          {
+                            "kind": "PLACE",
+                            "placeId": null,
+                            "customTitle": "Điểm nhập tay",
+                            "startTime": null,
+                            "endTime": null,
+                            "note": null,
+                            "estimatedCostVnd": null,
+                            "placeSnapshot": {
+                              "name": "Điểm nhập tay",
+                              "provider": "MANUAL"
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "dayNumber": 2,
+                        "transportMode": "WALK",
+                        "note": null,
+                        "items": []
+                      }
+                    ]
                   }
                 }
               }
@@ -2040,6 +2204,38 @@
                         "phase": "UPCOMING",
                         "createdAt": "2026-09-17T03:00:00Z",
                         "updatedAt": "2026-09-17T03:00:00Z"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  },
+                  "flexible": {
+                    "value": {
+                      "data": {
+                        "id": "00000000-0000-4000-8000-000000000010",
+                        "ownerId": "00000000-0000-4000-8000-000000000001",
+                        "title": "Chuyến đi Đà Nẵng",
+                        "description": "Ghi chú của nhóm",
+                        "city": {
+                          "code": "DANANG",
+                          "name": "Đà Nẵng",
+                          "countryCode": "VN",
+                          "timezone": "Asia/Ho_Chi_Minh"
+                        },
+                        "startDate": null,
+                        "endDate": null,
+                        "budgetVnd": "5000000",
+                        "timezone": "Asia/Ho_Chi_Minh",
+                        "version": "0",
+                        "itineraryVersion": "0",
+                        "lastChatSeq": "1",
+                        "memberCount": 2,
+                        "myRole": "OWNER",
+                        "phase": "UNSCHEDULED",
+                        "createdAt": "2026-09-17T03:00:00Z",
+                        "updatedAt": "2026-09-17T03:00:00Z",
+                        "dateMode": "FLEXIBLE",
+                        "durationDays": 2,
+                        "status": "UPCOMING"
                       },
                       "requestId": "00000000-0000-4000-8000-000000000090"
                     }
@@ -3714,7 +3910,7 @@
         ],
         "operationId": "searchPlaces",
         "summary": "Tìm địa điểm trong thành phố",
-        "description": "Backend trả/tạo UUID nội bộ và lấy thông tin provider. Cursor opaque gắn bộ lọc; adapter giữ page token, không lộ token/key provider.",
+        "description": "Photon/OSM, biais theo điểm đến hỗ trợ. Tối đa 20 kết quả; không hỗ trợ cursor. 503 PLACES_UNAVAILABLE khi provider lỗi; vẫn cho nhập thủ công.",
         "x-permission": "AUTHENTICATED",
         "responses": {
           "200": {
@@ -3824,8 +4020,8 @@
               "type": "integer",
               "example": 20,
               "minimum": 1,
-              "maximum": 100,
-              "default": 20
+              "maximum": 20,
+              "default": 5
             },
             "description": "limit"
           },
@@ -5554,7 +5750,7 @@
         ],
         "operationId": "uploadMedia",
         "summary": "Upload một ảnh/PDF qua backend",
-        "description": "Upload đồng bộ, 201 chỉ khi READY. Không gửi binary/base64 trong JSON; multipart boundary do HTTP client tạo. Backend stream vào R2 riêng tư, validate magic bytes, chuẩn hóa ảnh, reserve quota 2.000.000.000 byte tính cả thumbnail/PENDING. Không trả object key/signed URL. Timeout upload: không tự giả định đã có mediaId.",
+        "description": "Upload đồng bộ, 201 chỉ khi READY. Không gửi binary/base64 trong JSON; multipart boundary do HTTP client tạo. Backend stream vào R2 riêng tư, validate magic bytes, chuẩn hóa ảnh, reserve quota 2.000.000.000 byte tính cả thumbnail/PENDING. Không trả object key/signed URL. Timeout upload: không tự giả định đã có mediaId. AVATAR: ảnh đầu vào tối đa 40.000.000 pixel; chuẩn hóa JPEG vuông tối đa 1024x1024, thumbnail tối đa 256x256 và loại bỏ metadata. MIME trong response là định dạng đã chuẩn hóa.",
         "x-permission": "AUTHENTICATED",
         "responses": {
           "201": {
@@ -5939,6 +6135,9 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "parameters": [
@@ -6042,6 +6241,9 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "parameters": [
@@ -7552,6 +7754,2454 @@
           }
         }
       }
+    },
+    "/direct-conversations/presence": {
+      "get": {
+        "tags": [
+          "Direct messaging"
+        ],
+        "operationId": "getDirectPresence",
+        "summary": "Get online status of direct conversation peers",
+        "description": "Authenticated foreground STOMP sessions, across devices on one backend. Last disconnect has a 10-second grace period after heartbeat/transport detects loss. Ephemeral status; no last-seen persistence. Reconcile on reconnect and every 30 seconds. No arbitrary user lookup.",
+        "x-permission": "AUTHENTICATED; only existing direct conversation peers",
+        "responses": {
+          "200": {
+            "description": "Peer presence snapshot",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectPresenceResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": [
+                        {
+                          "userId": "00000000-0000-4000-8000-000000000002",
+                          "online": true
+                        }
+                      ],
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        }
+      }
+    },
+    "/group-conversations": {
+      "post": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "createGroupConversation",
+        "summary": "Create an independent group",
+        "description": "Creator becomes owner. Optional tripId must refer to the creator's undeleted owned trip. memberIds may be empty, otherwise unique current friends of creator; max 100 active including owner. Each POST creates a new group. Text-only REST slice; no group avatar/media/realtime yet.",
+        "x-permission": "AUTHENTICATED; creator; selected members must be current friends",
+        "responses": {
+          "201": {
+            "description": "Create an independent group",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupConversationResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "id": "00000000-0000-4000-8000-000000000180",
+                        "name": "Travel friends",
+                        "ownerId": "00000000-0000-4000-8000-000000000001",
+                        "tripId": null,
+                        "version": "0",
+                        "memberCount": 2,
+                        "lastMessage": null,
+                        "lastSeq": "0",
+                        "lastReadSeq": "0",
+                        "unreadCount": "0",
+                        "archived": false,
+                        "canSend": true,
+                        "createdAt": "2026-10-05T00:00:00Z",
+                        "updatedAt": "2026-10-05T00:00:00Z"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGroupConversation"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "name": "Travel friends",
+                    "memberIds": [
+                      "00000000-0000-4000-8000-000000000002"
+                    ],
+                    "tripId": null
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "listGroupConversations",
+        "summary": "List joined groups",
+        "description": "Only active memberships, including archived groups. updatedAt DESC, id DESC. Signed actor/limit/group-scope keyset cursor. Last message and incoming unread count included.",
+        "x-permission": "AUTHENTICATED ACTIVE group member",
+        "responses": {
+          "200": {
+            "description": "List joined groups",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupConversationPageResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "items": [
+                          {
+                            "id": "00000000-0000-4000-8000-000000000180",
+                            "name": "Travel friends",
+                            "ownerId": "00000000-0000-4000-8000-000000000001",
+                            "tripId": null,
+                            "version": "0",
+                            "memberCount": 2,
+                            "lastMessage": null,
+                            "lastSeq": "0",
+                            "lastReadSeq": "0",
+                            "unreadCount": "0",
+                            "archived": false,
+                            "canSend": true,
+                            "createdAt": "2026-10-05T00:00:00Z",
+                            "updatedAt": "2026-10-05T00:00:00Z"
+                          }
+                        ],
+                        "pageInfo": {
+                          "nextCursor": null,
+                          "hasMore": false
+                        }
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "example": 20
+            }
+          }
+        ]
+      }
+    },
+    "/group-conversations/{id}": {
+      "get": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "getGroupConversation",
+        "summary": "Get group details",
+        "description": "Only active members, otherwise 404. Group version changes for management/membership actions; message seq is independent.",
+        "x-permission": "AUTHENTICATED ACTIVE group member",
+        "responses": {
+          "200": {
+            "description": "Get group details",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupConversationResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "id": "00000000-0000-4000-8000-000000000180",
+                        "name": "Travel friends",
+                        "ownerId": "00000000-0000-4000-8000-000000000001",
+                        "tripId": null,
+                        "version": "0",
+                        "memberCount": 2,
+                        "lastMessage": null,
+                        "lastSeq": "0",
+                        "lastReadSeq": "0",
+                        "unreadCount": "0",
+                        "archived": false,
+                        "canSend": true,
+                        "createdAt": "2026-10-05T00:00:00Z",
+                        "updatedAt": "2026-10-05T00:00:00Z"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000180"
+            }
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "updateGroupConversation",
+        "summary": "Rename or change the linked trip",
+        "description": "expectedVersion prevents lost edits. Omitted tripId keeps link; null unlinks. Link checks current group owner's trip ownership. No trip editing or membership granted. Archived groups reject changes.",
+        "x-permission": "AUTHENTICATED ACTIVE group OWNER",
+        "responses": {
+          "200": {
+            "description": "Rename or change the linked trip",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupConversationResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "id": "00000000-0000-4000-8000-000000000180",
+                        "name": "Renamed",
+                        "ownerId": "00000000-0000-4000-8000-000000000001",
+                        "tripId": "00000000-0000-4000-8000-000000000010",
+                        "version": "1",
+                        "memberCount": 2,
+                        "lastMessage": null,
+                        "lastSeq": "0",
+                        "lastReadSeq": "0",
+                        "unreadCount": "0",
+                        "archived": false,
+                        "canSend": true,
+                        "createdAt": "2026-10-05T00:00:00Z",
+                        "updatedAt": "2026-10-05T00:00:00Z"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000180"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateGroupConversation"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "expectedVersion": "0",
+                    "name": "Renamed",
+                    "tripId": "00000000-0000-4000-8000-000000000010"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "archiveGroupConversation",
+        "summary": "Close the group and retain history",
+        "description": "Soft archive: no new sends or metadata/add/transfer actions. Active members retain history/read and may leave. Retry of already archived group is safe.",
+        "x-permission": "AUTHENTICATED ACTIVE group OWNER",
+        "responses": {
+          "200": {
+            "description": "Close the group and retain history",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupConversationResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "id": "00000000-0000-4000-8000-000000000180",
+                        "name": "Travel friends",
+                        "ownerId": "00000000-0000-4000-8000-000000000001",
+                        "tripId": null,
+                        "version": "1",
+                        "memberCount": 2,
+                        "lastMessage": null,
+                        "lastSeq": "0",
+                        "lastReadSeq": "0",
+                        "unreadCount": "0",
+                        "archived": true,
+                        "canSend": false,
+                        "createdAt": "2026-10-05T00:00:00Z",
+                        "updatedAt": "2026-10-05T00:00:00Z"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000180"
+            }
+          },
+          {
+            "name": "expectedVersion",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,18})$",
+              "maxLength": 19,
+              "example": "0"
+            }
+          }
+        ]
+      }
+    },
+    "/group-conversations/{id}/members": {
+      "get": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "listGroupMembers",
+        "summary": "List active group members",
+        "description": "Limited user summaries, derived OWNER/MEMBER role and per-member read marker. No email/phone.",
+        "x-permission": "AUTHENTICATED ACTIVE group member",
+        "responses": {
+          "200": {
+            "description": "List active group members",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupMemberListResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": [
+                        {
+                          "user": {
+                            "id": "00000000-0000-4000-8000-000000000002",
+                            "displayName": "Member",
+                            "avatarMediaId": null
+                          },
+                          "role": "MEMBER",
+                          "lastReadSeq": "0",
+                          "joinedAt": "2026-10-05T00:00:00Z"
+                        }
+                      ],
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000180"
+            }
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "addGroupMember",
+        "summary": "Add a current friend to the group",
+        "description": "Owner only. Direct addition, not an invitation flow. Active member retry is a no-op; left/removed may be re-added by owner. Read starts at current tail; all retained history becomes readable. Capacity checked under group row lock. Membership does not require continuing friendship.",
+        "x-permission": "AUTHENTICATED ACTIVE group OWNER",
+        "responses": {
+          "200": {
+            "description": "Add a current friend to the group",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupMemberResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "user": {
+                          "id": "00000000-0000-4000-8000-000000000002",
+                          "displayName": "Member",
+                          "avatarMediaId": null
+                        },
+                        "role": "MEMBER",
+                        "lastReadSeq": "0",
+                        "joinedAt": "2026-10-05T00:00:00Z"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000180"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupMemberRequest"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "userId": "00000000-0000-4000-8000-000000000002",
+                    "expectedVersion": "0"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/group-conversations/{id}/members/{userId}": {
+      "delete": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "removeGroupMember",
+        "summary": "Remove a member",
+        "description": "Owner only. Owner cannot remove self; transfer first. Left/removed retry is a no-op. Immediately blocks subsequent group/history/trip access.",
+        "x-permission": "AUTHENTICATED ACTIVE group OWNER",
+        "responses": {
+          "204": {
+            "description": "Remove a member",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000180"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000002"
+            }
+          },
+          {
+            "name": "expectedVersion",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,18})$",
+              "maxLength": 19,
+              "example": "0"
+            }
+          }
+        ]
+      }
+    },
+    "/group-conversations/{id}/members/me": {
+      "delete": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "leaveGroupConversation",
+        "summary": "Leave the group",
+        "description": "Member leaves without group version input. Owner must transfer first. Retry after leaving is safe and does not restore access.",
+        "x-permission": "AUTHENTICATED ACTIVE group member",
+        "responses": {
+          "204": {
+            "description": "Leave the group",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000180"
+            }
+          }
+        ]
+      }
+    },
+    "/group-conversations/{id}/owner": {
+      "put": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "transferGroupOwnership",
+        "summary": "Transfer ownership to an active member",
+        "description": "Owner only; target must be active and enabled. Clears the old owner's optional trip link. New owner may link a trip they own. Archived groups reject transfer.",
+        "x-permission": "AUTHENTICATED ACTIVE group OWNER",
+        "responses": {
+          "200": {
+            "description": "Transfer ownership to an active member",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupConversationResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "id": "00000000-0000-4000-8000-000000000180",
+                        "name": "Travel friends",
+                        "ownerId": "00000000-0000-4000-8000-000000000002",
+                        "tripId": null,
+                        "version": "1",
+                        "memberCount": 2,
+                        "lastMessage": null,
+                        "lastSeq": "0",
+                        "lastReadSeq": "0",
+                        "unreadCount": "0",
+                        "archived": false,
+                        "canSend": true,
+                        "createdAt": "2026-10-05T00:00:00Z",
+                        "updatedAt": "2026-10-05T00:00:00Z"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000180"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupMemberRequest"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "userId": "00000000-0000-4000-8000-000000000002",
+                    "expectedVersion": "0"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/group-conversations/{id}/trip": {
+      "get": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "getGroupLinkedTrip",
+        "summary": "View the linked trip read-only",
+        "description": "Checks active group membership and that trip is undeleted and still owned by current group owner. No link gives TRIP_NOT_LINKED; foreign/deleted trip gives TRIP_NOT_FOUND. Returns trip metadata and current itinerary without GPS/contacts/media. Does not grant trip membership or write access. Trip creation/edit APIs are a separate feature; never accepts frontend-only trip IDs.",
+        "x-permission": "AUTHENTICATED ACTIVE group member",
+        "responses": {
+          "200": {
+            "description": "View the linked trip read-only",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupLinkedTripResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "id": "00000000-0000-4000-8000-000000000010",
+                        "ownerId": "00000000-0000-4000-8000-000000000001",
+                        "title": "Weekend trip",
+                        "description": null,
+                        "cityCode": "DANANG",
+                        "cityName": "Đà Nẵng",
+                        "startDate": "2026-10-05",
+                        "endDate": "2026-10-05",
+                        "budgetVnd": null,
+                        "version": "0",
+                        "itinerary": {
+                          "version": "0",
+                          "days": [
+                            {
+                              "id": "00000000-0000-4000-8000-000000000183",
+                              "dayNumber": 1,
+                              "date": "2026-10-05",
+                              "transportMode": "DRIVE",
+                              "note": null,
+                              "items": []
+                            }
+                          ]
+                        }
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000180"
+            }
+          }
+        ]
+      }
+    },
+    "/group-conversations/{id}/messages": {
+      "get": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "listGroupMessages",
+        "summary": "Page group message history",
+        "description": "Retained history is accessible only while active. Exclusive beforeSeq/afterSeq, never both. Items always ascending. nextAfterSeq preserves empty catch-up cursor. New/rejoining members may view old history; old messages do not start as unread.",
+        "x-permission": "AUTHENTICATED ACTIVE group member",
+        "responses": {
+          "200": {
+            "description": "Page group message history",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupMessagePageResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "items": [
+                          {
+                            "id": "00000000-0000-4000-8000-000000000181",
+                            "conversationId": "00000000-0000-4000-8000-000000000180",
+                            "seq": "1",
+                            "sender": {
+                              "id": "00000000-0000-4000-8000-000000000002",
+                              "displayName": "Member",
+                              "avatarMediaId": null
+                            },
+                            "clientMessageId": "00000000-0000-4000-8000-000000000182",
+                            "body": "Hello group!",
+                            "createdAt": "2026-10-05T00:00:00Z"
+                          }
+                        ],
+                        "pageInfo": {
+                          "hasMore": false,
+                          "nextBeforeSeq": null,
+                          "nextAfterSeq": "1"
+                        }
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000180"
+            }
+          },
+          {
+            "name": "beforeSeq",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,18})$",
+              "maxLength": 19
+            }
+          },
+          {
+            "name": "afterSeq",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,18})$",
+              "maxLength": 19
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "example": 50
+            }
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "sendGroupMessage",
+        "summary": "Send a text message to a group",
+        "description": "Active member only, unarchived. Preserves exact body, max 4000 Unicode code points, no blank whitespace. Sender-scoped clientMessageId retries return same message; different body gives IDEMPOTENCY_CONFLICT. Per-group lock serializes sends and membership changes, allocating contiguous bigint string seq. Committed retry remains readable after archive. No group WebSocket events in this REST slice.",
+        "x-permission": "AUTHENTICATED ACTIVE group member",
+        "responses": {
+          "200": {
+            "description": "Send a text message to a group",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupMessageResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "id": "00000000-0000-4000-8000-000000000181",
+                        "conversationId": "00000000-0000-4000-8000-000000000180",
+                        "seq": "1",
+                        "sender": {
+                          "id": "00000000-0000-4000-8000-000000000002",
+                          "displayName": "Member",
+                          "avatarMediaId": null
+                        },
+                        "clientMessageId": "00000000-0000-4000-8000-000000000182",
+                        "body": "Hello group!",
+                        "createdAt": "2026-10-05T00:00:00Z"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000180"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendGroupMessage"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "clientMessageId": "00000000-0000-4000-8000-000000000182",
+                    "body": "Hello group!"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/group-conversations/{id}/read": {
+      "put": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "readGroupMessages",
+        "summary": "Advance own group read marker",
+        "description": "Monotonic max(previous,input), capped by current lastSeq. Incoming unread excludes own sends. No group version change. Allowed after archive while active.",
+        "x-permission": "AUTHENTICATED ACTIVE group member",
+        "responses": {
+          "200": {
+            "description": "Advance own group read marker",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupReadResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "conversationId": "00000000-0000-4000-8000-000000000180",
+                        "lastReadSeq": "1",
+                        "unreadCount": "0"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000180"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadGroupMessages"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "lastReadSeq": "1"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/direct-conversations": {
+      "post": {
+        "tags": [
+          "Direct messaging"
+        ],
+        "operationId": "openDirectConversation",
+        "summary": "Open a direct conversation",
+        "description": "Only current friends; no self conversation. Always 200, returning the unique existing conversation or creating it atomically. No email/phone in summaries.",
+        "x-permission": "AUTHENTICATED; conversation participants only",
+        "responses": {
+          "200": {
+            "description": "Open a direct conversation",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectConversationResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "id": "00000000-0000-4000-8000-000000000080",
+                        "user": {
+                          "id": "00000000-0000-4000-8000-000000000002",
+                          "displayName": "Recipient",
+                          "avatarMediaId": null
+                        },
+                        "lastMessage": {
+                          "id": "00000000-0000-4000-8000-000000000081",
+                          "conversationId": "00000000-0000-4000-8000-000000000080",
+                          "seq": "1",
+                          "sender": {
+                            "id": "00000000-0000-4000-8000-000000000002",
+                            "displayName": "Recipient",
+                            "avatarMediaId": null
+                          },
+                          "clientMessageId": "00000000-0000-4000-8000-000000000082",
+                          "body": "Hello!",
+                          "createdAt": "2026-10-03T03:00:00Z"
+                        },
+                        "lastSeq": "1",
+                        "lastReadSeq": "0",
+                        "unreadCount": "1",
+                        "canSend": true,
+                        "createdAt": "2026-10-03T03:00:00Z",
+                        "updatedAt": "2026-10-03T03:00:00Z"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "403": {
+            "description": "NOT_FRIENDS",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "NOT_FRIENDS": {
+                    "value": {
+                      "requestId": "00000000-0000-4000-8000-000000000090",
+                      "error": {
+                        "code": "NOT_FRIENDS",
+                        "message": "NOT_FRIENDS",
+                        "details": [],
+                        "context": {}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "USER_NOT_FOUND",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "USER_NOT_FOUND": {
+                    "value": {
+                      "requestId": "00000000-0000-4000-8000-000000000090",
+                      "error": {
+                        "code": "USER_NOT_FOUND",
+                        "message": "USER_NOT_FOUND",
+                        "details": [],
+                        "context": {}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "VALIDATION_ERROR",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "requestId": "00000000-0000-4000-8000-000000000090",
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "VALIDATION_ERROR",
+                        "details": [],
+                        "context": {}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenDirectConversation"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "recipientId": "00000000-0000-4000-8000-000000000002"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Direct messaging"
+        ],
+        "operationId": "listDirectConversations",
+        "summary": "List direct conversations",
+        "description": "Ordered updatedAt DESC, id DESC. Signed keyset cursor bound to actor and limit. Last message, incoming unread count and canSend included; unfriend retains history but canSend=false. Pages may change during concurrent sends; dedupe by ID.",
+        "x-permission": "AUTHENTICATED; conversation participants only",
+        "responses": {
+          "200": {
+            "description": "List direct conversations",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectConversationPageResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "items": [
+                          {
+                            "id": "00000000-0000-4000-8000-000000000080",
+                            "user": {
+                              "id": "00000000-0000-4000-8000-000000000002",
+                              "displayName": "Recipient",
+                              "avatarMediaId": null
+                            },
+                            "lastMessage": {
+                              "id": "00000000-0000-4000-8000-000000000081",
+                              "conversationId": "00000000-0000-4000-8000-000000000080",
+                              "seq": "1",
+                              "sender": {
+                                "id": "00000000-0000-4000-8000-000000000002",
+                                "displayName": "Recipient",
+                                "avatarMediaId": null
+                              },
+                              "clientMessageId": "00000000-0000-4000-8000-000000000082",
+                              "body": "Hello!",
+                              "createdAt": "2026-10-03T03:00:00Z"
+                            },
+                            "lastSeq": "1",
+                            "lastReadSeq": "0",
+                            "unreadCount": "1",
+                            "canSend": true,
+                            "createdAt": "2026-10-03T03:00:00Z",
+                            "updatedAt": "2026-10-03T03:00:00Z"
+                          }
+                        ],
+                        "pageInfo": {
+                          "nextCursor": null,
+                          "hasMore": false
+                        }
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            },
+            "description": "Opaque signed cursor; omit on first page"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "example": 20
+            },
+            "description": "Page size"
+          }
+        ]
+      }
+    },
+    "/direct-conversations/{id}/messages": {
+      "get": {
+        "tags": [
+          "Direct messaging"
+        ],
+        "operationId": "listDirectMessages",
+        "summary": "Read direct message history",
+        "description": "Participants only, including after unfriend. Default newest N; beforeSeq gets nearest older N; afterSeq gets next N. Exclusive bounds, mutually exclusive; items always seq ASC. hasMore follows query direction. nextBeforeSeq=min seq if older messages exist, otherwise null. nextAfterSeq=max returned seq, or supplied afterSeq/0 for an empty page. Poll afterSeq until hasMore=false. GET does not mark read.",
+        "x-permission": "AUTHENTICATED; conversation participants only",
+        "responses": {
+          "200": {
+            "description": "Read direct message history",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectMessagePageResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "items": [
+                          {
+                            "id": "00000000-0000-4000-8000-000000000081",
+                            "conversationId": "00000000-0000-4000-8000-000000000080",
+                            "seq": "1",
+                            "sender": {
+                              "id": "00000000-0000-4000-8000-000000000002",
+                              "displayName": "Recipient",
+                              "avatarMediaId": null
+                            },
+                            "clientMessageId": "00000000-0000-4000-8000-000000000082",
+                            "body": "Hello!",
+                            "createdAt": "2026-10-03T03:00:00Z"
+                          }
+                        ],
+                        "pageInfo": {
+                          "hasMore": false,
+                          "nextBeforeSeq": null,
+                          "nextAfterSeq": "1"
+                        }
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "404": {
+            "description": "CONVERSATION_NOT_FOUND",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "CONVERSATION_NOT_FOUND": {
+                    "value": {
+                      "requestId": "00000000-0000-4000-8000-000000000090",
+                      "error": {
+                        "code": "CONVERSATION_NOT_FOUND",
+                        "message": "CONVERSATION_NOT_FOUND",
+                        "details": [],
+                        "context": {}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000080"
+            },
+            "description": "Conversation UUID"
+          },
+          {
+            "name": "beforeSeq",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "0",
+              "pattern": "^(0|[1-9][0-9]{0,18})$",
+              "maxLength": 19,
+              "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes."
+            },
+            "description": "Exclusive upper sequence"
+          },
+          {
+            "name": "afterSeq",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "0",
+              "pattern": "^(0|[1-9][0-9]{0,18})$",
+              "maxLength": 19,
+              "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes."
+            },
+            "description": "Exclusive lower sequence"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "example": 50
+            },
+            "description": "Page size"
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Direct messaging"
+        ],
+        "operationId": "sendDirectMessage",
+        "summary": "Send a direct text message",
+        "description": "Current friends and participants only. Always 200, including retry. UUID clientMessageId is unique per conversation and sender: identical body returns previous message, changed body gives 409. Body is preserved exactly, requires non-whitespace text and at most 4000 Unicode code points. Server assigns sender and contiguous seq under transaction locks. After unfriend even retries are denied. No media, socket or push in this slice.",
+        "x-permission": "AUTHENTICATED; conversation participants only",
+        "responses": {
+          "200": {
+            "description": "Send a direct text message",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectMessageResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "id": "00000000-0000-4000-8000-000000000081",
+                        "conversationId": "00000000-0000-4000-8000-000000000080",
+                        "seq": "1",
+                        "sender": {
+                          "id": "00000000-0000-4000-8000-000000000002",
+                          "displayName": "Recipient",
+                          "avatarMediaId": null
+                        },
+                        "clientMessageId": "00000000-0000-4000-8000-000000000082",
+                        "body": "Hello!",
+                        "createdAt": "2026-10-03T03:00:00Z"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "403": {
+            "description": "NOT_FRIENDS",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "NOT_FRIENDS": {
+                    "value": {
+                      "requestId": "00000000-0000-4000-8000-000000000090",
+                      "error": {
+                        "code": "NOT_FRIENDS",
+                        "message": "NOT_FRIENDS",
+                        "details": [],
+                        "context": {}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "CONVERSATION_NOT_FOUND",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "CONVERSATION_NOT_FOUND": {
+                    "value": {
+                      "requestId": "00000000-0000-4000-8000-000000000090",
+                      "error": {
+                        "code": "CONVERSATION_NOT_FOUND",
+                        "message": "CONVERSATION_NOT_FOUND",
+                        "details": [],
+                        "context": {}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "IDEMPOTENCY_CONFLICT",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "requestId": "00000000-0000-4000-8000-000000000090",
+                      "error": {
+                        "code": "IDEMPOTENCY_CONFLICT",
+                        "message": "IDEMPOTENCY_CONFLICT",
+                        "details": [],
+                        "context": {}
+                      }
+                    }
+                  },
+                  "MESSAGE_LIMIT_REACHED": {
+                    "value": {
+                      "requestId": "00000000-0000-4000-8000-000000000090",
+                      "error": {
+                        "code": "MESSAGE_LIMIT_REACHED",
+                        "message": "Sequence exhausted",
+                        "details": [],
+                        "context": {}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "VALIDATION_ERROR",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "requestId": "00000000-0000-4000-8000-000000000090",
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "VALIDATION_ERROR",
+                        "details": [],
+                        "context": {}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000080"
+            },
+            "description": "Conversation UUID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendDirectMessage"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "clientMessageId": "00000000-0000-4000-8000-000000000082",
+                    "body": "Hello!"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/direct-conversations/{id}/read": {
+      "put": {
+        "tags": [
+          "Direct messaging"
+        ],
+        "operationId": "markDirectConversationRead",
+        "summary": "Mark direct conversation read",
+        "description": "Participants only, including after unfriend. lastReadSeq is a canonical nonnegative bigint string, at most lastSeq. Monotonic max(old,new), safe for concurrent devices and retries. Zero is valid. unreadCount includes only incoming messages after the resulting read sequence.",
+        "x-permission": "AUTHENTICATED; conversation participants only",
+        "responses": {
+          "200": {
+            "description": "Mark direct conversation read",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectReadResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "conversationId": "00000000-0000-4000-8000-000000000080",
+                        "lastReadSeq": "1",
+                        "unreadCount": "0"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "404": {
+            "description": "CONVERSATION_NOT_FOUND",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "CONVERSATION_NOT_FOUND": {
+                    "value": {
+                      "requestId": "00000000-0000-4000-8000-000000000090",
+                      "error": {
+                        "code": "CONVERSATION_NOT_FOUND",
+                        "message": "CONVERSATION_NOT_FOUND",
+                        "details": [],
+                        "context": {}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "VALIDATION_ERROR",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "requestId": "00000000-0000-4000-8000-000000000090",
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "VALIDATION_ERROR",
+                        "details": [],
+                        "context": {}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000080"
+            },
+            "description": "Conversation UUID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadDirectConversation"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "lastReadSeq": "1"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trips/{tripId}/itinerary/items/{itemId}/status": {
+      "patch": {
+        "tags": [
+          "Itinerary"
+        ],
+        "operationId": "updateItineraryItemStatus",
+        "summary": "Cập nhật tiến độ điểm dừng",
+        "description": "Kiểm tra expectedVersion; chỉ một ACTIVE. Chuyến CANCELLED cần khôi phục.",
+        "x-permission": "ACTIVE_MEMBER",
+        "responses": {
+          "200": {
+            "description": "Sửa/thêm/xóa/di chuyển/sắp xếp lịch nguyên tử",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItineraryResponse"
+                },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "data": {
+                        "tripId": "00000000-0000-4000-8000-000000000010",
+                        "version": "1",
+                        "tripVersion": "0",
+                        "timezone": "Asia/Ho_Chi_Minh",
+                        "days": [
+                          {
+                            "id": "00000000-0000-4000-8000-000000000030",
+                            "dayNumber": 1,
+                            "date": "2026-12-01",
+                            "transportMode": "DRIVE",
+                            "note": "Ghi chú của nhóm",
+                            "items": [
+                              {
+                                "id": "00000000-0000-4000-8000-000000000031",
+                                "kind": "PLACE",
+                                "placeId": "00000000-0000-4000-8000-000000000020",
+                                "customTitle": "Đi dạo",
+                                "startTime": "09:00",
+                                "endTime": "10:30",
+                                "note": "Ghi chú của nhóm",
+                                "estimatedCostVnd": "100000",
+                                "position": 0,
+                                "costSource": "USER",
+                                "origin": "MANUAL"
+                              }
+                            ]
+                          },
+                          {
+                            "id": "00000000-0000-4000-8000-000000000032",
+                            "dayNumber": 2,
+                            "date": "2026-12-02",
+                            "transportMode": "WALK",
+                            "note": null,
+                            "items": []
+                          }
+                        ],
+                        "updatedBy": "00000000-0000-4000-8000-000000000001",
+                        "updatedAt": "2026-09-17T03:00:00Z"
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          }
+        },
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "00000000-0000-4000-8000-000000000010",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000031"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateItineraryItemStatus"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "expectedVersion": "0",
+                    "status": "ACTIVE"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -7783,6 +10433,18 @@
             "enum": [
               "Asia/Ho_Chi_Minh"
             ]
+          },
+          "frontendKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "number",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "nullable": true
           }
         },
         "required": [
@@ -7911,6 +10573,14 @@
       "ProfileUpdate": {
         "type": "object",
         "properties": {
+          "phone": {
+            "type": "string",
+            "example": "+84901234567",
+            "minLength": 7,
+            "maxLength": 32,
+            "pattern": "^\\+?[0-9 ()-]{7,32}$",
+            "description": "Chỉ điền khi hồ sơ chưa có số điện thoại; gửi lại cùng số được chấp nhận."
+          },
           "displayName": {
             "type": "string",
             "example": "Nguyễn An",
@@ -8002,6 +10672,7 @@
             "example": "TripMate2026!",
             "minLength": 8,
             "maxLength": 128,
+            "description": "At most 72 UTF-8 bytes (BCrypt limit); password is never trimmed.",
             "writeOnly": true
           },
           "installationId": {
@@ -8047,6 +10718,7 @@
             "example": "TripMate2026!",
             "minLength": 8,
             "maxLength": 128,
+            "description": "At most 72 UTF-8 bytes (BCrypt limit); password is never trimmed.",
             "writeOnly": true
           },
           "installationId": {
@@ -8258,12 +10930,18 @@
             "format": "date-time",
             "nullable": true,
             "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true
           }
         },
         "required": [
           "id",
           "sender",
           "recipient",
+          "message",
           "status",
           "createdAt",
           "resolvedAt"
@@ -8283,7 +10961,8 @@
           },
           "status": "PENDING",
           "createdAt": "2026-09-17T03:00:00Z",
-          "resolvedAt": null
+          "resolvedAt": null,
+          "message": "Chao ban, minh ket ban nhe!"
         }
       },
       "CreateFriendRequest": {
@@ -8293,6 +10972,12 @@
             "type": "string",
             "example": "00000000-0000-4000-8000-000000000003",
             "format": "uuid"
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true,
+            "description": "Optional greeting sent with the friend request."
           }
         },
         "required": [
@@ -8376,12 +11061,14 @@
           "startDate": {
             "type": "string",
             "example": "2026-12-01",
-            "format": "date"
+            "format": "date",
+            "nullable": true
           },
           "endDate": {
             "type": "string",
             "example": "2026-12-02",
-            "format": "date"
+            "format": "date",
+            "nullable": true
           },
           "budgetVnd": {
             "type": "string",
@@ -8439,7 +11126,8 @@
             "enum": [
               "UPCOMING",
               "ONGOING",
-              "PAST"
+              "PAST",
+              "UNSCHEDULED"
             ]
           },
           "createdAt": {
@@ -8453,6 +11141,29 @@
             "example": "2026-09-17T03:00:00Z",
             "format": "date-time",
             "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+          },
+          "dateMode": {
+            "type": "string",
+            "enum": [
+              "SPECIFIC",
+              "FLEXIBLE"
+            ],
+            "example": "SPECIFIC"
+          },
+          "durationDays": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30,
+            "example": 2
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "UPCOMING",
+              "COMPLETED",
+              "CANCELLED"
+            ],
+            "example": "UPCOMING"
           }
         },
         "required": [
@@ -8500,12 +11211,14 @@
           "startDate": {
             "type": "string",
             "example": "2026-12-01",
-            "format": "date"
+            "format": "date",
+            "nullable": true
           },
           "endDate": {
             "type": "string",
             "example": "2026-12-02",
-            "format": "date"
+            "format": "date",
+            "nullable": true
           },
           "budgetVnd": {
             "type": "string",
@@ -8514,16 +11227,44 @@
             "maxLength": 19,
             "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes.",
             "nullable": true
+          },
+          "dateMode": {
+            "type": "string",
+            "enum": [
+              "SPECIFIC",
+              "FLEXIBLE"
+            ],
+            "example": "SPECIFIC"
+          },
+          "durationDays": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30,
+            "example": 2
+          },
+          "clientRequestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItineraryDayInput"
+            },
+            "minItems": 1,
+            "maxItems": 30
           }
         },
         "required": [
           "title",
           "cityCode",
-          "startDate",
-          "endDate"
+          "dateMode",
+          "durationDays",
+          "clientRequestId",
+          "days"
         ],
         "additionalProperties": false,
-        "description": "description và budgetVnd thiếu được lưu null; ngày bao gồm cả đầu/cuối, tổng 1–5."
+        "description": "Tạo chuyến/owner/lịch nguyên tử. SPECIFIC cần ngày hợp lệ và khớp durationDays; FLEXIBLE cần ngày null. clientRequestId theo user: cùng nội dung trả cùng chuyến; khác nội dung 409 IDEMPOTENCY_CONFLICT."
       },
       "UpdateTrip": {
         "type": "object",
@@ -8556,12 +11297,14 @@
           "startDate": {
             "type": "string",
             "example": "2026-12-01",
-            "format": "date"
+            "format": "date",
+            "nullable": true
           },
           "endDate": {
             "type": "string",
             "example": "2026-12-02",
-            "format": "date"
+            "format": "date",
+            "nullable": true
           },
           "budgetVnd": {
             "type": "string",
@@ -8570,6 +11313,29 @@
             "maxLength": 19,
             "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes.",
             "nullable": true
+          },
+          "dateMode": {
+            "type": "string",
+            "enum": [
+              "SPECIFIC",
+              "FLEXIBLE"
+            ],
+            "example": "SPECIFIC"
+          },
+          "durationDays": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30,
+            "example": 2
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "UPCOMING",
+              "CANCELLED"
+            ],
+            "example": "UPCOMING",
+            "description": "CANCELLED hủy; UPCOMING khôi phục và tính lại trạng thái từ tiến độ. Không đặt COMPLETED trực tiếp."
           }
         },
         "required": [
@@ -8577,7 +11343,7 @@
         ],
         "additionalProperties": false,
         "minProperties": 2,
-        "description": "Thiếu = giữ nguyên; null chỉ xóa description/budgetVnd. Đổi ngày tăng cả hai version. Nếu đổi ngày phải kiểm tra lịch dưới cùng khóa; có ngày bị cắt còn mục thì 409 DAYS_NOT_EMPTY. Đổi thành phố có PLACE/saved places thì 409 CITY_HAS_PLACES."
+        "description": "Owner sửa; thiếu giữ nguyên. FLEXIBLE dùng ngày null. Giảm ngày có mục trả 409 DAYS_NOT_EMPTY. CANCELLED cần khôi phục trước khi sửa. Đổi ngày tăng hai version."
       },
       "Member": {
         "type": "object",
@@ -8914,7 +11680,10 @@
             "type": "string",
             "example": "GOOGLE",
             "enum": [
-              "GOOGLE"
+              "GOOGLE",
+              "OSM",
+              "CATALOG",
+              "MANUAL"
             ]
           },
           "providerPlaceId": {
@@ -9083,12 +11852,16 @@
             "nullable": true
           },
           "startTime": {
-            "$ref": "#/components/schemas/LocalTime"
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "nullable": true,
+            "example": "09:00"
           },
           "endTime": {
             "type": "string",
-            "example": "10:30",
-            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "nullable": true,
+            "example": "10:30"
           },
           "note": {
             "type": "string",
@@ -9103,19 +11876,63 @@
             "maxLength": 19,
             "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes.",
             "nullable": true
+          },
+          "placeSnapshot": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "provider": {
+                "type": "string",
+                "enum": [
+                  "OSM",
+                  "CATALOG",
+                  "MANUAL"
+                ]
+              },
+              "providerPlaceId": {
+                "type": "string",
+                "maxLength": 200,
+                "nullable": true
+              },
+              "lat": {
+                "type": "number",
+                "minimum": -90,
+                "maximum": 90,
+                "nullable": true
+              },
+              "lng": {
+                "type": "number",
+                "minimum": -180,
+                "maximum": 180,
+                "nullable": true
+              },
+              "address": {
+                "type": "string",
+                "maxLength": 500,
+                "nullable": true
+              }
+            },
+            "required": [
+              "name",
+              "provider"
+            ]
           }
         },
         "required": [
           "kind",
           "placeId",
           "customTitle",
-          "startTime",
-          "endTime",
           "note",
           "estimatedCostVnd"
         ],
         "additionalProperties": false,
-        "description": "id có mặt chỉ khi giữ mục hiện có của chính lịch này; mục mới bỏ id. PLACE cần placeId; NOTE cần placeId=null và customTitle không trắng. estimatedCostVnd=null -> UNKNOWN, giá do user nhập -> USER. Array order quyết định position."
+        "description": "Mục mới bỏ id; id cũ phải thuộc lịch. PLACE cần placeId hoặc placeSnapshot; NOTE cần customTitle. Snapshot MANUAL/CATALOG/OSM được lưu cùng lịch. Giờ nullable, end > start khi đủ hai mốc."
       },
       "ItineraryDayInput": {
         "type": "object",
@@ -9124,7 +11941,7 @@
             "type": "integer",
             "example": 1,
             "minimum": 1,
-            "maximum": 5
+            "maximum": 30
           },
           "transportMode": {
             "type": "string",
@@ -9172,7 +11989,7 @@
               "$ref": "#/components/schemas/ItineraryDayInput"
             },
             "minItems": 1,
-            "maxItems": 5
+            "maxItems": 30
           }
         },
         "required": [
@@ -9180,7 +11997,7 @@
           "days"
         ],
         "additionalProperties": false,
-        "description": "Gửi toàn bộ ngày/mục, kể cả ngày rỗng. Mục bị bỏ khỏi payload bị xóa trong transaction. Ngày phải đủ 1..duration; tối đa 50 mục/ngày; giờ tăng và không chồng lấn. Backend giữ origin của mục cũ, mục mới MANUAL.",
+        "description": "Thay toàn lịch nguyên tử; đủ 1..duration, tối đa 50 mục/ngày. Array order quyết định position. Giữ origin và status mục cũ; mục mới MANUAL/PENDING. Không ghi đè khi version cũ.",
         "example": {
           "expectedVersion": "0",
           "days": [
@@ -9240,12 +12057,16 @@
             "nullable": true
           },
           "startTime": {
-            "$ref": "#/components/schemas/LocalTime"
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "nullable": true,
+            "example": "09:00"
           },
           "endTime": {
             "type": "string",
-            "example": "10:30",
-            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "nullable": true,
+            "example": "10:30"
           },
           "note": {
             "type": "string",
@@ -9282,6 +12103,20 @@
               "MANUAL",
               "AI"
             ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "ACTIVE",
+              "COMPLETED"
+            ],
+            "example": "PENDING"
+          },
+          "placeSnapshot": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true
           }
         },
         "required": [
@@ -9311,12 +12146,13 @@
             "type": "integer",
             "example": 1,
             "minimum": 1,
-            "maximum": 5
+            "maximum": 30
           },
           "date": {
             "type": "string",
             "example": "2026-12-01",
-            "format": "date"
+            "format": "date",
+            "nullable": true
           },
           "transportMode": {
             "type": "string",
@@ -9385,7 +12221,7 @@
               "$ref": "#/components/schemas/ItineraryDay"
             },
             "minItems": 1,
-            "maxItems": 5
+            "maxItems": 30
           },
           "updatedBy": {
             "type": "string",
@@ -12442,6 +15278,7 @@
             "type": "string",
             "minLength": 8,
             "maxLength": 128,
+            "description": "At most 72 UTF-8 bytes (BCrypt limit); password is never trimmed.",
             "writeOnly": true
           }
         },
@@ -12454,6 +15291,1389 @@
           "resetId": "00000000-0000-4000-8000-000000000102",
           "otp": "123456",
           "newPassword": "NewTripMate2026!"
+        }
+      },
+      "OpenDirectConversation": {
+        "type": "object",
+        "properties": {
+          "recipientId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "recipientId"
+        ],
+        "additionalProperties": false
+      },
+      "SendDirectMessage": {
+        "type": "object",
+        "properties": {
+          "clientMessageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000,
+            "pattern": "\\S"
+          }
+        },
+        "required": [
+          "clientMessageId",
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "ReadDirectConversation": {
+        "type": "object",
+        "properties": {
+          "lastReadSeq": {
+            "type": "string",
+            "example": "0",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "maxLength": 19,
+            "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes."
+          }
+        },
+        "required": [
+          "lastReadSeq"
+        ],
+        "additionalProperties": false
+      },
+      "DirectMessage": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "seq": {
+            "type": "string",
+            "example": "0",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "maxLength": 19,
+            "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes."
+          },
+          "sender": {
+            "$ref": "#/components/schemas/UserSummary"
+          },
+          "clientMessageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "conversationId",
+          "seq",
+          "sender",
+          "clientMessageId",
+          "body",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "DirectConversation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserSummary"
+          },
+          "lastMessage": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "conversationId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "seq": {
+                "type": "string",
+                "example": "0",
+                "pattern": "^(0|[1-9][0-9]{0,18})$",
+                "maxLength": 19,
+                "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes."
+              },
+              "sender": {
+                "$ref": "#/components/schemas/UserSummary"
+              },
+              "clientMessageId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "body": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "id",
+              "conversationId",
+              "seq",
+              "sender",
+              "clientMessageId",
+              "body",
+              "createdAt"
+            ],
+            "additionalProperties": false,
+            "nullable": true
+          },
+          "lastSeq": {
+            "type": "string",
+            "example": "0",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "maxLength": 19,
+            "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes."
+          },
+          "lastReadSeq": {
+            "type": "string",
+            "example": "0",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "maxLength": 19,
+            "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes."
+          },
+          "unreadCount": {
+            "type": "string",
+            "example": "0",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "maxLength": 19,
+            "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes."
+          },
+          "canSend": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "user",
+          "lastMessage",
+          "lastSeq",
+          "lastReadSeq",
+          "unreadCount",
+          "canSend",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "DirectConversationPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectConversation"
+            }
+          },
+          "pageInfo": {
+            "$ref": "#/components/schemas/PageInfo"
+          }
+        },
+        "required": [
+          "items",
+          "pageInfo"
+        ],
+        "additionalProperties": false
+      },
+      "DirectMessagePage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectMessage"
+            }
+          },
+          "pageInfo": {
+            "type": "object",
+            "properties": {
+              "hasMore": {
+                "type": "boolean",
+                "example": false
+              },
+              "nextBeforeSeq": {
+                "type": "string",
+                "example": null,
+                "pattern": "^(0|[1-9][0-9]{0,18})$",
+                "maxLength": 19,
+                "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes.",
+                "nullable": true
+              },
+              "nextAfterSeq": {
+                "type": "string",
+                "example": "1",
+                "pattern": "^(0|[1-9][0-9]{0,18})$",
+                "maxLength": 19,
+                "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes."
+              }
+            },
+            "required": [
+              "hasMore",
+              "nextBeforeSeq",
+              "nextAfterSeq"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "items",
+          "pageInfo"
+        ],
+        "additionalProperties": false
+      },
+      "DirectRead": {
+        "type": "object",
+        "properties": {
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lastReadSeq": {
+            "type": "string",
+            "example": "0",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "maxLength": 19,
+            "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes."
+          },
+          "unreadCount": {
+            "type": "string",
+            "example": "0",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "maxLength": 19,
+            "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes."
+          }
+        },
+        "required": [
+          "conversationId",
+          "lastReadSeq",
+          "unreadCount"
+        ],
+        "additionalProperties": false
+      },
+      "DirectConversationResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DirectConversation"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "DirectConversationPageResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DirectConversationPage"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "DirectMessageResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DirectMessage"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "DirectMessagePageResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DirectMessagePage"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "DirectReadResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DirectRead"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "GroupConversation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "[^\\s\\u00a0]"
+          },
+          "ownerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tripId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "version": {
+            "$ref": "#/components/schemas/UInt64String"
+          },
+          "memberCount": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "lastMessage": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "conversationId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "seq": {
+                "$ref": "#/components/schemas/UInt64String"
+              },
+              "sender": {
+                "$ref": "#/components/schemas/UserSummary"
+              },
+              "clientMessageId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "body": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "id",
+              "conversationId",
+              "seq",
+              "sender",
+              "clientMessageId",
+              "body",
+              "createdAt"
+            ],
+            "additionalProperties": false,
+            "nullable": true
+          },
+          "lastSeq": {
+            "$ref": "#/components/schemas/UInt64String"
+          },
+          "lastReadSeq": {
+            "$ref": "#/components/schemas/UInt64String"
+          },
+          "unreadCount": {
+            "$ref": "#/components/schemas/UInt64String"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "canSend": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "ownerId",
+          "tripId",
+          "version",
+          "memberCount",
+          "lastMessage",
+          "lastSeq",
+          "lastReadSeq",
+          "unreadCount",
+          "archived",
+          "canSend",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "GroupConversationPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupConversation"
+            }
+          },
+          "pageInfo": {
+            "type": "object",
+            "properties": {
+              "nextCursor": {
+                "type": "string",
+                "nullable": true
+              },
+              "hasMore": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "nextCursor",
+              "hasMore"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "items",
+          "pageInfo"
+        ],
+        "additionalProperties": false
+      },
+      "GroupMember": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/UserSummary"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "OWNER",
+              "MEMBER"
+            ]
+          },
+          "lastReadSeq": {
+            "$ref": "#/components/schemas/UInt64String"
+          },
+          "joinedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "user",
+          "role",
+          "lastReadSeq",
+          "joinedAt"
+        ],
+        "additionalProperties": false
+      },
+      "CreateGroupConversation": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "[^\\s\\u00a0]"
+          },
+          "memberIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 99,
+            "uniqueItems": true
+          },
+          "tripId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "required": [
+          "name",
+          "memberIds"
+        ],
+        "additionalProperties": false
+      },
+      "UpdateGroupConversation": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "$ref": "#/components/schemas/UInt64String"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "[^\\s\\u00a0]"
+          },
+          "tripId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ],
+        "additionalProperties": false,
+        "minProperties": 2
+      },
+      "GroupMemberRequest": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expectedVersion": {
+            "$ref": "#/components/schemas/UInt64String"
+          }
+        },
+        "required": [
+          "userId",
+          "expectedVersion"
+        ],
+        "additionalProperties": false
+      },
+      "SendGroupMessage": {
+        "type": "object",
+        "properties": {
+          "clientMessageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000,
+            "pattern": "[^\\s\\u00a0]"
+          }
+        },
+        "required": [
+          "clientMessageId",
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "ReadGroupMessages": {
+        "type": "object",
+        "properties": {
+          "lastReadSeq": {
+            "$ref": "#/components/schemas/UInt64String"
+          }
+        },
+        "required": [
+          "lastReadSeq"
+        ],
+        "additionalProperties": false
+      },
+      "GroupLinkedTripItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "NOTE",
+              "PLACE"
+            ]
+          },
+          "placeId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "startTime": {
+            "$ref": "#/components/schemas/LocalTime"
+          },
+          "endTime": {
+            "$ref": "#/components/schemas/LocalTime"
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "estimatedCostVnd": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "maxLength": 19,
+            "nullable": true
+          },
+          "costSource": {
+            "type": "string",
+            "enum": [
+              "UNKNOWN",
+              "USER"
+            ]
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "MANUAL",
+              "AI"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "placeId",
+          "title",
+          "startTime",
+          "endTime",
+          "note",
+          "estimatedCostVnd",
+          "costSource",
+          "origin"
+        ],
+        "additionalProperties": false
+      },
+      "GroupLinkedTripDay": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dayNumber": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "transportMode": {
+            "type": "string",
+            "enum": [
+              "WALK",
+              "DRIVE"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupLinkedTripItem"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "dayNumber",
+          "date",
+          "transportMode",
+          "note",
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "GroupLinkedTrip": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ownerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "cityCode": {
+            "type": "string"
+          },
+          "cityName": {
+            "type": "string"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "budgetVnd": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "maxLength": 19,
+            "nullable": true
+          },
+          "version": {
+            "$ref": "#/components/schemas/UInt64String"
+          },
+          "itinerary": {
+            "type": "object",
+            "properties": {
+              "version": {
+                "$ref": "#/components/schemas/UInt64String"
+              },
+              "days": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/GroupLinkedTripDay"
+                }
+              }
+            },
+            "required": [
+              "version",
+              "days"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "ownerId",
+          "title",
+          "description",
+          "cityCode",
+          "cityName",
+          "startDate",
+          "endDate",
+          "budgetVnd",
+          "version",
+          "itinerary"
+        ],
+        "additionalProperties": false
+      },
+      "GroupConversationResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/GroupConversation"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "GroupConversationPageResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/GroupConversationPage"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "GroupMemberResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/GroupMember"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "GroupMemberListResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupMember"
+            }
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "GroupMessageResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DirectMessage"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "GroupMessagePageResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DirectMessagePage"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "GroupReadResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DirectRead"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "GroupLinkedTripResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/GroupLinkedTrip"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "DirectPresenceStatus": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "00000000-0000-4000-8000-000000000002"
+          },
+          "online": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "userId",
+          "online"
+        ],
+        "additionalProperties": false
+      },
+      "DirectPresenceResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectPresenceStatus"
+            }
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "00000000-0000-4000-8000-000000000090"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "EventDirectPresenceUpdated": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "00000000-0000-4000-8000-000000000090"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "direct.presence.updated"
+            ],
+            "example": "direct.presence.updated"
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "enum": [
+              1
+            ],
+            "example": 1
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-05T00:00:00Z"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DirectPresenceStatus"
+          }
+        },
+        "required": [
+          "eventId",
+          "type",
+          "schemaVersion",
+          "occurredAt",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "DirectReadChanged": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "conversationId",
+          "userId",
+          "lastReadSeq"
+        ],
+        "properties": {
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lastReadSeq": {
+            "type": "string",
+            "example": "0",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "maxLength": 19,
+            "description": "Số nguyên không âm dạng chuỗi thập phân chuẩn; tối đa 9223372036854775807 (PostgreSQL bigint). Không đổi thành JS Number. Áp dụng cho version, seq, VND và sizeBytes."
+          }
+        }
+      },
+      "EventGroupMessageCreated": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "example": "00000000-0000-4000-8000-000000000101",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "group.message.created"
+            ],
+            "example": "group.message.created"
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "example": 1,
+            "enum": [
+              1
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "example": "2026-09-17T03:00:00Z",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DirectMessage"
+          }
+        },
+        "required": [
+          "eventId",
+          "type",
+          "schemaVersion",
+          "occurredAt",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "EventGroupReadUpdated": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "example": "00000000-0000-4000-8000-000000000101",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "group.read.updated"
+            ],
+            "example": "group.read.updated"
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "example": 1,
+            "enum": [
+              1
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "example": "2026-09-17T03:00:00Z",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DirectReadChanged"
+          }
+        },
+        "required": [
+          "eventId",
+          "type",
+          "schemaVersion",
+          "occurredAt",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "EventGroupChanged": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "example": "00000000-0000-4000-8000-000000000101",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "group.changed"
+            ],
+            "example": "group.changed"
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "example": 1,
+            "enum": [
+              1
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "example": "2026-09-17T03:00:00Z",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "conversationId": {
+                "type": "string",
+                "format": "uuid",
+                "example": "00000000-0000-4000-8000-000000000080"
+              }
+            },
+            "required": [
+              "conversationId"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "eventId",
+          "type",
+          "schemaVersion",
+          "occurredAt",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "EventGroupAccessRevoked": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "example": "00000000-0000-4000-8000-000000000101",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "group.access.revoked"
+            ],
+            "example": "group.access.revoked"
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "example": 1,
+            "enum": [
+              1
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "example": "2026-09-17T03:00:00Z",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "conversationId": {
+                "type": "string",
+                "format": "uuid",
+                "example": "00000000-0000-4000-8000-000000000080"
+              }
+            },
+            "required": [
+              "conversationId"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "eventId",
+          "type",
+          "schemaVersion",
+          "occurredAt",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "EventDirectMessageCreated": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "example": "00000000-0000-4000-8000-000000000101",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "direct.message.created"
+            ],
+            "example": "direct.message.created"
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "example": 1,
+            "enum": [
+              1
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "example": "2026-09-17T03:00:00Z",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DirectMessage"
+          }
+        },
+        "required": [
+          "eventId",
+          "type",
+          "schemaVersion",
+          "occurredAt",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "EventDirectReadUpdated": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "example": "00000000-0000-4000-8000-000000000101",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "direct.read.updated"
+            ],
+            "example": "direct.read.updated"
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "example": 1,
+            "enum": [
+              1
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "example": "2026-09-17T03:00:00Z",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DirectReadChanged"
+          }
+        },
+        "required": [
+          "eventId",
+          "type",
+          "schemaVersion",
+          "occurredAt",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "UpdateItineraryItemStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expectedVersion",
+          "status"
+        ],
+        "properties": {
+          "expectedVersion": {
+            "$ref": "#/components/schemas/UInt64String"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "ACTIVE",
+              "COMPLETED"
+            ],
+            "example": "PENDING"
+          }
         }
       }
     },
@@ -13573,8 +17793,139 @@
             "createdAt": "2026-09-17T03:00:00Z"
           }
         }
+      },
+      "group.message.created": {
+        "destination": "/user/queue/events",
+        "schema": {
+          "$ref": "#/components/schemas/EventGroupMessageCreated"
+        },
+        "example": {
+          "eventId": "00000000-0000-4000-8000-000000000120",
+          "type": "group.message.created",
+          "schemaVersion": 1,
+          "occurredAt": "2026-10-03T00:00:00Z",
+          "data": {
+            "id": "00000000-0000-4000-8000-000000000081",
+            "conversationId": "00000000-0000-4000-8000-000000000080",
+            "seq": "1",
+            "sender": {
+              "id": "00000000-0000-4000-8000-000000000002",
+              "displayName": "Recipient",
+              "avatarMediaId": null
+            },
+            "clientMessageId": "00000000-0000-4000-8000-000000000082",
+            "body": "Hello!",
+            "createdAt": "2026-10-03T03:00:00Z"
+          }
+        }
+      },
+      "group.read.updated": {
+        "destination": "/user/queue/events",
+        "schema": {
+          "$ref": "#/components/schemas/EventGroupReadUpdated"
+        },
+        "example": {
+          "eventId": "00000000-0000-4000-8000-000000000121",
+          "type": "group.read.updated",
+          "schemaVersion": 1,
+          "occurredAt": "2026-10-03T00:00:00Z",
+          "data": {
+            "conversationId": "00000000-0000-4000-8000-000000000080",
+            "userId": "00000000-0000-4000-8000-000000000002",
+            "lastReadSeq": "1"
+          }
+        }
+      },
+      "group.changed": {
+        "destination": "/user/queue/events",
+        "schema": {
+          "$ref": "#/components/schemas/EventGroupChanged"
+        },
+        "example": {
+          "eventId": "00000000-0000-4000-8000-000000000122",
+          "type": "group.changed",
+          "schemaVersion": 1,
+          "occurredAt": "2026-10-03T00:00:00Z",
+          "data": {
+            "conversationId": "00000000-0000-4000-8000-000000000080"
+          }
+        }
+      },
+      "group.access.revoked": {
+        "destination": "/user/queue/events",
+        "schema": {
+          "$ref": "#/components/schemas/EventGroupAccessRevoked"
+        },
+        "example": {
+          "eventId": "00000000-0000-4000-8000-000000000123",
+          "type": "group.access.revoked",
+          "schemaVersion": 1,
+          "occurredAt": "2026-10-03T00:00:00Z",
+          "data": {
+            "conversationId": "00000000-0000-4000-8000-000000000080"
+          }
+        }
+      },
+      "direct.message.created": {
+        "destination": "/user/queue/events",
+        "schema": {
+          "$ref": "#/components/schemas/EventDirectMessageCreated"
+        },
+        "example": {
+          "eventId": "00000000-0000-4000-8000-000000000111",
+          "type": "direct.message.created",
+          "schemaVersion": 1,
+          "occurredAt": "2026-10-03T00:00:00Z",
+          "data": {
+            "id": "00000000-0000-4000-8000-000000000081",
+            "conversationId": "00000000-0000-4000-8000-000000000080",
+            "seq": "1",
+            "sender": {
+              "id": "00000000-0000-4000-8000-000000000002",
+              "displayName": "Recipient",
+              "avatarMediaId": null
+            },
+            "clientMessageId": "00000000-0000-4000-8000-000000000082",
+            "body": "Hello!",
+            "createdAt": "2026-10-03T03:00:00Z"
+          }
+        }
+      },
+      "direct.presence.updated": {
+        "destination": "/user/queue/events",
+        "schema": {
+          "$ref": "#/components/schemas/EventDirectPresenceUpdated"
+        },
+        "example": {
+          "eventId": "00000000-0000-4000-8000-000000000090",
+          "type": "direct.presence.updated",
+          "schemaVersion": 1,
+          "occurredAt": "2026-10-05T00:00:00Z",
+          "data": {
+            "userId": "00000000-0000-4000-8000-000000000002",
+            "online": true
+          }
+        }
+      },
+      "direct.read.updated": {
+        "destination": "/user/queue/events",
+        "schema": {
+          "$ref": "#/components/schemas/EventDirectReadUpdated"
+        },
+        "example": {
+          "eventId": "00000000-0000-4000-8000-000000000112",
+          "type": "direct.read.updated",
+          "schemaVersion": 1,
+          "occurredAt": "2026-10-03T00:00:00Z",
+          "data": {
+            "conversationId": "00000000-0000-4000-8000-000000000080",
+            "userId": "00000000-0000-4000-8000-000000000002",
+            "lastReadSeq": "1"
+          }
+        }
       }
-    }
+    },
+    "implementation": "Implemented: /ws CONNECT and /user/queue/events for direct.message.created/direct.read.updated after commit, and direct.presence.updated for socket lifecycle changes to existing conversation peers. Presence combines devices, delays offline by 10 seconds after disconnect detection, and reconciles via GET /direct-conversations/presence. Other trip/push destinations remain planned. Simple broker and ephemeral presence serve one backend instance; offline recovery uses REST and no Redis bridge is implemented. Group message/read/change/revocation events are implemented on the same private queue. Group delivery is after commit and checks active membership again at publication and outbound; revocation contains only a conversation ID."
   },
   "x-push": {
     "provider": "FCM native Android",

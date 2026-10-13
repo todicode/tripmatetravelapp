@@ -5,6 +5,7 @@ import * as SecureStore from 'expo-secure-store';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   BackHandler,
   Image,
@@ -21,8 +22,14 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import ExploreHome from './src/ExploreHome';
+import { ProfileProvider } from './src/profile/ProfileProvider';
 import { ThemeProvider, useAppTheme } from './src/theme/AppTheme';
 import { ToastProvider } from './src/theme/Toast';
+import { ApiRequestError, SessionResponse } from './src/auth/session';
+import { apiRequest } from './src/auth/api';
+import { useSessionViewModel } from './src/auth/useSessionViewModel';
+import { useResendCooldown } from './src/auth/useResendCooldown';
+import { passwordError } from './src/auth/password';
 
 type AuthTab = 'login' | 'register';
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
@@ -63,19 +70,7 @@ function getInstallationId(): Promise<string> {
   return installationIdPromise;
 }
 
-type SessionResponse = {
-  accessToken: string;
-  tokenType: string;
-  expiresIn: number;
-  refreshToken: string;
-  refreshExpiresAt: string;
-  deviceId: string;
-  user: {
-    id: string;
-    displayName: string;
-    email: string;
-  };
-};
+type OnAuthenticated = (session: SessionResponse, remember?: boolean) => Promise<void>;
 
 type RegistrationChallenge = {
   verificationId: string;
@@ -88,53 +83,6 @@ type PasswordResetChallenge = {
   expiresAt: string;
   resendAvailableAt: string;
 };
-
-class ApiRequestError extends Error {
-  code: string;
-  status: number;
-
-  constructor(code: string, message: string, status: number) {
-    super(message);
-    this.name = 'ApiRequestError';
-    this.code = code;
-    this.status = status;
-  }
-}
-
-async function apiRequest<T>(
-  baseUrl: string,
-  serviceName: string,
-  path: string,
-  body: Record<string, unknown>,
-  accessToken?: string,
-): Promise<T> {
-  let response: Response;
-
-  try {
-    response = await fetch(`${baseUrl}${path}`, {
-      body: JSON.stringify(body),
-      headers: { 'Content-Type': 'application/json', ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
-      method: 'POST',
-    });
-  } catch {
-    throw new ApiRequestError('NETWORK_ERROR', `Không thể kết nối ${serviceName} tại ${baseUrl}.`, 0);
-  }
-
-  const payload = await response.json().catch(() => ({})) as {
-    data?: T;
-    error?: { code?: string; message?: string };
-  };
-
-  if (!response.ok || payload.error) {
-    throw new ApiRequestError(
-      payload.error?.code ?? 'REQUEST_FAILED',
-      payload.error?.message ?? `${serviceName} trả về HTTP ${response.status}.`,
-      response.status,
-    );
-  }
-
-  return payload.data as T;
-}
 
 async function authRequest<T>(path: string, body: Record<string, unknown>) {
   return apiRequest<T>(authApiBaseUrl, 'Backend API', path, body);
@@ -179,6 +127,7 @@ function getApiErrorMessage(error: unknown) {
   }
   return 'Đã xảy ra lỗi không xác định.';
 }
+
 
 function MapBackdrop() {
   return (
@@ -232,12 +181,14 @@ function Hero({ activeTab }: { activeTab: AuthTab }) {
   );
 }
 
-function GoogleButton({ label, onPress }: { label: string; onPress: () => void }) {
+function GoogleButton({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
   return (
     <Pressable
       accessibilityLabel={label}
       accessibilityRole="button"
       android_ripple={{ color: '#F0F0F2', borderless: false }}
+      disabled={disabled}
+      accessibilityState={{ disabled }}
       onPress={onPress}
       style={({ pressed }) => [styles.googleButton, pressed && styles.pressed]}
     >
@@ -281,7 +232,7 @@ function InputField({
   placeholder: string;
   value: string;
   onChangeText: (value: string) => void;
-} & Pick<TextInputProps, 'autoCapitalize' | 'autoComplete' | 'keyboardType' | 'maxLength'>) {
+} & Pick<TextInputProps, 'autoCapitalize' | 'autoComplete' | 'keyboardType' | 'maxLength' | 'onBlur'>) {
   return (
     <View style={styles.inputWrap}>
       <MaterialCommunityIcons name={icon} size={18} color="#7A7A7A" />
@@ -382,6 +333,7 @@ function ForgotPasswordSheet({
   const [email, setEmail] = useState('');
   const [step, setStep] = useState<'email' | 'otp' | 'password'>('email');
   const [challenge, setChallenge] = useState<PasswordResetChallenge | null>(null);
+  const cooldown = useResendCooldown(challenge?.resendAvailableAt);
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -390,6 +342,7 @@ function ForgotPasswordSheet({
   const [apiError, setApiError] = useState<string | null>(null);
 
   const requestCode = async () => {
+    if (isSubmitting || cooldown.seconds > 0) return;
     if (!email.trim()) {
       setApiError('Vui lòng nhập email đăng ký.');
       return;
@@ -404,6 +357,7 @@ function ForgotPasswordSheet({
       setOtp('');
       setStep('otp');
     } catch (error) {
+      cooldown.onError(error);
       setApiError(getApiErrorMessage(error));
     } finally {
       setIsSubmitting(false);
@@ -421,8 +375,9 @@ function ForgotPasswordSheet({
 
   const resetPassword = async () => {
     if (!challenge) return;
-    if (newPassword.length < 8 || newPassword.length > 128) {
-      setApiError('Mật khẩu mới phải dài từ 8 đến 128 ký tự.');
+    const validationError = passwordError(newPassword);
+    if (validationError) {
+      setApiError(validationError);
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -510,10 +465,10 @@ function ForgotPasswordSheet({
                 <Text style={styles.forgotLabel}>MÃ OTP</Text>
                 <InputField icon="key-variant" placeholder="Mã OTP 6 chữ số" value={otp}
                   onChangeText={setOtp} keyboardType="number-pad" maxLength={6} />
-                <Pressable accessibilityRole="button" disabled={isSubmitting} onPress={requestCode}
+                <Pressable accessibilityRole="button" disabled={isSubmitting || cooldown.seconds > 0} onPress={requestCode}
                   style={({ pressed }) => [styles.otpResendButton, pressed && styles.subtlePressed]}>
                   <MaterialCommunityIcons name="refresh" size={15} color={colors.blue} />
-                  <Text style={styles.link}>Gửi lại mã</Text>
+                  <Text style={styles.link}>{cooldown.seconds > 0 ? `Gửi lại sau ${cooldown.seconds}s` : 'Gửi lại mã'}</Text>
                 </Pressable>
               </>
             )}
@@ -547,13 +502,13 @@ function ForgotPasswordSheet({
               <Pressable
                 accessibilityLabel={step === 'email' ? 'Gửi mã OTP' : step === 'otp' ? 'Tiếp tục' : 'Đặt lại mật khẩu'}
                 accessibilityRole="button"
-                accessibilityState={{ busy: isSubmitting, disabled: isSubmitting }}
-                disabled={isSubmitting}
+                accessibilityState={{ busy: isSubmitting, disabled: isSubmitting || (step === 'email' && cooldown.seconds > 0) }}
+                disabled={isSubmitting || (step === 'email' && cooldown.seconds > 0)}
                 onPress={step === 'email' ? requestCode : step === 'otp' ? continueToPassword : resetPassword}
                 style={({ pressed }) => [styles.modalPrimaryButton, isSubmitting && styles.disabledButton, pressed && styles.pressed]}
               >
                 <Text style={styles.modalPrimaryText}>
-                  {isSubmitting ? 'Đang xử lý…' : step === 'email' ? 'Gửi mã OTP' : step === 'otp' ? 'Tiếp tục' : 'Đổi mật khẩu'}
+                  {isSubmitting ? 'Đang xử lý…' : step === 'email' ? (cooldown.seconds > 0 ? `Gửi lại sau ${cooldown.seconds}s` : 'Gửi mã OTP') : step === 'otp' ? 'Tiếp tục' : 'Đổi mật khẩu'}
                 </Text>
                 <MaterialCommunityIcons name="arrow-right" size={17} color={colors.white} />
               </Pressable>
@@ -565,7 +520,7 @@ function ForgotPasswordSheet({
   );
 }
 
-function LoginPanel({ onRegister, onAuthenticated }: { onRegister: () => void; onAuthenticated: (session: SessionResponse) => void }) {
+function LoginPanel({ onRegister, onAuthenticated }: { onRegister: () => void; onAuthenticated: OnAuthenticated }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -589,7 +544,7 @@ function LoginPanel({ onRegister, onAuthenticated }: { onRegister: () => void; o
         installationId,
         password,
       });
-      onAuthenticated(session);
+      await onAuthenticated(session, rememberMe);
     } catch (error) {
       setApiError(getApiErrorMessage(error));
     } finally {
@@ -602,7 +557,7 @@ function LoginPanel({ onRegister, onAuthenticated }: { onRegister: () => void; o
     setIsSubmitting(true);
     try {
       const session = await googleAuthRequest();
-      onAuthenticated(session);
+      await onAuthenticated(session, rememberMe);
     } catch (error) {
       setApiError(getApiErrorMessage(error));
     } finally {
@@ -612,7 +567,7 @@ function LoginPanel({ onRegister, onAuthenticated }: { onRegister: () => void; o
 
   return (
     <View style={styles.panelContent}>
-      <GoogleButton label="Tiếp tục với Google" onPress={submitGoogle} />
+      <GoogleButton label="Tiếp tục với Google" onPress={submitGoogle} disabled={isSubmitting} />
       <Divider label="hoặc dùng email" />
 
       <InputField
@@ -657,7 +612,7 @@ function LoginPanel({ onRegister, onAuthenticated }: { onRegister: () => void; o
   );
 }
 
-function RegisterPanel({ onLogin, onAuthenticated }: { onLogin: () => void; onAuthenticated: (session: SessionResponse) => void }) {
+function RegisterPanel({ onLogin, onAuthenticated }: { onLogin: () => void; onAuthenticated: OnAuthenticated }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -670,6 +625,7 @@ function RegisterPanel({ onLogin, onAuthenticated }: { onLogin: () => void; onAu
   const [verificationId, setVerificationId] = useState('');
   const [otp, setOtp] = useState('');
   const [challenge, setChallenge] = useState<RegistrationChallenge | null>(null);
+  const cooldown = useResendCooldown(challenge?.resendAvailableAt);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
@@ -713,6 +669,8 @@ function RegisterPanel({ onLogin, onAuthenticated }: { onLogin: () => void; onAu
       Alert.alert('Lỗi', 'Mật khẩu xác nhận không khớp.');
       return;
     }
+    const validationError = passwordError(password);
+    if (validationError) { setApiError(validationError); return; }
     if (!agreeTerms) {
       Alert.alert('Thông báo', 'Vui lòng đồng ý với điều khoản sử dụng.');
       return;
@@ -755,7 +713,7 @@ function RegisterPanel({ onLogin, onAuthenticated }: { onLogin: () => void; onAu
         verificationId,
       });
       pendingVerificationRef.current = null;
-      onAuthenticated(session);
+      await onAuthenticated(session);
     } catch (error) {
       setApiError(getApiErrorMessage(error));
     } finally {
@@ -764,6 +722,7 @@ function RegisterPanel({ onLogin, onAuthenticated }: { onLogin: () => void; onAu
   };
 
   const resendOtp = async () => {
+    if (isSubmitting || cooldown.seconds > 0) return;
     setApiError(null);
     setIsSubmitting(true);
     try {
@@ -774,6 +733,7 @@ function RegisterPanel({ onLogin, onAuthenticated }: { onLogin: () => void; onAu
       setOtp('');
       Alert.alert('Đã gửi lại mã', 'Vui lòng kiểm tra hộp thư email của bạn.');
     } catch (error) {
+      cooldown.onError(error);
       setApiError(getApiErrorMessage(error));
     } finally {
       setIsSubmitting(false);
@@ -785,7 +745,7 @@ function RegisterPanel({ onLogin, onAuthenticated }: { onLogin: () => void; onAu
     setIsSubmitting(true);
     try {
       const session = await googleAuthRequest();
-      onAuthenticated(session);
+      await onAuthenticated(session);
     } catch (error) {
       setApiError(getApiErrorMessage(error));
     } finally {
@@ -810,8 +770,8 @@ function RegisterPanel({ onLogin, onAuthenticated }: { onLogin: () => void; onAu
         </Text>
         <View style={styles.mockNotice}>
           <Text style={styles.mockNoticeTitle}>EMAIL OTP</Text>
-          <Text style={styles.mockNoticeText}>Mã có hiệu lực trong 3 phút. Kiểm tra email hoặc log backend nếu chưa bật SMTP.</Text>
-          {challenge && <Text style={styles.mockNoticeMeta}>Challenge: {challenge.verificationId.slice(0, 8)}…</Text>}
+          <Text style={styles.mockNoticeText}>Kiểm tra hộp thư đến và thư rác để lấy mã xác minh.</Text>
+          {challenge && <Text style={styles.mockNoticeMeta}>Mã hết hạn lúc {new Date(challenge.expiresAt).toLocaleTimeString('vi-VN')}.</Text>}
         </View>
         <InputField
           icon="key-variant"
@@ -834,12 +794,12 @@ function RegisterPanel({ onLogin, onAuthenticated }: { onLogin: () => void; onAu
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            disabled={isSubmitting}
+            disabled={isSubmitting || cooldown.seconds > 0}
             onPress={resendOtp}
             style={({ pressed }) => [styles.otpResendButton, pressed && styles.subtlePressed]}
           >
             <MaterialCommunityIcons name="refresh" size={15} color={colors.blue} />
-            <Text style={styles.link}>Gửi lại mã</Text>
+            <Text style={styles.link}>{cooldown.seconds > 0 ? `Gửi lại sau ${cooldown.seconds}s` : 'Gửi lại mã'}</Text>
           </Pressable>
         </View>
       </View>
@@ -848,7 +808,7 @@ function RegisterPanel({ onLogin, onAuthenticated }: { onLogin: () => void; onAu
 
   return (
     <View style={styles.panelContent}>
-      <GoogleButton label="Đăng ký với Google" onPress={submitGoogle} />
+      <GoogleButton label="Đăng ký với Google" onPress={submitGoogle} disabled={isSubmitting} />
       <Divider label="hoặc đăng ký với email" />
 
       <InputField icon="account-outline" placeholder="Họ và tên" value={name} onChangeText={setName} />
@@ -939,7 +899,7 @@ function PrimaryButton({
   );
 }
 
-function AuthSheet({ activeTab, onChangeTab, onAuthenticated }: { activeTab: AuthTab; onChangeTab: (tab: AuthTab) => void; onAuthenticated: (session: SessionResponse) => void }) {
+function AuthSheet({ activeTab, onChangeTab, onAuthenticated }: { activeTab: AuthTab; onChangeTab: (tab: AuthTab) => void; onAuthenticated: OnAuthenticated }) {
   return (
     <View style={styles.sheet}>
       <View style={styles.sheetHandle} />
@@ -972,41 +932,71 @@ function AuthSheet({ activeTab, onChangeTab, onAuthenticated }: { activeTab: Aut
   );
 }
 
+function CompletePhoneDialog({ onComplete, onLogout, sessionError }: {
+  onComplete: (phone: string) => Promise<void>;
+  onLogout: () => Promise<void>;
+  sessionError: string | null;
+}) {
+  const [phone, setPhone] = useState('');
+  const [touched, setTouched] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const normalized = phone.trim();
+  const invalid = touched && !/^\+?[0-9 ()-]{7,32}$/.test(normalized);
+
+  const submit = async () => {
+    if (submitting) return;
+    setTouched(true);
+    if (!/^\+?[0-9 ()-]{7,32}$/.test(normalized)) return;
+    setError(null);
+    setSubmitting(true);
+    try { await onComplete(normalized); }
+    catch (cause) { setError(getApiErrorMessage(cause)); }
+    finally { setSubmitting(false); }
+  };
+
+  return <Modal visible transparent animationType="fade" onRequestClose={() => {}}>
+    <SafeAreaView style={styles.phoneOverlay} edges={['top', 'bottom']}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
+        <ScrollView contentContainerStyle={styles.phoneDialogScroll} keyboardShouldPersistTaps="handled">
+          <View style={styles.phoneDialog}>
+            <View accessible={false} style={styles.phoneDialogIcon}><MaterialCommunityIcons name="phone-outline" size={24} color={colors.blue} /></View>
+            <Text style={styles.phoneDialogTitle}>Vui lòng nhập SĐT của bạn</Text>
+            <Text style={styles.phoneDialogDescription}>Bạn cần thêm số điện thoại trước khi tiếp tục vào TripMate.</Text>
+            <Text style={styles.phoneDialogLabel}>Số điện thoại (bắt buộc)</Text>
+            <InputField icon="phone-outline" placeholder="Số điện thoại" value={phone} onChangeText={setPhone}
+              onBlur={() => setTouched(true)} autoComplete="tel" keyboardType="phone-pad" maxLength={32} />
+            {invalid && <Text accessibilityRole="alert" style={styles.phoneFieldError}>Nhập số điện thoại hợp lệ từ 7 đến 32 ký tự.</Text>}
+            <InlineError message={error ?? sessionError} />
+            <PrimaryButton label="Lưu và tiếp tục" loading={submitting} onPress={submit} />
+            <Pressable accessibilityRole="button" disabled={submitting} onPress={() => { void onLogout(); }}
+              style={({ pressed }) => [styles.phoneLogout, pressed && styles.subtlePressed]}>
+              <Text style={styles.link}>Đăng xuất</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  </Modal>;
+}
+
 function AppContent() {
   const theme = useAppTheme();
   const [activeTab, setActiveTab] = useState<AuthTab>('login');
-  const [session, setSession] = useState<SessionResponse | null>(null);
-
-  const logout = async () => {
-    if (!session) return;
-    try {
-      await fetch(`${authApiBaseUrl}/auth/logout`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${session.accessToken}` },
-      });
-    } catch {
-      // Clear the local session even when the server cannot be reached.
-    } finally {
-      setSession(null);
-      setActiveTab('login');
-    }
-  };
+  const { session, request, restoring, restoreError, sessionError, restoreSession, authenticate,
+    completePhone, logout, changePassword: updatePassword, discardSavedSession, realtimeCredentials } = useSessionViewModel(authApiBaseUrl);
+  useEffect(() => { if (!session) setActiveTab('login'); }, [session]);
 
   const changePassword = async (currentPassword: string, newPassword: string) => {
     if (!session) throw new Error('Cần đăng nhập lại.');
     try {
-      await apiRequest<void>(authApiBaseUrl, 'Backend API', '/auth/change-password',
-        { currentPassword, newPassword }, session.accessToken);
+      await updatePassword(currentPassword, newPassword);
     } catch (error) {
       if (error instanceof ApiRequestError && error.status === 401) {
-        setSession(null);
-        setActiveTab('login');
         Alert.alert('Phiên đăng nhập đã hết hạn', 'Vui lòng đăng nhập lại để đổi mật khẩu.');
       }
       throw error;
     }
-    setSession(null);
-    setActiveTab('login');
     Alert.alert('Đổi mật khẩu thành công', 'Các phiên đăng nhập đã được đăng xuất. Hãy đăng nhập bằng mật khẩu mới.');
   };
 
@@ -1014,7 +1004,21 @@ function AppContent() {
     <SafeAreaProvider>
       <SafeAreaView style={[styles.screen, session && { backgroundColor: theme.colors.pale }]} edges={['top', 'bottom']}>
         <StatusBar style={session && theme.mode === 'dark' ? 'light' : 'dark'} />
-        {session ? <ExploreHome user={session.user} onLogout={() => { void logout(); }} onChangePassword={changePassword} /> : (
+        {restoring || restoreError ? <View style={[styles.panelContent, { flex: 1, justifyContent: 'center' }]}>
+          {restoring ? <><ActivityIndicator /><Text style={styles.promptText}>Đang khôi phục phiên đăng nhập…</Text></> : <>
+            <InlineError message={restoreError} />
+            <PrimaryButton label="Thử lại" loading={false} onPress={() => { void restoreSession(); }} />
+            <Pressable accessibilityRole="button" onPress={() => { void discardSavedSession(); }}><Text style={styles.link}>Đăng nhập bằng tài khoản khác</Text></Pressable>
+          </>}
+        </View> : session && !session.user.phone?.trim() ? <>
+          <MapBackdrop />
+          <CompletePhoneDialog onComplete={completePhone} onLogout={logout} sessionError={sessionError} />
+        </> : session ? <>
+          <InlineError message={sessionError} />
+          <ProfileProvider key={session.user.id} user={session.user} request={request}>
+            <ExploreHome request={request} realtimeCredentials={realtimeCredentials} onLogout={() => { void logout(); }} onChangePassword={changePassword} />
+          </ProfileProvider>
+        </> : (
           <>
             <MapBackdrop />
             <KeyboardAvoidingView
@@ -1027,7 +1031,8 @@ function AppContent() {
                 showsVerticalScrollIndicator={false}
               >
                 <Hero activeTab={activeTab} />
-                <AuthSheet activeTab={activeTab} onChangeTab={setActiveTab} onAuthenticated={setSession} />
+                <InlineError message={sessionError} />
+                <AuthSheet activeTab={activeTab} onChangeTab={setActiveTab} onAuthenticated={authenticate} />
               </ScrollView>
             </KeyboardAvoidingView>
           </>
@@ -1079,6 +1084,15 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   sheetHandle: { alignSelf: 'center', backgroundColor: colors.border, borderRadius: 3, height: 4, marginBottom: 12, width: 36 },
+  phoneOverlay: { flex: 1, backgroundColor: 'rgba(18, 29, 45, 0.58)' },
+  phoneDialogScroll: { flexGrow: 1, justifyContent: 'center', padding: 24 },
+  phoneDialog: { alignSelf: 'center', backgroundColor: colors.white, borderRadius: 24, gap: 12, maxWidth: 420, padding: 24, width: '100%' },
+  phoneDialogIcon: { alignItems: 'center', justifyContent: 'center', width: 48, height: 48, borderRadius: 24, backgroundColor: '#EAF3FF' },
+  phoneDialogTitle: { color: colors.ink, fontSize: 20, fontWeight: '700' },
+  phoneDialogDescription: { color: colors.muted, fontSize: 14, lineHeight: 21 },
+  phoneDialogLabel: { color: colors.ink, fontSize: 14, fontWeight: '600', marginTop: 4 },
+  phoneFieldError: { color: '#B42318', fontSize: 13 },
+  phoneLogout: { alignItems: 'center', borderRadius: 18, justifyContent: 'center', minHeight: 48 },
   segmentedControl: { backgroundColor: colors.canvas, borderColor: colors.border, borderRadius: 24, borderWidth: 1, flexDirection: 'row', height: 42, marginBottom: 12, padding: 3, position: 'relative' },
   segmentIndicator: { backgroundColor: colors.white, borderColor: colors.border, borderRadius: 20, borderWidth: 1, bottom: 3, left: 3, position: 'absolute', top: 3, width: '50%' },
   segmentIndicatorRegister: { left: '50%' },

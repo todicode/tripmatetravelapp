@@ -1,21 +1,33 @@
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
-import { Trip } from '../trips/tripModel';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Button, Header } from '../trips/tripUi';
 import { Friend, matchesFriend } from './chatModel';
-import { Avatar, useChatUi, Icon,  } from './chatUi';
-export default function CreateGroupScreen({ friends, trips, onBack, onCreate }: { friends: Friend[]; trips: Trip[]; onBack: () => void; onCreate: (name: string, members: string[], tripId?: string) => void }) {
+import { useCreateGroup } from './useCreateGroup';
+import { Avatar, useChatUi, Icon } from './chatUi';
+
+export default function CreateGroupScreen({ friends, onBack, onCreate }: {
+  friends: Friend[]; onBack: () => void; onCreate: (name: string, members: string[]) => Promise<void>;
+}) {
   const { c, s, u } = useChatUi();
-  const [name, setName] = useState('');
-  const [selected, setSelected] = useState<string[]>([]);
-  const [link, setLink] = useState(false);
-  const [tripId, setTripId] = useState<string>();
   const [query, setQuery] = useState('');
-  const [error, setError] = useState('');
-  const create = () => { if (!name.trim()) return setError('Vui lòng nhập tên nhóm.'); if (link && !tripId) return setError('Vui lòng chọn chuyến đi để liên kết.'); onCreate(name.trim(), selected, link ? tripId : undefined); };
-  return <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}><Header title="Tạo nhóm" subtitle="Lên kế hoạch và chia sẻ cùng nhau." onBack={onBack} action={<Button label="Tạo" onPress={create} />} /><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.body}>
-    <View style={[s.card, { borderWidth: 1, borderColor: c.border }]}><Text style={s.label}>TÊN NHÓM</Text><TextInput value={name} onChangeText={setName} accessibilityLabel="Tên nhóm" maxLength={100} style={s.input} /></View>
-    <View style={[s.card, { borderWidth: 1, borderColor: c.border }]}><View style={s.between}><View style={s.row}><Icon name="map-marker-outline" size={16} /><Text style={[s.small, { color: c.ink, fontWeight: '600' }]}>Liên kết chuyến đi</Text></View><Switch accessibilityLabel="Liên kết chuyến đi" value={link} onValueChange={value => { setLink(value); if (value && !tripId && trips.length) setTripId(trips[0].id); }} trackColor={{ true: c.blue }} /></View><Text style={s.small}>{link ? 'Chọn chuyến đi bên dưới để chia sẻ lịch trình với các thành viên' : 'Mặc định không liên kết. Tích bật nếu bạn muốn gắn nhóm với một chuyến đi cụ thể'}</Text>{link && <><Text style={s.label}>CHỌN CHUYẾN ĐI MUỐN LIÊN KẾT ({trips.length})</Text>{trips.length ? trips.map(trip => <Pressable key={trip.id} accessibilityRole="radio" accessibilityState={{ checked: tripId === trip.id }} onPress={() => setTripId(trip.id)} style={[s.row, { padding: 12, borderRadius: 11, borderWidth: 1, borderColor: tripId === trip.id ? c.blue : c.border, backgroundColor: tripId === trip.id ? c.primaryLight : c.pale }]}><View style={s.grow}><Text style={[s.text, { fontWeight: '600', color: tripId === trip.id ? c.blue : c.ink }]}>{trip.title}</Text><Text style={s.small}>{trip.startDate} · {trip.city} · {trip.dayPlans.length} ngày</Text></View><Icon size={20} name={tripId === trip.id ? 'check-circle' : 'checkbox-blank-circle-outline'} color={tripId === trip.id ? c.blue : c.border} /></Pressable>) : <Text style={s.small}>Chưa có chuyến đi nào được tạo</Text>}</>}</View>
-    <View style={[s.card, { borderWidth: 1, borderColor: c.border }]}><View style={s.between}><View style={s.row}><Icon name="account-group-outline" size={16} /><Text style={[s.small, { color: c.ink, fontWeight: '600' }]}>Thêm thành viên</Text></View><Text style={s.badge}>{selected.length} đã chọn</Text></View><View style={u.search}><Icon name="magnify" color={c.muted} size={16} /><TextInput value={query} onChangeText={setQuery} accessibilityLabel="Tìm thành viên" placeholder="Tìm theo tên hoặc số điện thoại..." style={[u.searchInput, { fontSize: 12 }]} /></View>{!friends.length && <Text style={s.text}>Chưa có bạn bè để thêm vào nhóm.</Text>}{friends.filter(friend => matchesFriend(friend, query)).map(friend => <Pressable key={friend.id} accessibilityRole="checkbox" accessibilityState={{ checked: selected.includes(friend.id) }} onPress={() => setSelected(current => current.includes(friend.id) ? current.filter(id => id !== friend.id) : [...current, friend.id])} style={[s.row, { minHeight: 64 }]}><Avatar text={friend.avatar} /><View style={s.grow}><Text style={[s.title, { fontWeight: '400' }]}>{friend.name}</Text><Text style={s.small}>{friend.phone}</Text></View><Icon size={20} name={selected.includes(friend.id) ? 'checkbox-marked-circle' : 'checkbox-blank-circle-outline'} color={selected.includes(friend.id) ? c.blue : c.border} /></Pressable>)}</View>{!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}
-  </ScrollView></KeyboardAvoidingView>;
+  const { name, setName, selected, toggle, error, busy, create } = useCreateGroup(onCreate);
+  return <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <Header title="Tạo nhóm" subtitle="Trò chuyện cùng bạn bè." onBack={onBack} action={<Button label={busy ? 'Đang tạo...' : 'Tạo'} disabled={busy} onPress={() => { void create(); }} />} />
+    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.body}>
+      <View style={s.card}><Text style={s.label}>TÊN NHÓM</Text><TextInput value={name} onChangeText={setName} editable={!busy} accessibilityLabel="Tên nhóm" style={s.input} /></View>
+      <View style={s.card}><Text style={s.title}>Nhóm độc lập</Text><Text style={s.text}>Bạn có thể trò chuyện mà không cần gắn chuyến đi. Chuyến đi đang lưu trên máy chưa hỗ trợ liên kết với nhóm.</Text></View>
+      <View style={s.card}><View style={s.between}><Text style={s.title}>Thêm bạn bè</Text><Text style={s.badge}>{selected.length}/99</Text></View>
+        <View style={u.search}><Icon name="magnify" color={c.muted} /><TextInput value={query} onChangeText={setQuery} accessibilityLabel="Tìm bạn bè" placeholder="Tìm bạn bè..." placeholderTextColor={c.muted} style={u.searchInput} /></View>
+        {!friends.length && <Text style={s.text}>Chưa có bạn bè. Bạn vẫn có thể tạo nhóm và thêm thành viên sau.</Text>}
+        {friends.filter(friend => matchesFriend(friend, query)).map(friend => {
+          const checked = selected.includes(friend.id);
+          return <Pressable key={friend.id} accessibilityRole="checkbox" accessibilityState={{ checked, disabled: busy || (!checked && selected.length >= 99) }} disabled={busy || (!checked && selected.length >= 99)}
+            onPress={() => toggle(friend.id)}
+            style={({ pressed }) => [s.row, { minHeight: 64 }, pressed && { opacity: 0.6 }]}>
+            <Avatar text={friend.avatar} /><Text style={[s.title, s.grow]}>{friend.name}</Text><Icon name={checked ? 'checkbox-marked-circle' : 'checkbox-blank-circle-outline'} color={checked ? c.blue : c.muted} />
+          </Pressable>;
+        })}
+      </View>{!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}
+    </ScrollView>
+  </KeyboardAvoidingView>;
 }

@@ -51,7 +51,7 @@ Flyway phù hợp với việc hai người thay đổi database qua Git: schema
 
 **PostgreSQL 17** giữ dữ liệu nghiệp vụ bền vững. TripMate có nhiều quan hệ cần bảo vệ: chủ chuyến phải có membership, attachment phải cùng trip/người gửi, lời mời đang chờ không được trùng. Transaction, FK, unique/partial index và constraint deferred giúp diễn đạt các yêu cầu này ngay trong schema. JSONB chỉ dùng cho draft AI và payload có cấu trúc; các quan hệ chính vẫn là bảng/cột.
 
-Đánh đổi là nhóm phải hiểu khóa hàng, thứ tự transaction và migration. Schema không tự kiểm tra mọi quyền hoặc giới hạn nhiều hàng; xem [ERD](../TRIPMATE_ERD_V1.md) và [từ điển dữ liệu](database/DATA_DICTIONARY.md).
+Đánh đổi là nhóm phải hiểu khóa hàng, thứ tự transaction và migration. Schema không tự kiểm tra mọi quyền hoặc giới hạn nhiều hàng; xem [ERD](../TRIPMATE_ERD_V1.md) và [từ điển dữ liệu](../backend/database/DATA_DICTIONARY.md).
 
 **Redis** phục vụ hai nhu cầu nhỏ, cụ thể: Pub/Sub chuyển sự kiện giữa các backend và key vị trí có TTL 60 giây. PostgreSQL lưu chat trước, outbox ghi cùng transaction, rồi worker mới publish. Pub/Sub có cơ chế giao at-most-once, nên client phải tải bù chat từ PostgreSQL sau reconnect. Không dùng Redis làm lịch sử chat duy nhất. [Redis Pub/Sub](https://redis.io/docs/latest/develop/pubsub/)
 

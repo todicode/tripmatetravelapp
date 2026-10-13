@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Header, Icon, useTripUi } from './trips/tripUi';
+import { passwordError } from './auth/password';
 
 export default function SecurityScreen({ onBack, onChangePassword }: { onBack: () => void; onChangePassword: (currentPassword: string, newPassword: string) => Promise<void> }) {
   const { c, s } = useTripUi();
@@ -20,12 +21,8 @@ export default function SecurityScreen({ onBack, onChangePassword }: { onBack: (
   const submit = async () => {
     if (submitting.current) return;
     if (!current.trim()) return setError('Vui lòng nhập mật khẩu hiện tại.');
-    if (!next.trim() || next.length < 8 || next.length > 128) return setError('Mật khẩu mới cần từ 8 đến 128 ký tự.');
-    // BCrypt stores at most 72 UTF-8 bytes, including passwords containing Vietnamese characters.
-    let bytes: number;
-    try { bytes = encodeURIComponent(next).replace(/%[A-F\d]{2}/gi, '_').length; }
-    catch { return setError('Mật khẩu chứa ký tự không hợp lệ.'); }
-    if (bytes > 72) return setError('Mật khẩu mới vượt quá 72 byte UTF-8. Hãy dùng mật khẩu ngắn hơn.');
+    const validationError = passwordError(next);
+    if (validationError) return setError(validationError);
     if (next === current) return setError('Mật khẩu mới phải khác mật khẩu hiện tại.');
     if (next !== confirm) return setError('Xác nhận mật khẩu mới chưa khớp.');
     submitting.current = true;

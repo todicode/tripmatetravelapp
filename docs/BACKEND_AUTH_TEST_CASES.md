@@ -10,7 +10,7 @@ http://localhost:8081/api/v1
 
 ## 1. Chuẩn bị môi trường test
 
-Dùng database PostgreSQL rỗng riêng cho backend. Không dùng `docs/database/compose.erd.yml` cho smoke test backend vì file đó là schema ERD tham chiếu và không có lịch sử Flyway.
+Dùng database PostgreSQL rỗng riêng cho backend. Không dùng `backend/database/compose.erd.yml` cho smoke test backend vì file đó là schema ERD tham chiếu và không có lịch sử Flyway.
 
 ```powershell
 docker rm -f tripmate-auth-test-pg 2>$null

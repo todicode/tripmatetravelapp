@@ -18,8 +18,8 @@ MAIL_FROM=your-gmail-address@gmail.com
 These settings take precedence over `personal/gmail-smtp.env`. Use `EMAIL_MODE=log`
 for development OTPs in the terminal. SMTP mode requires all five `MAIL_*` fields;
 incomplete configuration stops startup. Restart the backend after changes.
-The helper also reads `SERVER_PORT` from this file; database and Google settings
-continue to use the helper's existing configuration sources.
+The helper also reads `SERVER_PORT` and `DATABASE_PASSWORD` from this file.
+It passes `DATABASE_PASSWORD` to the local PostgreSQL Compose service.
 
 ## Stack
 
@@ -40,7 +40,7 @@ cd backend
 
 ## Database
 
-The default local connection matches `docs/database/DBEAVER_LOCAL.md`:
+The default local connection matches `backend/database/DBEAVER_LOCAL.md`:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -71,6 +71,18 @@ With `EMAIL_MODE=log`, the backend logs the recipient, expiry and OTP for local 
 
 For local Gmail SMTP, run `./scripts/setup-gmail-smtp.ps1` from the repository root in PowerShell. It prompts once for a Gmail App Password and saves the sender address and password in the Git-ignored `personal/gmail-smtp.env`. Later `./scripts/run-backend.ps1` calls automatically load that file and enable Gmail SMTP. Use `-Email address@gmail.com` for another sender, or `-Replace` to rotate the stored App Password. Do not commit or share the file. If the file is absent, the backend helper retains `EMAIL_MODE=log` and prints development OTP codes to its terminal.
 
+## Friend API
+
+Authenticated `GET /api/v1/users/lookup-by-phone?phone=...` and `GET /api/v1/users/lookup?friendCode=...` return only user ID, display name, avatar media ID, and current relationship (`NONE`, `SELF`, `FRIEND`, `INCOMING_PENDING`, or `OUTGOING_PENDING`). `GET /api/v1/users/me/friend-code` returns the current user's code and QR payload. Phone numbers are unique after formatting and Vietnam `+84`/`0` normalization, but are not SMS verified. Flyway V5 rejects existing normalized duplicates; resolve them before deployment.
+
+`POST /api/v1/friend-requests` takes `recipientId` and optional `message` (at most 500 characters). A repeated request in either direction returns the existing pending request; it never auto-accepts. `GET /api/v1/friend-requests?direction=INCOMING|OUTGOING` lists requests (default `status=PENDING`). `POST /api/v1/friend-requests/{requestId}/accept|reject|cancel` processes a request with role checks and repeat-safe results. `GET /api/v1/friends` lists friends; `DELETE /api/v1/friends/{userId}` removes a friendship. Lists use `limit` and an opaque `cursor`. Flyway V6 creates the social tables. Phone/code lookup and friend-request creation are rate limited per user.
+
+## Direct messaging API
+
+Five authenticated REST operations are implemented under `/api/v1/direct-conversations`: POST opens/reuses a conversation with a current friend, GET lists conversations, GET/POST `/{id}/messages` reads/sends text, and PUT `/{id}/read` advances the caller's read sequence. Sending supports `clientMessageId` retries, messages use contiguous string sequences, and unread counts exclude outgoing messages. Unfriend preserves history but blocks sending. Flyway V7 adds the chat tables. Frontend integration uses these APIs and native WebSocket/STOMP at `/ws` for realtime events; groups, push and attachments remain outside this slice. See [API examples and PostgreSQL test instructions](../docs/api/DIRECT_MESSAGING.md).
+
+WebSocket authenticates bearer tokens in STOMP CONNECT and permits only `/user/queue/events`. Committed message/read events go to both participants; SEND and other destinations are rejected. Account/device binding is checked before delivery and for idle sessions. The simple broker supports one backend instance; reverse proxies must forward WebSocket Upgrade at `/ws`. Reconnect recovery reads durable history through REST. No additional database migration is needed for WebSocket. Integration tests run an isolated server with real STOMP clients and storage/auth doubles; they do not touch application accounts.
+
 ## Authentication API
 
 Base URL: `http://localhost:8080/api/v1`.
@@ -80,7 +92,7 @@ Base URL: `http://localhost:8080/api/v1`.
 3. `POST /auth/register/resend` accepts `verificationId`. Resends only after the cooldown and rotates the stored OTP hash.
 4. `POST /auth/register/cancel` accepts `verificationId` and deletes an unfinished challenge. Missing or already completed challenges are safe no-ops. Expired challenges are also removed by a periodic cleanup job.
 5. `POST /auth/login` accepts email/password and `installationId`. Manual accounts can log in only after email verification.
-6. `POST /auth/google` accepts a Google `idToken` and `installationId`. The backend verifies the token signature, audience, issuer, expiry, subject and `email_verified`, then issues TripMate tokens. A Google identity is not automatically linked to an existing manual account with the same email; v1 returns `AUTH_METHOD_CONFLICT`.
+6. `POST /auth/google` accepts a Google `idToken` and `installationId`. The backend verifies the token signature, audience, issuer, expiry, subject and `email_verified`, then issues TripMate tokens. If the verified Google email matches an active manual account, the Google identity is linked to that user ID without changing its password or phone. An account already linked to a different Google subject returns `GOOGLE_IDENTITY_CONFLICT`.
 7. `POST /auth/refresh` rotates a single-use refresh token. Reuse revokes the whole token family.
 8. `POST /auth/logout` requires the bearer access token, revokes refresh tokens for the current device and increments its binding version.
 9. `GET /users/me` requires the bearer access token and returns the profile, including `phone` when available.
@@ -136,7 +148,7 @@ Invoke-RestMethod "$base/users/me" -Headers $headers
 Invoke-RestMethod "$base/auth/logout" -Method Post -Headers $headers
 ```
 
-The registration screen can model the API states as: `202` = show the OTP form and countdown, `422 OTP_INVALID` = keep the form and show an inline error, `410 OTP_EXPIRED` = offer resend, `429 OTP_RESEND_TOO_SOON` or `OTP_ATTEMPTS_EXCEEDED` = respect the retry window, and `201` = store the returned session. Google uses `200` for both a first-time account and a returning account; `409 AUTH_METHOD_CONFLICT` asks the user to use the existing manual sign-in flow.
+The registration screen can model the API states as: `202` = show the OTP form and countdown, `422 OTP_INVALID` = keep the form and show an inline error, `410 OTP_EXPIRED` = offer resend, `429 OTP_RESEND_TOO_SOON` or `OTP_ATTEMPTS_EXCEEDED` = respect the retry window, and `201` = store the returned session. Google uses `200` for both a first-time account and a returning account, including an existing account matched by email. The client checks the returned profile's `phone`: a missing phone opens the required phone form, while an existing phone enters the app.
 
 For Android Emulator, use `http://10.0.2.2:8080/api/v1`; for a physical device use the development computer's LAN address. Production traffic must use HTTPS.
 
@@ -146,7 +158,11 @@ Create an OAuth web client in the same Google Cloud project as the mobile creden
 
 ## Current boundaries
 
-- Password reset, profile editing, interests, device push tokens and PostgreSQL concurrency suites are not part of this first identity slice.
+- Profile editing, interests, device push tokens and PostgreSQL concurrency suites are not part of this identity slice. Password reset and authenticated password change are implemented.
 - Auth endpoints have a per-instance in-memory rate limit (`10` general requests or `5` OTP requests per minute per remote address). Replace it with a shared store such as Redis before running multiple backend instances.
-- Google-created users have no phone value because Google authentication does not collect the manual registration phone field. Add a profile-completion endpoint before making phone mandatory for those accounts.
+- Google-created users initially have `phone: null`. The app requires a phone before entering its main interface; authenticated `PATCH /users/me` accepts `phone` only while it is missing (repeating the same value is safe). This records a number but does not verify ownership by SMS.
 - The local logging email sender is a development adapter. Configure SMTP and a verified Resend sender before integration testing real email delivery.
+
+## Chuyến đi và lịch trình thủ công
+
+Luồng chuyến đi đã dùng API và PostgreSQL, hỗ trợ ngày linh hoạt/cụ thể, chỉnh lịch và tiến độ. Xem [kế hoạch và trạng thái](../docs/api/TRIP_IMPLEMENTATION_PLAN.md) và [hướng dẫn test API/UI](../docs/api/TRIP_TESTING.md). Các thao tác Android chính đã được kiểm thử; các ca còn lại ghi trong biên bản TRIP_ANDROID_ACCEPTANCE.md.

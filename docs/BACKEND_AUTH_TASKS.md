@@ -8,7 +8,7 @@ Phạm vi: backend cho hai màn hình đăng nhập và đăng ký trong `fronte
 - Đánh dấu `[x]` chỉ khi task đã hoàn thành và có kiểm tra phù hợp.
 - Sau mỗi task, cập nhật file này trên cùng commit với thay đổi code hoặc tài liệu liên quan.
 - Không sửa frontend để gọi API trong phạm vi checklist này.
-- Contract trong `docs/api/openapi.json`, quy tắc tại `docs/api/TEAM_RULES.md`, kiến trúc tại `docs/CODING_STANDARDS.md` và schema tại `docs/database/tripmate_v1.sql` là nguồn chuẩn.
+- Contract trong `docs/api/openapi.json`, quy tắc tại `docs/api/TEAM_RULES.md`, kiến trúc tại `docs/CODING_STANDARDS.md` và schema tại `backend/database/tripmate_v1.sql` là nguồn chuẩn.
 
 ## 1. Những việc đã phân tích và đã chốt
 

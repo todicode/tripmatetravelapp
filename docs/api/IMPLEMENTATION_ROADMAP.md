@@ -1,5 +1,7 @@
 # Kế hoạch API theo UI và database hiện tại
 
+**Cập nhật 11/10/2026:** contract hiện tại là 1.5.1. Chat cá nhân đã có API/UI/WebSocket/presence; nhóm độc lập đã có 14 REST API, UI và WebSocket trên private queue chung, membership/owner, text history/read và liên kết chuyến chỉ xem. Xem [GROUP_MESSAGING.md](GROUP_MESSAGING.md). V8 chuẩn bị bảng trip/itinerary cho chia sẻ, nhưng API tạo/sửa chuyến và chuyển dữ liệu trip local lên server vẫn chưa triển khai. Các phần lịch sử bên dưới phản ánh đợt đối chiếu 27/09, không thay thế contract mới.
+
 Ngày đối chiếu: **27/09/2026**. Phạm vi: backend trong repo, UI React Native đang tích hợp từ `template_gui`, OpenAPI **1.3.0** và schema SQL/Flyway.
 
 ## 1. Kết luận và thứ tự nên làm
@@ -27,7 +29,7 @@ Repo đã có **73 operation REST trong OpenAPI**, nhưng đây là contract thi
 
 - Giao tiếp chuẩn: [openapi.json](openapi.json), [TEAM_RULES.md](TEAM_RULES.md), [CHANGELOG.md](CHANGELOG.md).
 - Kiến trúc: [CODING_STANDARDS.md](../CODING_STANDARDS.md): frontend **MVVM**, backend **Modular Monolith**.
-- Thiết kế DB: [tripmate_v1.sql](../database/tripmate_v1.sql), [DATA_DICTIONARY.md](../database/DATA_DICTIONARY.md), [ERD](../../TRIPMATE_ERD_V1.md).
+- Thiết kế DB: [tripmate_v1.sql](../../backend/database/tripmate_v1.sql), [DATA_DICTIONARY.md](../../backend/database/DATA_DICTIONARY.md), [ERD](../../TRIPMATE_ERD_V1.md).
 - Schema được backend quản lý: [V1__identity.sql](../../backend/src/main/resources/db/migration/V1__identity.sql), [V2__password_reset.sql](../../backend/src/main/resources/db/migration/V2__password_reset.sql).
 - API có implementation: [AuthController.java](../../backend/src/main/java/com/tripmate/identity/web/AuthController.java), [UserController.java](../../backend/src/main/java/com/tripmate/identity/web/UserController.java), [HealthController.java](../../backend/src/main/java/com/tripmate/shared/web/HealthController.java).
 - State UI: [useHomeViewModel.ts](../../frontend/src/useHomeViewModel.ts), [tripModel.ts](../../frontend/src/trips/tripModel.ts), [useChatSession.ts](../../frontend/src/chat/useChatSession.ts), [useSettingsViewModel.ts](../../frontend/src/useSettingsViewModel.ts).
@@ -56,7 +58,7 @@ Tất cả đường dẫn REST dưới đây tính từ `/api/v1`.
 | `GET /users/me` | Đọc hồ sơ tài khoản hiện tại | identity |
 | `GET /health` | Kiểm tra dịch vụ | shared/system |
 
-`PATCH /users/me`, API friends/trips/places/chat/notifications và các nhóm tiếp theo **chưa có controller/service tương ứng** trong backend đã kiểm tra. Ví dụ trong mock server không phải implementation.
+`PATCH /users/me` đã triển khai slice sửa tên ngày 2026-10-01, có frontend MVVM và tests HTTP/PostgreSQL. Avatar/interests chưa hỗ trợ. API trips/places/chat/notifications và các nhóm tiếp theo **chưa có controller/service tương ứng** trong backend đã kiểm tra. Ví dụ trong mock server không phải implementation.
 
 Các bảng identity đã có migration: `app_users`, `user_devices`, `refresh_tokens`, `pending_registrations`, `auth_identities`, `password_reset_challenges`.
 
@@ -64,7 +66,7 @@ Các bảng identity đã có migration: `app_users`, `user_devices`, `refresh_t
 
 | Mục UI | Hiện tại | Phần còn thiếu |
 | --- | --- | --- |
-| Cá nhân | Tên/email từ tài khoản đăng nhập | PATCH hồ sơ, upload avatar |
+| Cá nhân | GET hồ sơ, PATCH tên/avatar/sở thích, upload private, danh mục sở thích và form MVVM | Nghiệm thu UI sở thích; các luồng tiếp theo theo kế hoạch |
 | Chuyến đi/lịch trình | State trong phiên app | CRUD trip, itinerary, quyền, version, tải lại |
 | Khách sạn | Dữ liệu gắn trong model chuyến đi | Bảng và contract lưu nơi nghỉ |
 | Chi phí/checklist | Mảng trong chuyến đi của phiên | Bảng và API ghi/đọc/sửa/xóa |
@@ -98,7 +100,7 @@ Lưu AsyncStorage/SecureStore không đồng nghĩa lưu vào PostgreSQL. Bấm 
 | Giờ lịch | Chỉ có giờ đến, có thể rỗng | Itinerary bắt buộc start/end, không chồng lấn | Chốt semantics thời gian chưa định; không tự bịa giờ kết thúc |
 | Điểm tự nhập | Có tên, có thể không tọa độ | PLACE cần UUID; NOTE có customTitle | Có thể ánh xạ thành NOTE nếu đúng ý nghĩa; muốn địa điểm tùy chỉnh thật thì bổ sung tài nguyên |
 | Trạng thái chuyến/điểm | upcoming/completed/cancelled, pending/active/completed | Trip phase UPCOMING/ONGOING/PAST theo ngày; item không có trạng thái thực hiện | Phân biệt phase theo thời gian và completion/cancellation; bổ sung trạng thái thực hiện nếu muốn lưu |
-| Email hồ sơ | UI có ô email | ProfileUpdate không cho email/phone | Giữ email đăng nhập chỉ đọc; muốn đổi email cần xác minh email mới và luồng riêng |
+| Email hồ sơ | UI có ô email | ProfileUpdate không cho email; phone chỉ điền khi còn trống | Giữ email đăng nhập chỉ đọc; muốn đổi email cần xác minh email mới và luồng riêng |
 | Thông báo toàn cục | Hai switch nhắc chuyến/chat | Device có pushEnabled; trip có chat/itinerary push | Chốt scope user/device/trip, không map nhắc chuyến sang itinerary push |
 | Gần bạn | Địa điểm cá nhân đã lưu trong 50 km | Places nearby tìm provider, tối đa 10 km và cityCode | Hai use case khác nhau; giữ lọc saved places hoặc thêm API riêng, không đổi UI thành khám phá provider |
 
@@ -281,6 +283,7 @@ Chốt checklist **chung của chuyến** theo UI hiện tại: ACTIVE member đ
 | --- | --- |
 | `GET /users/me/friend-code` | QR/mã kết bạn cá nhân |
 | `GET /users/lookup?friendCode=...` | Tìm bằng mã từ QR |
+| `GET /users/lookup-by-phone?phone=...` | Exact phone lookup |
 | `GET /friends`, `DELETE /friends/{userId}` | Chọn bạn để mời và quản lý quan hệ |
 | `GET /friend-requests` | Tab đã nhận/đã gửi |
 | `POST /friend-requests` | Gửi lời mời với recipientId |
@@ -292,7 +295,7 @@ Chốt checklist **chung của chuyến** theo UI hiện tại: ACTIVE member đ
 
 Backend chống tự kết bạn, pending trùng hai chiều, accept bởi người không phải recipient. Accept và tạo friendship trong transaction; hai request đồng thời không tạo quan hệ trùng. Không làm API public liệt kê mọi email tài khoản.
 
-**[Bổ sung] tìm theo điện thoại:** đề xuất `GET /users/lookup-by-phone?phone=...`, nhưng phải chốt chuẩn hóa, xác minh/độ duy nhất và quyền tìm thấy trước khi triển khai. `app_users.phone` hiện nullable và chưa có unique/phone verification trong migration identity; Google user có thể không có phone. Không suy ra tìm chắc chắn một người chỉ vì registration có phone. Trả user summary tối thiểu, giới hạn tìm kiếm; không dùng endpoint friendCode để nhận thêm phone tùy ý.
+**Implemented friend API:** Authenticated phone/friend-code lookup now returns real relationship state. Flyway V5 enforces unique normalized phone numbers (not SMS verified); V6 adds friend requests with optional 500-character message and friendships. Requests are idempotent for a pending pair, role-checked on accept/reject/cancel, and paged. A friend can be removed. Existing normalized phone duplicates stop V5 for manual resolution. QR scanning and mobile friend UI remain frontend work.
 
 ### 11.2. trip: membership và invitations
 
@@ -445,6 +448,12 @@ Gói đầu tiên nên gồm:
 
 Không cần làm hết 73 endpoint trong một commit. Mỗi nhóm bàn giao đủ: migration, DTO đúng contract, service/controller, quyền, test và tích hợp UI. Media avatar có thể làm song song trong lịch phát triển của nhóm, không phải điều kiện bắt buộc cho tạo trip thủ công.
 
+## Kế hoạch hồ sơ cá nhân sau auth
+
+Đã triển khai theo [PROFILE_IMPLEMENTATION_PLAN.md](PROFILE_IMPLEMENTATION_PLAN.md), HS-01 đến HS-06. Slice đầu chỉ cập nhật `displayName`; email chỉ đọc, avatar/interests để sau. Backend 57 tests gồm PostgreSQL thật, frontend auth/profile/form tests, TypeScript, OpenAPI, Android build và Metro export pass. Chưa thao tác UI trực tiếp trên emulator/device; checklist còn lại nằm trong kế hoạch.
+
+Quy tắc slice: PATCH `/users/me` nhận tên được trim, 1–100 Unicode code point, giữ dấu và chữ hoa/thường. JSON sai cú pháp trả 400 `INVALID_REQUEST`; object rỗng, sai kiểu/null, field lạ và field chưa hỗ trợ (kể cả `avatarMediaId: null`) trả 422 `VALIDATION_ERROR` kèm details. Kiểm tra toàn bộ payload trước mutation. Thành công trả profile đầy đủ; không đổi session/remember-me. Schema OpenAPI vẫn mô tả phạm vi đích rộng hơn; ví dụ có interests chưa phải payload được implementation slice này hỗ trợ.
+
 ## 17. Checklist bàn giao một nhóm API
 
 - [ ] Contract được chốt; phần đề xuất mới không bị nhầm thành API hiện có.
@@ -457,4 +466,6 @@ Không cần làm hết 73 endpoint trong một commit. Mỗi nhóm bàn giao đ
 - [ ] API lỗi/mạng lỗi giữ draft và không báo thành công giả.
 - [ ] OpenAPI/examples và tài liệu trạng thái implementation được cập nhật đúng mức đã hoàn thành.
 
-**Tài liệu này chưa triển khai API mới, chưa chạy migration và chưa thay đổi UI hay DB.** Những đề xuất bổ sung cần được đưa vào contract trước khi code nhóm tương ứng.
+**Cập nhật avatar 2026-10-01:** đã triển khai upload/download private, quota/cleanup, PATCH gắn/xóa ảnh và picker/crop/preview theo [AVATAR_IMPLEMENTATION_PLAN.md](AVATAR_IMPLEMENTATION_PLAN.md), có migration V3. Các mô tả slice chỉ nhận tên ở trên là lịch sử; hiện `avatarMediaId` UUID/null được hỗ trợ. Còn cấu hình R2 thật và nghiệm thu UI native theo [R2_AVATAR_SETUP.md](R2_AVATAR_SETUP.md).
+
+**Ngoài auth, sửa tên và avatar, các nhóm API còn lại vẫn là kế hoạch.** Những đề xuất bổ sung cần được đưa vào contract trước khi code nhóm tương ứng.

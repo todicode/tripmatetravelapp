@@ -349,6 +349,6 @@ Cả hai cần giải thích được: QR khác xác thực tài khoản thế n
 
 Người dùng bổ sung: **máy cá nhân có thể làm server/nút thứ 3**. V1 đề xuất dùng cho staging, kiểm thử, monitoring hoặc nhận backup mã hóa; có thể chạy backend 3 khi thử nghiệm. Luồng demo chính vẫn chạy trên hai VPS khi máy cá nhân tắt. Chưa chốt cấu hình/uptime của nút này, nên giữ dự toán hai VPS và không mặc định chuyển database chính sang máy cá nhân.
 
-Thiết kế dữ liệu: [TRIPMATE_ERD_V1.md](TRIPMATE_ERD_V1.md), kèm [DBML](docs/database/tripmate_v1.dbml) và [SQL tham chiếu](docs/database/tripmate_v1.sql). Có thêm [từ điển dữ liệu cho teammate](docs/database/DATA_DICTIONARY.md), giải thích từng cột, quan hệ và index. Các backend dùng chung PostgreSQL/Redis; staging dùng dữ liệu tách biệt. Thêm nút không đồng nghĩa đã có HA database.
+Thiết kế dữ liệu: [TRIPMATE_ERD_V1.md](TRIPMATE_ERD_V1.md), kèm [DBML](backend/database/tripmate_v1.dbml) và [SQL tham chiếu](backend/database/tripmate_v1.sql). Có thêm [từ điển dữ liệu cho teammate](backend/database/DATA_DICTIONARY.md), giải thích từng cột, quan hệ và index. Các backend dùng chung PostgreSQL/Redis; staging dùng dữ liệu tách biệt. Thêm nút không đồng nghĩa đã có HA database.
 
 [UI Stitch sơ bộ](https://stitch.withgoogle.com/projects/3626733689084965569) chưa được đối chiếu do lỗi công cụ truy cập trong phiên thiết kế; ERD v1 bám phạm vi chức năng của kế hoạch này.

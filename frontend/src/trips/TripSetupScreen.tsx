@@ -44,9 +44,9 @@ function SetupSection({ title, summary, expanded, disabled, onOpen, children }: 
   </View>;
 }
 
-export default function TripSetupScreen({ initialCityKey, initialTitle, lists, onBack, onSave }: { initialCityKey?: string; initialTitle?: string; lists: SavedPlaceList[]; onBack: () => void; onSave: (trip: Trip) => void }) {
+export default function TripSetupScreen({ initialCityKey, initialTitle, lists, onBack, onSave, onRetrySave }: { initialCityKey?: string; initialTitle?: string; lists: SavedPlaceList[]; onBack: () => void; onSave: (trip: Trip) => void | Promise<void>; onRetrySave?: () => Promise<void> }) {
   const { c } = useTripUi();
-  const vm = useTripSetupViewModel({ initialCityKey, initialTitle, lists, onBack, onSave });
+  const vm = useTripSetupViewModel({ initialCityKey, initialTitle, lists, onBack, onSave, onRetrySave, notify: Alert.alert });
   const content = useRef<ScrollView>(null);
   useEffect(() => { content.current?.scrollTo({ y: 0, animated: false }); }, [vm.step, vm.searchOpen, vm.importing]);
   const small = { color: c.muted, fontSize: 14, lineHeight: 20 };
@@ -54,15 +54,16 @@ export default function TripSetupScreen({ initialCityKey, initialTitle, lists, o
   const lodgingSummary = vm.lodging === 'hotel' ? vm.stays.length ? `${vm.stays.length} khách sạn` : 'Khách sạn' : vm.lodging === 'friends' ? 'Ở cùng bạn bè' : 'Quyết định sau';
   const aiUnavailable = () => Alert.alert('AI chưa khả dụng', 'Dịch vụ tạo lịch trình bằng AI chưa được kết nối. Bạn có thể đóng lời nhắn và chọn “Không, tôi sẽ tự lên lịch”.');
   if (vm.hotels && vm.destination) return <HotelSetupScreen destination={vm.destination} days={vm.days} stays={vm.stays} onChange={vm.setStays} onBack={() => vm.setHotels(false)} onDone={() => { vm.setHotels(false); vm.setStep(4); }} />;
-  if (vm.planning && vm.draft && vm.destination) return <ManualPlannerScreen trip={vm.draft} destination={vm.destination} onBack={() => vm.setPlanning(false)} onClose={onBack} onUpdate={vm.setDraft} onSave={vm.save} error={vm.error} />;
+  if (vm.planning && vm.draft && vm.destination) return <ManualPlannerScreen trip={vm.draft} destination={vm.destination} onBack={() => { if (!vm.saving) vm.setPlanning(false); }} onClose={vm.close} onUpdate={vm.setDraft} onSave={vm.save} saving={vm.saving} error={vm.error} onRetrySave={vm.canRetry ? vm.retrySave : undefined} />;
 
   return <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.pale }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
     <View style={[styles.header, { backgroundColor: c.white, borderColor: c.border }]}>
       <Pressable accessibilityRole="button" accessibilityLabel="Quay lại" onPress={vm.back} style={styles.headerButton}><Icon name="arrow-left" size={20} color={c.ink} /></Pressable>
       <Text style={{ color: c.ink, fontSize: 17, fontWeight: '600' }}>Tạo chuyến đi</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel="Đóng tạo chuyến đi" onPress={onBack} style={styles.headerButton}><Icon name="close" size={20} color={c.ink} /></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="Đóng tạo chuyến đi" onPress={vm.close} style={styles.headerButton}><Icon name="close" size={20} color={c.ink} /></Pressable>
     </View>
     <ScrollView ref={content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+      {!!vm.error && <Text accessibilityLiveRegion="polite" style={{ color: c.red }}>{vm.error}</Text>}
       {vm.searchOpen || vm.importing ? <View style={[styles.searchSection, { backgroundColor: c.white }]}>
         <Text style={[styles.heading, { color: c.ink }]}>{vm.importing ? 'Nhập từ danh sách' : 'Bạn muốn đi đâu?'}</Text>
         {vm.searchOpen ? <>
@@ -87,18 +88,18 @@ export default function TripSetupScreen({ initialCityKey, initialTitle, lists, o
         </SetupSection>
         <SetupSection title="Ngày đi" summary={vm.destination ? dateSummary : 'Chọn ngày đi'} expanded={vm.step === 1} disabled={!vm.destination} onOpen={() => vm.setStep(1)}>
           <View style={[styles.dateModes, { backgroundColor: c.pale }]}>{(['flexible', 'specific'] as const).map(mode => <Pressable key={mode} accessibilityRole="button" accessibilityState={{ selected: vm.dateMode === mode }} onPress={() => vm.setDateMode(mode)} style={[styles.dateMode, { backgroundColor: vm.dateMode === mode ? c.white : 'transparent' }]}><Text style={{ color: vm.dateMode === mode ? c.blue : c.muted, fontSize: 14, fontWeight: vm.dateMode === mode ? '600' : '400' }}>{mode === 'flexible' ? 'Linh hoạt' : 'Ngày cụ thể'}</Text></Pressable>)}</View>
-          {vm.dateMode === 'flexible' ? <><View style={[styles.row, { justifyContent: 'center' }]}><Icon name="calendar-month-outline" size={16} color={c.muted} /><Text style={small}>Số ngày của chuyến đi</Text></View><TripDurationWheel value={vm.count} onChange={vm.setCount} /><Text style={[small, { textAlign: 'center' }]}>{vm.count} ngày · Chốt ngày khởi hành sau</Text></> : <TripCalendar start={vm.start} end={vm.end} onChange={(start, end) => { vm.setStart(start); vm.setEnd(end); }} />}
+          {vm.dateMode === 'flexible' ? <><View style={[styles.row, { justifyContent: 'center' }]}><Icon name="calendar-month-outline" size={16} color={c.muted} /><Text style={small}>Số ngày của chuyến đi</Text></View><TripDurationWheel value={vm.count} onChange={vm.setCount} /><Text style={[small, { textAlign: 'center' }]}>{vm.count} ngày · Chốt ngày khởi hành sau</Text></> : <TripCalendar start={vm.start} end={vm.end} onChange={vm.setDates} />}
           <View style={[styles.row, { justifyContent: 'space-between', marginTop: 8 }]}><Pressable onPress={vm.resetDates} style={{ padding: 8 }}><Text style={{ color: c.blue, fontSize: 14 }}>Đặt lại</Text></Pressable><SetupAction label="Tiếp tục" disabled={!vm.days} onPress={() => vm.setStep(2)} /></View>
         </SetupSection>
         <SetupSection title="Sở thích" summary={vm.preferences.length ? vm.preferences.join(', ') : 'Thêm sở thích'} expanded={vm.step === 2} disabled={!vm.destination || !vm.days} onOpen={() => vm.setStep(2)}>
-          <Text style={[small, { marginTop: 8, marginBottom: 8 }]}>Chọn một hoặc nhiều sở thích cho chuyến đi.</Text>
-          <View style={styles.interests}>{interests.map(item => { const selected = vm.preferences.includes(item.label); return <Pressable key={item.label} accessibilityRole="checkbox" accessibilityState={{ checked: selected }} onPress={() => vm.setPreferences(current => selected ? current.filter(value => value !== item.label) : [...current, item.label])} style={[styles.interest, { borderColor: selected ? c.blue : c.border, backgroundColor: selected ? c.primaryLight : c.white }]}><Icon name={item.icon} color={selected ? c.blue : c.ink} size={20} /><Text style={{ color: selected ? c.blue : c.ink, fontSize: 14, flex: 1 }}>{item.label}</Text>{selected && <Icon name="check" size={16} />}</Pressable>; })}</View>
+          <Text style={[small, { marginTop: 8, marginBottom: 8 }]}>Sở thích cho gợi ý AI · Sắp có. Bạn có thể tiếp tục lập lịch thủ công.</Text>
+          <View style={styles.interests}>{interests.map(item => { const selected = vm.preferences.includes(item.label); return <Pressable key={item.label} accessibilityRole="checkbox" disabled accessibilityState={{ checked: selected, disabled: true }} onPress={() => vm.setPreferences(current => selected ? current.filter(value => value !== item.label) : [...current, item.label])} style={[styles.interest, { borderColor: selected ? c.blue : c.border, backgroundColor: selected ? c.primaryLight : c.white }]}><Icon name={item.icon} color={selected ? c.blue : c.ink} size={20} /><Text style={{ color: selected ? c.blue : c.ink, fontSize: 14, flex: 1 }}>{item.label}</Text>{selected && <Icon name="check" size={16} />}</Pressable>; })}</View>
           <Pressable onPress={() => { vm.setPreferences([]); vm.setStep(3); }} style={[styles.row, { justifyContent: 'center', marginTop: 8 }]}><Icon name="creation" size={16} /><Text style={{ color: c.blue, fontSize: 14 }}>Bỏ qua, làm tôi bất ngờ nhé!</Text></Pressable>
           <SetupAction label="Tiếp tục" onPress={() => vm.setStep(3)} />
         </SetupSection>
         <SetupSection title="Bạn sẽ nghỉ ở đâu?" summary={lodgingSummary} expanded={vm.step === 3} disabled={!vm.destination || !vm.days} onOpen={() => vm.setStep(3)}>
           <Text style={small}>Bỏ qua nếu bạn chưa quyết định.</Text>
-          {([{ value: 'hotel', label: 'Khách sạn', icon: 'bed-outline', color: c.blue }, { value: 'friends', label: 'Ở cùng bạn bè', icon: 'account-group-outline', color: c.green }, { value: 'undecided', label: 'Quyết định sau', icon: 'arrow-right', color: c.muted }] as const).map(item => { const selected = vm.lodging === item.value && item.value !== 'undecided'; return <Pressable key={item.value} onPress={() => vm.chooseLodging(item.value)} style={[styles.lodging, { borderColor: selected ? c.blue : 'transparent', backgroundColor: selected ? c.primaryLight : c.pale }]}><Icon name={item.icon} size={24} color={item.color} /><Text style={{ color: c.ink, fontSize: 14, fontWeight: '600', flex: 1 }}>{item.label}</Text>{selected && <Icon name="check" size={18} />}</Pressable>; })}
+          {([{ value: 'hotel', label: 'Khách sạn', icon: 'bed-outline', color: c.blue }, { value: 'friends', label: 'Ở cùng bạn bè', icon: 'account-group-outline', color: c.green }, { value: 'undecided', label: 'Quyết định sau', icon: 'arrow-right', color: c.muted }] as const).map(item => { const selected = vm.lodging === item.value && item.value !== 'undecided'; return <Pressable key={item.value} disabled={item.value !== 'undecided'} onPress={() => vm.chooseLodging(item.value)} style={[styles.lodging, { borderColor: selected ? c.blue : 'transparent', backgroundColor: selected ? c.primaryLight : c.pale }]}><Icon name={item.icon} size={24} color={item.color} /><Text style={{ color: c.ink, fontSize: 14, fontWeight: '600', flex: 1 }}>{item.label}{item.value !== 'undecided' ? ' · Sắp có' : ''}</Text>{selected && <Icon name="check" size={18} />}</Pressable>; })}
         </SetupSection>
       </> : <View style={[styles.planSection, { backgroundColor: c.white }]}>
         <Text style={[styles.heading, { color: c.ink, textAlign: 'center' }]}>Cùng lên kế hoạch chuyến đi</Text>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AccessibilityInfo, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { c, Icon, s, useTripUi } from '../trips/tripUi';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export { c, Icon, s };
@@ -7,7 +7,16 @@ export function IconButton({ name, label, onPress, blue = false, disabled = fals
   const { c, s, u } = useChatUi();
   return <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={disabled} accessibilityState={{ disabled }} onPress={onPress} style={({ pressed }) => [u.iconButton, blue && { backgroundColor: c.blue, borderColor: c.blue }, (pressed || disabled) && { opacity: 0.5 }]}><Icon name={name} size={18} color={blue ? c.onBlue : c.ink} /></Pressable>;
 }
-export function Avatar({ text, group = false, size = 44 }: { text: string; group?: boolean; size?: number }) { const { c, u } = useChatUi(); return <View style={[u.avatar, { width: size, height: size, borderRadius: size / 2, backgroundColor: group ? c.blue : c.avatar }]}><Text style={u.avatarText}>{text}</Text></View>; }
+export function Avatar({ text, group = false, size = 44, uri, online = false }: { text: string; group?: boolean; size?: number; uri?: string; online?: boolean }) {
+  const { c, u } = useChatUi();
+  const [failedUri, setFailedUri] = useState<string>();
+  return <View style={[u.avatar, { width: size, height: size, borderRadius: size / 2, backgroundColor: group ? c.blue : c.avatar }]}>
+    {uri && uri !== failedUri ? <Image source={{ uri }} onError={() => setFailedUri(uri)} style={{ width: size, height: size, borderRadius: size / 2 }} /> : <Text style={u.avatarText}>{text}</Text>}
+    {online && <View accessible accessibilityLabel="Đang hoạt động" style={{ position: 'absolute', right: -1, bottom: -1,
+      width: size >= 40 ? 13 : 10, height: size >= 40 ? 13 : 10, borderRadius: 7,
+      backgroundColor: c.green, borderWidth: 2, borderColor: c.white }} />}
+  </View>;
+}
 export function Tabs({ tabs, value, onChange }: { tabs: { key: string; label: string }[]; value: string; onChange: (key: string) => void }) {
   const { c, s, u } = useChatUi();
   return <View style={u.tabs}>{tabs.map(tab => <Pressable key={tab.key} accessibilityRole="tab" accessibilityState={{ selected: tab.key === value }} onPress={() => onChange(tab.key)} style={({ pressed }) => [u.tab, value === tab.key && { backgroundColor: c.white }, pressed && { opacity: 0.6 }]}><Text style={[s.text, { color: value === tab.key ? c.ink : c.muted, fontWeight: value === tab.key ? '600' : '400', textAlign: 'center' }]}>{tab.label}</Text></Pressable>)}</View>;
@@ -17,7 +26,7 @@ export function Sheet({ visible, title, onClose, children, compact = false, foot
   const insets = useSafeAreaInsets();
   const [reducedMotion, setReducedMotion] = useState(true);
   useEffect(() => { let active = true; void AccessibilityInfo.isReduceMotionEnabled().then(value => { if (active) setReducedMotion(value); }); const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReducedMotion); return () => { active = false; sub.remove(); }; }, []);
-  return <Modal visible={visible} transparent animationType={reducedMotion ? 'none' : 'slide'} onRequestClose={onClose}><KeyboardAvoidingView style={[u.scrim, compact && { backgroundColor: '#00000040' }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}><Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Đóng hộp thoại" /><View accessibilityViewIsModal style={[u.sheet, compact && { height: undefined, maxHeight: '85%' }, { paddingBottom: Math.max(16, insets.bottom) }]}>{!compact && <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: c.border, alignSelf: 'center' }} />}<View style={s.between}><Text style={[s.title, { fontSize: compact ? 21 : 20 }]}>{title}</Text><Pressable accessibilityRole="button" accessibilityLabel="Đóng" onPress={onClose} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}><Icon name="close" size={20} color={c.muted} /></Pressable></View><ScrollView style={compact ? { flexShrink: 1 } : { flex: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 12, paddingBottom: compact ? 0 : 20 }}>{children}</ScrollView>{footer}</View></KeyboardAvoidingView></Modal>;
+  return <Modal visible={visible} transparent animationType={reducedMotion ? 'none' : 'slide'} onRequestClose={onClose}><KeyboardAvoidingView style={[u.scrim, compact && { backgroundColor: '#00000040' }]} enabled={Platform.OS === 'ios'} behavior="padding"><Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Đóng hộp thoại" /><View accessibilityViewIsModal style={[u.sheet, compact && { height: undefined, maxHeight: '85%' }, { paddingBottom: Math.max(16, insets.bottom) }]}>{!compact && <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: c.border, alignSelf: 'center' }} />}<View style={s.between}><Text style={[s.title, { fontSize: compact ? 21 : 20 }]}>{title}</Text><Pressable accessibilityRole="button" accessibilityLabel="Đóng" onPress={onClose} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}><Icon name="close" size={20} color={c.muted} /></Pressable></View><ScrollView style={compact ? { flexShrink: 1 } : { flex: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 12, paddingBottom: compact ? 0 : 20 }}>{children}</ScrollView>{footer}</View></KeyboardAvoidingView></Modal>;
 }
 const makeChatStyles = (c: typeof import('../theme/AppTheme').lightPalette) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: c.white }, iconButton: { width: 44, height: 44, borderRadius: 24, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center' },

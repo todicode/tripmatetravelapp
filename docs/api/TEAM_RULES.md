@@ -2,7 +2,7 @@
 
 Phiên bản contract **1.0.0**, ngày **17/09/2026**. Áp dụng cho người và AI hỗ trợ hai phía. Đây là baseline để triển khai; **chưa phải danh sách API đang chạy**.
 
-Nguồn chuẩn giao tiếp là [openapi.json](openapi.json). REST nằm trong `paths/components`; STOMP trong `x-realtime`; push trong `x-push`. `x-realtime` là extension riêng của dự án, **không phải tài liệu AsyncAPI**. [ERD](../../TRIPMATE_ERD_V1.md) và [SQL](../database/tripmate_v1.sql) quy định dữ liệu/transaction; DTO API không xuất trực tiếp entity database.
+Nguồn chuẩn giao tiếp là [openapi.json](openapi.json). REST nằm trong `paths/components`; STOMP trong `x-realtime`; push trong `x-push`. `x-realtime` là extension riêng của dự án, **không phải tài liệu AsyncAPI**. [ERD](../../TRIPMATE_ERD_V1.md) và [SQL](../../backend/database/tripmate_v1.sql) quy định dữ liệu/transaction; DTO API không xuất trực tiếp entity database.
 
 **BẮT BUỘC** nghĩa là cả hai phía phải thực hiện. Khi khác ý tưởng với contract, sửa contract trước qua PR chung, không tự đổi wire format rồi yêu cầu phía kia sửa theo.
 
@@ -86,7 +86,7 @@ Ví dụ xung đột:
 - Cursor do backend ký/kiểm tra hoặc ánh xạ ở server, gắn với user và bộ lọc. Không dùng offset hoặc timestamp đơn lẻ làm cursor. Thứ tự mặc định createdAt DESC, id DESC; ngoại lệ ghi ở operation.
 - Trang cuối: hasMore=false, nextCursor=null. Trang rỗng trả items=[]; trang trước đã đọc không bảo đảm snapshot bất biến khi có thay đổi đồng thời, FE dedupe theo ID.
 - GET có thể retry giới hạn 3 lần với backoff/jitter khi lỗi mạng/503/429. Không tự retry 4xx trừ quy trình refresh với ACCESS_TOKEN_EXPIRED. STORAGE_QUOTA_EXCEEDED cần dọn dữ liệu, không vòng lặp upload.
-- Mutation chỉ tự retry khi quy tắc của operation cho phép. Create trip/upload/rotate mã không có idempotency key tổng quát; timeout không đồng nghĩa chưa ghi. FE hiển thị lỗi và đối soát danh sách/trạng thái trước thao tác lại.
+- Mutation chỉ tự retry khi quy tắc của operation cho phép. Create trip dùng clientRequestId theo contract 1.7.0; upload/rotate mã không có idempotency key tổng quát; timeout không đồng nghĩa chưa ghi. FE hiển thị lỗi và đối soát danh sách/trạng thái trước thao tác lại.
 - Không tự thêm `Idempotency-Key` rồi giả định backend đã hỗ trợ. Các khóa chống trùng của v1 được mô tả bên dưới.
 
 ## 4. Auth, thiết bị và quyền
@@ -109,6 +109,11 @@ Ví dụ xung đột:
 ## 5. Quy tắc nghiệp vụ hai bên cùng giữ
 
 ### Chuyến, lời mời và kết bạn
+
+- **Nhóm chat độc lập (contract 1.5.0):** `/group-conversations` không bắt buộc có chuyến đi và không dùng bảng chat của chuyến. OWNER tạo nhóm/thêm trực tiếp bạn hiện tại, đổi tên, gắn/gỡ chuyến do mình sở hữu, loại thành viên, chuyển quyền và đóng nhóm. Tối đa 100 ACTIVE gồm OWNER; thêm thành viên không phụ thuộc giới hạn 10 thành viên chuyến đi.
+- Thành viên nhóm và chuyến đi là hai danh sách riêng. `GET /group-conversations/{id}/trip` cấp quyền xem metadata/lịch trình qua nhóm, không cấp quyền sửa, membership, vị trí hoặc media của chuyến. Nhóm chỉ gắn trip thật trên server, chưa hỗ trợ ID chuyến local của frontend. Khi chuyển OWNER, gỡ liên kết trip cũ trong cùng transaction; chat được giữ lại.
+- Thành viên thường tự rời; OWNER phải chuyển quyền trước khi rời. LEFT/REMOVED không đọc/gửi/xem trip nhóm; OWNER có thể thêm lại nếu hiện còn là bạn. Vào mới/vào lại được xem lịch sử giữ lại, nhưng unread bắt đầu tại mốc cuối lúc vào. Hủy kết bạn sau khi đã vào không xóa membership.
+- Đóng nhóm là archive, giữ lịch sử/mốc đọc cho ACTIVE và chặn tin mới, sửa metadata, thêm người hoặc chuyển quyền. Thay đổi quản lý/membership dùng `expectedVersion`; gửi/đọc không tăng version nhóm. Chat nhóm hiện chỉ REST text; socket/push/avatar/media nhóm chưa triển khai.
 
 - Một thành phố VN, 1–5 ngày tính cả hai đầu, tối đa 10 ACTIVE gồm owner. Budget là dự kiến **toàn nhóm**; null là chưa đặt, "0" là đã đặt bằng 0.
 - Tạo chuyến đồng thời tạo owner, itinerary và đủ ngày rỗng. Kiểm tra chỗ cuối trong transaction; invitation chưa nhận không giữ chỗ.
@@ -165,7 +170,7 @@ Ví dụ xung đột:
 ### Auth registration v1.1 decisions
 
 - Manual registration creates a temporary challenge and sends an email OTP. `app_users` and a TripMate session are created only after a correct, unexpired, single-use OTP.
-- The request includes a required `phone` for manual registration. Profile responses may contain `phone: null` for Google-created users until profile completion exists.
+- The request includes a required `phone` for manual registration. Google-created profiles can have `phone: null` until authenticated `PATCH /users/me` fills it; the mobile app must block its main interface until completion. Phone entry alone does not verify ownership.
 - Google authentication accepts only a Google ID token and `installationId`. The backend verifies the token before issuing TripMate access and refresh tokens.
 - A Google identity is not auto-linked to an existing manual account by matching email. v1 returns `AUTH_METHOD_CONFLICT` and the user must use the existing manual sign-in flow.
 
@@ -195,3 +200,7 @@ Ví dụ xung đột:
 | Tích hợp | Test hai backend dùng chung DB/Redis | Test hai thiết bị, mạng yếu, đổi mock/backend bằng cấu hình |
 
 Validator trong repo kiểm tra **hình thức contract và ví dụ**, mock là fixture tĩnh. Các ca quyền, transaction, race, provider, upload thực, STOMP và FCM phải được test khi có backend/mobile; không tuyên bố đã qua từ bộ mock.
+
+## Chuyến đi 1.7.0
+
+Ngày cụ thể hoặc linh hoạt 1–30 ngày. Giờ đến/kết thúc nullable; chỉ kiểm tra khoảng khi đủ hai mốc. Tạo chuyến nhận lịch ban đầu nguyên tử và clientRequestId, retry cùng nội dung trả cùng chuyến. Xem TRIP_IMPLEMENTATION_PLAN.md cho trạng thái triển khai.

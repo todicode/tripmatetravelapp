@@ -8,7 +8,7 @@
 
 - Tài liệu này quy định kiến trúc, cách tổ chức code và tiêu chí review; cấu trúc bên dưới là mục tiêu triển khai, không phải mô tả mọi thư mục đã tồn tại.
 - [API contract](api/openapi.json) và [quy tắc phối hợp](api/TEAM_RULES.md) quy định giao tiếp frontend/backend, HTTP, lỗi, realtime và retry.
-- [ERD](../TRIPMATE_ERD_V1.md) và [schema SQL](database/tripmate_v1.sql) quy định dữ liệu, ràng buộc và transaction.
+- [ERD](../TRIPMATE_ERD_V1.md) và [schema SQL](../backend/database/tripmate_v1.sql) quy định dữ liệu, ràng buộc và transaction.
 - [Quyết định công nghệ](TECHNOLOGY_DECISIONS.md) quy định stack và cách chốt phiên bản. Không tự nâng dependency chỉ để áp dụng tài liệu này.
 - Nếu phát hiện mâu thuẫn, nêu rõ trong PR và cập nhật nguồn chuẩn tương ứng; không âm thầm đổi contract hoặc schema theo sở thích đặt tên.
 

@@ -1,7 +1,7 @@
 import rawDestinations from '../data/destinations.json';
 import { normalizeName, Place, TripDestination } from './tripModel';
 
-export const destinations: TripDestination[] = Object.entries(rawDestinations).map(([key, value]) => ({ ...value, key }));
+export const destinations: TripDestination[] = Object.entries(rawDestinations).map(([key, value]) => ({ ...value, key, hotSpots: value.hotSpots.map(place => ({ ...place, provider: 'CATALOG' as const, providerPlaceId: `${key}:${normalizeName(place.name)}` })), dayPlans: value.dayPlans.map(day => ({ ...day, stops: day.stops.map(place => ({ ...place, provider: 'CATALOG' as const, providerPlaceId: `${key}:${normalizeName(place.name)}` })) })) }));
 export const popularNames = ['Đà Lạt', 'Hội An', 'Phú Quốc', 'Sa Pa', 'Nha Trang', 'Hà Giang'];
 
 type PhotonResult = { features?: { properties: { name?: string; city?: string; state?: string; country?: string }; geometry: { coordinates: number[] } }[] };
@@ -15,13 +15,7 @@ async function photon(query: string, signal: AbortSignal, coords?: number[]) {
 export async function searchDestinations(query: string, signal: AbortSignal): Promise<TripDestination[]> {
   const clean = normalizeName(query);
   const matches = destinations.filter((item) => normalizeName(`${item.name} ${item.fullName ?? ''}`).includes(clean));
-  if (matches.length) return matches.slice(0, 5);
-  const found = await photon(query, signal);
-  return found.map((item) => ({
-    key: `osm_${item.geometry.coordinates.join('_')}`, name: item.properties.name!,
-    fullName: [item.properties.name, item.properties.state, item.properties.country].filter(Boolean).join(', '),
-    coords: [item.geometry.coordinates[1], item.geometry.coordinates[0]], dayPlans: [], hotSpots: [],
-  }));
+  return matches.slice(0, 10);
 }
 export async function searchPlaces(query: string, destination: TripDestination, signal: AbortSignal): Promise<Place[]> {
   const local = [...destination.hotSpots, ...destination.dayPlans.flatMap((day) => day.stops)].filter((item) => normalizeName(item.name).includes(normalizeName(query)));

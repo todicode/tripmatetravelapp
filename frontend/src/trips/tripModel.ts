@@ -1,10 +1,10 @@
 export type StopStatus = 'pending' | 'active' | 'completed';
 export type TripStatus = 'upcoming' | 'completed' | 'cancelled';
 export type TripStop = Place & {
-  id: string; name: string; time: string; note?: string; lat?: number; lng?: number; status: StopStatus; image?: string; category?: string;
+  kind?: 'PLACE' | 'NOTE'; endTime?: string | null; estimatedCostVnd?: string | null; id: string; name: string; time: string; note?: string; lat?: number; lng?: number; status: StopStatus; image?: string; category?: string;
 };
-export type TripDay = { dayNumber: number; dayTitle: string; highlight?: string; stops: TripStop[] };
-export type Place = { id?: string | number; name: string; note?: string; lat?: number; lng?: number; category?: string; categoryLabel?: string; image?: string; city?: string; description?: string; rating?: number; reviewsCount?: string | number; address?: string; openingHours?: string; phone?: string; communityNotes?: string[] };
+export type TripDay = { transportMode?: 'WALK' | 'DRIVE'; note?: string | null; dayNumber: number; dayTitle: string; highlight?: string; stops: TripStop[] };
+export type Place = { placeId?: string; provider?: 'OSM' | 'CATALOG' | 'MANUAL'; providerPlaceId?: string; id?: string | number; name: string; note?: string; lat?: number; lng?: number; category?: string; categoryLabel?: string; image?: string; city?: string; description?: string; rating?: number; reviewsCount?: string | number; address?: string; openingHours?: string; phone?: string; communityNotes?: string[] };
 export type TripDestination = {
   key: string; name: string; fullName?: string; coords: number[]; image?: string;
   dayPlans: { dayTitle: string; highlight?: string; stops: (Place & { time?: string })[] }[];
@@ -12,7 +12,7 @@ export type TripDestination = {
 };
 export type Expense = { id: string; title: string; amount: number; payer: string };
 export type ChecklistItem = { id: string; text: string; checked: boolean };
-export type Trip = {
+export type Trip = { version?: string; itineraryVersion?: string; cityCode?: string; ownerId?: string; myRole?: string;
   id: string; title: string; city: string; destination: string; cityKey: string; coords: number[];
   image?: string; startDate: string; endDate: string; status: TripStatus; dayPlans: TripDay[];
   members: { id: string; name: string; avatar?: string }[]; expenses: Expense[]; checklist: ChecklistItem[];

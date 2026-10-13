@@ -5,6 +5,7 @@ import com.tripmate.identity.domain.AuthIdentityEntity;
 import com.tripmate.identity.domain.PendingRegistrationEntity;
 import com.tripmate.identity.domain.RefreshTokenEntity;
 import com.tripmate.identity.domain.UserEntity;
+import com.tripmate.identity.domain.UserStatus;
 import com.tripmate.identity.infrastructure.AuthIdentityRepository;
 import com.tripmate.identity.infrastructure.DeviceRepository;
 import com.tripmate.identity.infrastructure.PendingRegistrationRepository;
@@ -85,6 +86,23 @@ class IdentityServiceTest {
                 pendingRegistrationRepository, authIdentityRepository, passwordEncoder, jwtTokenService,
                 googleIdentityVerifier, eventPublisher, Duration.ofMinutes(3), Duration.ofSeconds(60),
                 Duration.ofDays(30), 5);
+    }
+
+    @Test
+    void oversizedRegistrationPasswordDoesNotStoreChallengeOrSendEmail() {
+        ApiException error = assertThrows(ApiException.class, () -> service.startRegistration(
+                new RegisterRequest("an@example.test", "ệ".repeat(25), UUID.randomUUID(), "An", "+84901234567")));
+        assertEquals("PASSWORD_TOO_LONG", error.getCode());
+        verify(pendingRegistrationRepository, never()).save(any());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void oversizedLoginPasswordReturnsInvalidCredentials() {
+        ApiException error = assertThrows(ApiException.class, () -> service.login(
+                new LoginRequest("an@example.test", "a".repeat(73), UUID.randomUUID())));
+        assertEquals("INVALID_CREDENTIALS", error.getCode());
+        verify(passwordEncoder, never()).matches(any(), any());
     }
 
     @Test
@@ -223,19 +241,90 @@ class IdentityServiceTest {
 
 
     @Test
-    void googleIdentityDoesNotAutoLinkExistingManualEmail() {
+    void googleIdentityLinksExistingManualAccountWithPhone() {
+        UUID installationId = UUID.randomUUID();
+        UserEntity existing = new UserEntity(UUID.randomUUID(), "an@example.test", "password-hash",
+                "Nguyen An", "0901234567", "TM-EXIST01", Instant.now());
         when(googleIdentityVerifier.verify("google-id-token"))
                 .thenReturn(new GoogleIdentityVerifier.GoogleProfile(
                         "google-subject", "an@example.test", true, "Nguyen An"));
         when(authIdentityRepository.findByProviderAndProviderSubject("GOOGLE", "google-subject"))
                 .thenReturn(Optional.empty());
-        when(userRepository.existsByEmail("an@example.test")).thenReturn(true);
+        when(userRepository.findByEmailForUpdate("an@example.test")).thenReturn(Optional.of(existing));
+        when(deviceRepository.findByInstallationId(installationId)).thenReturn(Optional.empty());
+        when(deviceRepository.save(any(DeviceEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(jwtTokenService.issue(any(UserEntity.class), any(DeviceEntity.class))).thenReturn("access-token");
 
-        ApiException exception = assertThrows(ApiException.class,
+        SessionResponse response = service.authenticateWithGoogle(new GoogleAuthRequest("google-id-token", installationId));
+
+        assertEquals(existing.getId(), response.user().id());
+        assertEquals("0901234567", response.user().phone());
+        assertEquals("password-hash", existing.getPasswordHash());
+        ArgumentCaptor<AuthIdentityEntity> identity = ArgumentCaptor.forClass(AuthIdentityEntity.class);
+        verify(authIdentityRepository).save(identity.capture());
+        assertSame(existing, identity.getValue().getUser());
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void googleIdentityLinksExistingManualAccountWithoutPhone() {
+        UUID installationId = UUID.randomUUID();
+        UserEntity existing = new UserEntity(UUID.randomUUID(), "an@example.test", "password-hash",
+                "Nguyen An", null, "TM-EXIST01", Instant.now());
+        when(googleIdentityVerifier.verify("google-id-token"))
+                .thenReturn(new GoogleIdentityVerifier.GoogleProfile(
+                        "google-subject", "an@example.test", true, "Nguyen An"));
+        when(authIdentityRepository.findByProviderAndProviderSubject("GOOGLE", "google-subject"))
+                .thenReturn(Optional.empty());
+        when(userRepository.findByEmailForUpdate("an@example.test")).thenReturn(Optional.of(existing));
+        when(deviceRepository.findByInstallationId(installationId)).thenReturn(Optional.empty());
+        when(deviceRepository.save(any(DeviceEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        SessionResponse response = service.authenticateWithGoogle(new GoogleAuthRequest("google-id-token", installationId));
+
+        assertEquals(existing.getId(), response.user().id());
+        assertNull(response.user().phone());
+        verify(authIdentityRepository).save(any(AuthIdentityEntity.class));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void googleIdentityCannotReplaceAnotherGoogleIdentityOnExistingAccount() {
+        UserEntity existing = new UserEntity(UUID.randomUUID(), "an@example.test", "password-hash",
+                "Nguyen An", "0901234567", "TM-EXIST01", Instant.now());
+        when(googleIdentityVerifier.verify("google-id-token"))
+                .thenReturn(new GoogleIdentityVerifier.GoogleProfile(
+                        "new-google-subject", "an@example.test", true, "Nguyen An"));
+        when(authIdentityRepository.findByProviderAndProviderSubject("GOOGLE", "new-google-subject"))
+                .thenReturn(Optional.empty());
+        when(userRepository.findByEmailForUpdate("an@example.test")).thenReturn(Optional.of(existing));
+        when(authIdentityRepository.existsByUserIdAndProvider(existing.getId(), "GOOGLE")).thenReturn(true);
+
+        ApiException error = assertThrows(ApiException.class,
                 () -> service.authenticateWithGoogle(new GoogleAuthRequest("google-id-token", UUID.randomUUID())));
 
-        assertEquals(HttpStatus.CONFLICT, exception.getStatus());
-        assertEquals("AUTH_METHOD_CONFLICT", exception.getCode());
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        assertEquals("GOOGLE_IDENTITY_CONFLICT", error.getCode());
+        verify(authIdentityRepository, never()).save(any());
+    }
+
+    @Test
+    void googleIdentityDoesNotLinkDisabledAccountWithMatchingEmail() {
+        UserEntity existing = new UserEntity(UUID.randomUUID(), "an@example.test", "password-hash",
+                "Nguyen An", "0901234567", "TM-EXIST01", Instant.now());
+        existing.setStatus(UserStatus.DISABLED);
+        when(googleIdentityVerifier.verify("google-id-token"))
+                .thenReturn(new GoogleIdentityVerifier.GoogleProfile(
+                        "google-subject", "an@example.test", true, "Nguyen An"));
+        when(authIdentityRepository.findByProviderAndProviderSubject("GOOGLE", "google-subject"))
+                .thenReturn(Optional.empty());
+        when(userRepository.findByEmailForUpdate("an@example.test")).thenReturn(Optional.of(existing));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> service.authenticateWithGoogle(new GoogleAuthRequest("google-id-token", UUID.randomUUID())));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        assertEquals("ACCOUNT_DISABLED", error.getCode());
         verify(authIdentityRepository, never()).save(any());
     }
 
@@ -377,6 +466,87 @@ class IdentityServiceTest {
         } finally {
             SecurityContextHolder.clearContext();
         }
+    }
+
+    @Test
+    void updatesOnlyAuthenticatedUsersNameAndReadsItBackWithoutRevokingSession() {
+        UUID userId = UUID.randomUUID();
+        UserEntity user = new UserEntity(userId, "an@example.test", "hash", "An", "+84901234567", "TM-A", Instant.now());
+        UserEntity other = new UserEntity(UUID.randomUUID(), "b@example.test", "hash-b", "B", null, "TM-B", Instant.now());
+        when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+                new AuthenticatedUser(userId, UUID.randomUUID(), 1L), null, AuthorityUtils.NO_AUTHORITIES));
+        try {
+            var profiles = new ProfileService(userRepository, org.mockito.Mockito.mock(com.tripmate.media.api.AvatarMedia.class), service, org.mockito.Mockito.mock(com.tripmate.catalog.api.InterestCatalog.class));
+            ProfileResponse response = profiles.update(new com.tripmate.identity.web.ProfileUpdateRequest("Nguyễn An", false, null, null, null));
+            assertEquals(userId, response.id());
+            assertEquals("Nguyễn An", service.getCurrentProfile().displayName());
+            assertEquals("an@example.test", response.email());
+            assertEquals("+84901234567", response.phone());
+            assertEquals("hash", user.getPasswordHash());
+            assertEquals("B", other.getDisplayName());
+            verify(userRepository).saveAndFlush(user);
+            org.mockito.Mockito.verifyNoInteractions(deviceRepository, refreshTokenRepository);
+        } finally { SecurityContextHolder.clearContext(); }
+    }
+
+    @Test
+    void rejectsProfileUpdateWithoutAuthentication() {
+        SecurityContextHolder.clearContext();
+        var profiles = new ProfileService(userRepository, org.mockito.Mockito.mock(com.tripmate.media.api.AvatarMedia.class), service, org.mockito.Mockito.mock(com.tripmate.catalog.api.InterestCatalog.class));
+        assertEquals(HttpStatus.UNAUTHORIZED,
+                assertThrows(ApiException.class, () -> profiles.update(new com.tripmate.identity.web.ProfileUpdateRequest("An", false, null, null, null))).getStatus());
+        org.mockito.Mockito.verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void rejectsRegistrationWhenNormalizedPhoneIsAlreadyUsed() {
+        when(userRepository.existsByPhoneLookup("0901234567")).thenReturn(true);
+        ApiException error = assertThrows(ApiException.class, () -> service.startRegistration(
+                new RegisterRequest("new@example.test", "secret-password", UUID.randomUUID(), "New", "0901 234 567")));
+        assertEquals("PHONE_ALREADY_REGISTERED", error.getCode());
+        verify(pendingRegistrationRepository, never()).save(any());
+    }
+
+    @Test
+    void completesMissingPhoneButRejectsChangingAnExistingNumber() {
+        UUID userId = UUID.randomUUID();
+        UserEntity user = new UserEntity(userId, "google@example.test", "hash", "Google user", null, "TM-G", Instant.now());
+        when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+                new AuthenticatedUser(userId, UUID.randomUUID(), 1L), null, AuthorityUtils.NO_AUTHORITIES));
+        try {
+            var profiles = new ProfileService(userRepository, org.mockito.Mockito.mock(com.tripmate.media.api.AvatarMedia.class),
+                    service, org.mockito.Mockito.mock(com.tripmate.catalog.api.InterestCatalog.class));
+            assertEquals("+84901234567", profiles.update(com.tripmate.identity.web.ProfileUpdateRequest.parse(
+                    java.util.Map.of("phone", " +84901234567 "))).phone());
+            assertEquals("PHONE_ALREADY_SET", assertThrows(ApiException.class,
+                    () -> profiles.update(com.tripmate.identity.web.ProfileUpdateRequest.parse(
+                            java.util.Map.of("phone", "+84907654321")))).getCode());
+            assertEquals("+84901234567", user.getPhone());
+            verify(userRepository).saveAndFlush(user);
+        } finally { SecurityContextHolder.clearContext(); }
+    }
+
+    @Test
+    void rejectsGooglePhoneCompletionWhenNormalizedPhoneIsAlreadyUsed() {
+        UUID userId = UUID.randomUUID();
+        UserEntity user = new UserEntity(userId, "google@example.test", "hash", "Google user", null, "TM-G", Instant.now());
+        when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
+        when(userRepository.existsByPhoneLookup("0901234567")).thenReturn(true);
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+                new AuthenticatedUser(userId, UUID.randomUUID(), 1L), null, AuthorityUtils.NO_AUTHORITIES));
+        try {
+            var profiles = new ProfileService(userRepository, org.mockito.Mockito.mock(com.tripmate.media.api.AvatarMedia.class),
+                    service, org.mockito.Mockito.mock(com.tripmate.catalog.api.InterestCatalog.class));
+            assertEquals("PHONE_ALREADY_REGISTERED", assertThrows(ApiException.class,
+                    () -> profiles.update(com.tripmate.identity.web.ProfileUpdateRequest.parse(
+                            java.util.Map.of("phone", "0901 234 567")))).getCode());
+            assertNull(user.getPhone());
+            verify(userRepository, never()).saveAndFlush(user);
+        } finally { SecurityContextHolder.clearContext(); }
     }
 
     private PendingRegistrationEntity pending(UUID id, String otp, Instant expiresAt) {

@@ -25,4 +25,10 @@ public interface UserRepository extends JpaRepository<UserEntity, UUID> {
     boolean existsByEmail(String email);
 
     boolean existsByFriendCode(String friendCode);
+
+    Optional<UserEntity> findByFriendCode(String friendCode);
+
+    Optional<UserEntity> findByPhoneLookup(String phoneLookup);
+
+    boolean existsByPhoneLookup(String phoneLookup);
 }

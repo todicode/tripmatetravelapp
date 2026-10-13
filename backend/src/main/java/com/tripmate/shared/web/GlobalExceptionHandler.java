@@ -15,6 +15,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 
 import java.util.List;
 import java.util.Map;
@@ -41,8 +42,15 @@ public class GlobalExceptionHandler {
                 "Request chứa dữ liệu không hợp lệ.", details, Map.of(), request);
     }
 
-    @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class})
+    @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class,
+            MissingServletRequestParameterException.class})
     ResponseEntity<ApiErrorResponse> handleMalformedRequest(Exception exception, HttpServletRequest request) {
+        for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+            if (cause instanceof tools.jackson.databind.exc.UnrecognizedPropertyException unknown) {
+                return response(HttpStatus.UNPROCESSABLE_ENTITY, "VALIDATION_ERROR", "Thuộc tính không được hỗ trợ.",
+                        List.of(new ErrorDetailResponse(unknown.getPropertyName(), "UNKNOWN_FIELD", "Thuộc tính không được hỗ trợ.")), Map.of(), request);
+            }
+        }
         return response(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "Request không đúng định dạng.",
                 List.of(), Map.of(), request);
     }
@@ -52,6 +60,11 @@ public class GlobalExceptionHandler {
                                                                 HttpServletRequest request) {
         return response(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "UNSUPPORTED_MEDIA_TYPE",
                 "Content-Type is not supported.", List.of(), Map.of(), request);
+    }
+
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    ResponseEntity<ApiErrorResponse> handleUploadSize(HttpServletRequest request) {
+        return response(HttpStatus.PAYLOAD_TOO_LARGE, "FILE_TOO_LARGE", "Ảnh tối đa 10 MB.", List.of(), Map.of(), request);
     }
 
     @ExceptionHandler(RateLimitExceededException.class)

@@ -92,10 +92,15 @@ public class IdentityService {
 
     @Transactional
     public RegistrationChallengeResponse startRegistration(RegisterRequest request) {
+        PasswordPolicy.validate(request.password());
         String email = normalizeEmail(request.email());
+        String phoneKey = PhoneNumber.key(request.phone());
         if (userRepository.existsByEmail(email)) {
             throw new ApiException(HttpStatus.CONFLICT, "EMAIL_ALREADY_REGISTERED",
                     "Email này đã được đăng ký.");
+        }
+        if (userRepository.existsByPhoneLookup(phoneKey)) {
+            throw phoneAlreadyRegistered();
         }
 
         Instant now = Instant.now();
@@ -146,6 +151,9 @@ public class IdentityService {
             throw new ApiException(HttpStatus.CONFLICT, "EMAIL_ALREADY_REGISTERED",
                     "Email này đã được đăng ký.");
         }
+        if (userRepository.existsByPhoneLookup(PhoneNumber.key(pending.getPhone()))) {
+            throw phoneAlreadyRegistered();
+        }
 
         UserEntity user = new UserEntity(UUID.randomUUID(), pending.getEmail(), pending.getPasswordHash(),
                 pending.getDisplayName(), pending.getPhone(), generateFriendCode(), now);
@@ -188,6 +196,7 @@ public class IdentityService {
 
     @Transactional
     public SessionResponse login(LoginRequest request) {
+        if (request.password().getBytes(StandardCharsets.UTF_8).length > 72) throw invalidCredentials();
         String email = normalizeEmail(request.email());
         UserEntity user = userRepository.findByEmail(email)
                 .orElseThrow(() -> invalidCredentials());
@@ -212,14 +221,21 @@ public class IdentityService {
                 throw new ApiException(HttpStatus.FORBIDDEN, "ACCOUNT_DISABLED", "Tài khoản đã bị khóa.");
             }
         } else {
-            if (userRepository.existsByEmail(email)) {
-                throw new ApiException(HttpStatus.CONFLICT, "AUTH_METHOD_CONFLICT",
-                        "Email này đã có tài khoản thủ công. Hãy đăng nhập bằng email và mật khẩu.");
+            user = userRepository.findByEmailForUpdate(email).orElse(null);
+            if (user != null) {
+                if (user.getStatus() != UserStatus.ACTIVE) {
+                    throw new ApiException(HttpStatus.FORBIDDEN, "ACCOUNT_DISABLED", "Tài khoản đã bị khóa.");
+                }
+                if (authIdentityRepository.existsByUserIdAndProvider(user.getId(), GOOGLE_PROVIDER)) {
+                    throw new ApiException(HttpStatus.CONFLICT, "GOOGLE_IDENTITY_CONFLICT",
+                            "Tài khoản này đã liên kết với một tài khoản Google khác.");
+                }
+            } else {
+                String unusablePassword = passwordEncoder.encode(randomSecret());
+                user = new UserEntity(UUID.randomUUID(), email, unusablePassword, profile.displayName(),
+                        null, generateFriendCode(), Instant.now());
+                user = userRepository.save(user);
             }
-            String unusablePassword = passwordEncoder.encode(randomSecret());
-            user = new UserEntity(UUID.randomUUID(), email, unusablePassword, profile.displayName(),
-                    null, generateFriendCode(), Instant.now());
-            user = userRepository.save(user);
             authIdentityRepository.save(new AuthIdentityEntity(UUID.randomUUID(), user, GOOGLE_PROVIDER,
                     profile.subject(), email));
         }
@@ -276,10 +292,7 @@ public class IdentityService {
     @Transactional
     public void changePassword(ChangePasswordRequest request) {
         AuthenticatedUser principal = authenticatedUser();
-        if (request.newPassword().getBytes(StandardCharsets.UTF_8).length > 72) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "PASSWORD_TOO_LONG",
-                    "Mật khẩu mới vượt quá giới hạn 72 byte UTF-8. Hãy dùng mật khẩu ngắn hơn.");
-        }
+        PasswordPolicy.validate(request.newPassword());
         UserEntity user = userRepository.findByIdForUpdate(principal.userId())
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Cần đăng nhập lại."));
         if (user.getStatus() != UserStatus.ACTIVE) {
@@ -344,7 +357,7 @@ public class IdentityService {
 
     private ProfileResponse toProfile(UserEntity user) {
         return new ProfileResponse(user.getId(), user.getDisplayName(), user.getAvatarMediaId(),
-                user.getEmail(), user.getPhone(), List.of(), user.getCreatedAt(), user.getUpdatedAt());
+                user.getEmail(), user.getPhone(), user.getInterestCodes(), user.getCreatedAt(), user.getUpdatedAt());
     }
 
     private AuthenticatedUser authenticatedUser() {
@@ -359,6 +372,11 @@ public class IdentityService {
     private ApiException invalidCredentials() {
         return new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS",
                 "Email hoặc mật khẩu không đúng.");
+    }
+
+    private ApiException phoneAlreadyRegistered() {
+        return new ApiException(HttpStatus.CONFLICT, "PHONE_ALREADY_REGISTERED",
+                "Số điện thoại này đã được sử dụng bởi tài khoản khác.");
     }
 
     private String normalizeEmail(String email) {

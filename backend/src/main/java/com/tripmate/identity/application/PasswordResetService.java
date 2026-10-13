@@ -95,6 +95,7 @@ public class PasswordResetService {
 
     @Transactional(noRollbackFor = ApiException.class)
     public void confirmReset(ConfirmPasswordResetRequest request) {
+        PasswordPolicy.validate(request.newPassword());
         PasswordResetChallengeEntity challenge = challengeRepository.findByIdForUpdate(request.resetId())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "RESET_NOT_FOUND",
                         "Không tìm thấy yêu cầu đặt lại mật khẩu."));

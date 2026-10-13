@@ -106,12 +106,13 @@ async function checkMap() {
   let fetchCount = 0;
   const messages = [];
   const drawn = [];
+  const tileEvents = {};
   const layer = { addTo() { return this; }, on() { return this; }, setUrl() { return this; }, clearLayers() {} };
   const map = { setView() { return this; }, fitBounds() {}, removeLayer() {}, invalidateSize() {} };
   const mapContext = {
     window: { ReactNativeWebView: { postMessage: (message) => messages.push(message) }, addEventListener() {} },
     L: {
-      map: () => map, tileLayer: () => layer, layerGroup: () => layer, marker: () => layer, circleMarker: () => layer,
+      map: () => map, tileLayer: () => ({ ...layer, on(event, handler) { tileEvents[event] = handler; return this; }, addTo() { return this; } }), layerGroup: () => layer, marker: () => layer, circleMarker: () => layer,
       divIcon: options => options, latLngBounds: points => points,
       polyline: points => { drawn.push(points); return layer; },
     },
@@ -119,6 +120,10 @@ async function checkMap() {
     fetch: async () => { fetchCount++; return { ok: true, json: async () => ({ routes: [{ geometry: { coordinates: [[108, 11], [109, 12]] } }] }) }; },
   };
   vm.runInNewContext(script, mapContext);
+  tileEvents.tileerror();
+  assert.equal(messages.at(-1), 'map-error', 'Tile failure must be visible even without a route');
+  tileEvents.tileload();
+  assert.equal(messages.at(-1), 'map-ready', 'A recovered tile must clear the map error');
   const data = { coords: [11, 108], stops: [{ lat: 11, lng: 108, status: 'pending' }, { lat: 12, lng: 109, status: 'pending' }, { name: 'Unlocated' }] };
   mapContext.window.setTrip(data);
   await new Promise(resolve => setImmediate(resolve));

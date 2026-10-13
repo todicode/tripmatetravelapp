@@ -16,6 +16,19 @@ import java.util.UUID;
 @Table(name = "app_users")
 public class UserEntity {
 
+    @jakarta.persistence.ElementCollection
+    @jakarta.persistence.CollectionTable(name = "user_interests", joinColumns = @jakarta.persistence.JoinColumn(name = "user_id"))
+    @Column(name = "interest_code", length = 32, nullable = false)
+    private java.util.Set<String> interestCodes = new java.util.HashSet<>();
+
+    public java.util.List<String> getInterestCodes() { return interestCodes.stream().sorted().toList(); }
+    public void setInterestCodes(java.util.List<String> codes) {
+        if (!interestCodes.equals(new java.util.HashSet<>(codes))) {
+            interestCodes.clear(); interestCodes.addAll(codes);
+            updatedAt = Instant.now();
+        }
+    }
+
     @Id
     private UUID id;
 
@@ -30,6 +43,9 @@ public class UserEntity {
 
     @Column(length = 32)
     private String phone;
+
+    @Column(name = "phone_lookup", length = 15, insertable = false, updatable = false)
+    private String phoneLookup;
 
     @Column(name = "friend_code", nullable = false, unique = true, length = 32)
     private String friendCode;
@@ -93,8 +109,16 @@ public class UserEntity {
         return displayName;
     }
 
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
+    }
+
     public String getPhone() {
         return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
     }
 
     public String getFriendCode() {
@@ -104,6 +128,8 @@ public class UserEntity {
     public UUID getAvatarMediaId() {
         return avatarMediaId;
     }
+
+    public void setAvatarMediaId(UUID avatarMediaId) { this.avatarMediaId = avatarMediaId; }
 
     public UserStatus getStatus() {
         return status;
