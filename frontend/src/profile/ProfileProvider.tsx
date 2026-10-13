@@ -7,11 +7,19 @@ import { ProfileStore } from './profileStore';
 const ProfileContext = createContext<ProfileStore | null>(null);
 
 /** Parent keys this provider by user ID and unmounts it on logout. */
-export function ProfileProvider({ user, request, children }: {
-  user: ProfileUser; request: AuthorizedRequest; children: React.ReactNode;
+export function ProfileProvider({
+  user,
+  request,
+  children,
+}: {
+  user: ProfileUser;
+  request: AuthorizedRequest;
+  children: React.ReactNode;
 }) {
   const [store] = useState(() => new ProfileStore(createProfileApi(request, user.id), user));
-  useEffect(() => { void store.load(); }, [store]);
+  useEffect(() => {
+    void store.load();
+  }, [store]);
   return <ProfileContext.Provider value={store}>{children}</ProfileContext.Provider>;
 }
 

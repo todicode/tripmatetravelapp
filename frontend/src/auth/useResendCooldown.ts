@@ -8,11 +8,17 @@ export function useResendCooldown(availableAt?: string) {
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
-  const seconds = Math.max(0, Math.ceil((Math.max(Date.parse(availableAt ?? '') || 0, retryUntil) - now) / 1000));
-  return { seconds, onError: (error: unknown) => {
-    if (error instanceof ApiRequestError && error.retryAfterSeconds > 0) {
-      setNow(Date.now());
-      setRetryUntil(Date.now() + error.retryAfterSeconds * 1000);
-    }
-  } };
+  const seconds = Math.max(
+    0,
+    Math.ceil((Math.max(Date.parse(availableAt ?? '') || 0, retryUntil) - now) / 1000),
+  );
+  return {
+    seconds,
+    onError: (error: unknown) => {
+      if (error instanceof ApiRequestError && error.retryAfterSeconds > 0) {
+        setNow(Date.now());
+        setRetryUntil(Date.now() + error.retryAfterSeconds * 1000);
+      }
+    },
+  };
 }

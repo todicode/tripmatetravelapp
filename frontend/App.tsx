@@ -49,8 +49,9 @@ const heroImage = {
   uri: 'https://images.unsplash.com/photo-1528127269322-539801943592?w=800&auto=format&fit=crop&q=80',
 };
 
-const authApiBaseUrl = process.env.EXPO_PUBLIC_GOOGLE_AUTH_API_URL
-  ?? (Platform.OS === 'android' ? 'http://10.0.2.2:8080/api/v1' : 'http://localhost:8080/api/v1');
+const authApiBaseUrl =
+  process.env.EXPO_PUBLIC_GOOGLE_AUTH_API_URL ??
+  (Platform.OS === 'android' ? 'http://10.0.2.2:8080/api/v1' : 'http://localhost:8080/api/v1');
 const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '';
 const installationIdKey = 'installationId';
 let installationIdPromise: Promise<string> | undefined;
@@ -128,7 +129,6 @@ function getApiErrorMessage(error: unknown) {
   return 'Đã xảy ra lỗi không xác định.';
 }
 
-
 function MapBackdrop() {
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
@@ -181,7 +181,15 @@ function Hero({ activeTab }: { activeTab: AuthTab }) {
   );
 }
 
-function GoogleButton({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
+function GoogleButton({
+  label,
+  onPress,
+  disabled,
+}: {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
   return (
     <Pressable
       accessibilityLabel={label}
@@ -232,7 +240,10 @@ function InputField({
   placeholder: string;
   value: string;
   onChangeText: (value: string) => void;
-} & Pick<TextInputProps, 'autoCapitalize' | 'autoComplete' | 'keyboardType' | 'maxLength' | 'onBlur'>) {
+} & Pick<
+  TextInputProps,
+  'autoCapitalize' | 'autoComplete' | 'keyboardType' | 'maxLength' | 'onBlur'
+>) {
   return (
     <View style={styles.inputWrap}>
       <MaterialCommunityIcons name={icon} size={18} color="#7A7A7A" />
@@ -279,7 +290,9 @@ function PasswordField({
         value={value}
       />
       <Pressable
-        accessibilityLabel={visible ? `Ẩn ${placeholder.toLowerCase()}` : `Hiện ${placeholder.toLowerCase()}`}
+        accessibilityLabel={
+          visible ? `Ẩn ${placeholder.toLowerCase()}` : `Hiện ${placeholder.toLowerCase()}`
+        }
         accessibilityRole="button"
         hitSlop={10}
         onPress={onToggle}
@@ -323,13 +336,7 @@ function CheckToggle({
   );
 }
 
-function ForgotPasswordSheet({
-  visible,
-  onClose,
-}: {
-  visible: boolean;
-  onClose: () => void;
-}) {
+function ForgotPasswordSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const [email, setEmail] = useState('');
   const [step, setStep] = useState<'email' | 'otp' | 'password'>('email');
   const [challenge, setChallenge] = useState<PasswordResetChallenge | null>(null);
@@ -350,9 +357,12 @@ function ForgotPasswordSheet({
     setApiError(null);
     setIsSubmitting(true);
     try {
-      const nextChallenge = await authRequest<PasswordResetChallenge>('/auth/password-reset/request', {
-        email: email.trim(),
-      });
+      const nextChallenge = await authRequest<PasswordResetChallenge>(
+        '/auth/password-reset/request',
+        {
+          email: email.trim(),
+        },
+      );
       setChallenge(nextChallenge);
       setOtp('');
       setStep('otp');
@@ -401,8 +411,10 @@ function ForgotPasswordSheet({
       onClose();
       Alert.alert('Đổi mật khẩu thành công', 'Hãy đăng nhập lại bằng mật khẩu mới.');
     } catch (error) {
-      if (error instanceof ApiRequestError &&
-          (error.code.startsWith('OTP_') || error.code.startsWith('RESET_'))) {
+      if (
+        error instanceof ApiRequestError &&
+        (error.code.startsWith('OTP_') || error.code.startsWith('RESET_'))
+      ) {
         setStep('otp');
       }
       setApiError(getApiErrorMessage(error));
@@ -412,12 +424,30 @@ function ForgotPasswordSheet({
   };
 
   return (
-    <Modal animationType="slide" onRequestClose={() => { if (!isSubmitting) onClose(); }} transparent visible={visible}>
+    <Modal
+      animationType="slide"
+      onRequestClose={() => {
+        if (!isSubmitting) onClose();
+      }}
+      transparent
+      visible={visible}
+    >
       <View style={styles.modalBackdrop}>
-        <Pressable accessibilityLabel="Đóng khôi phục mật khẩu" disabled={isSubmitting}
-          onPress={onClose} style={StyleSheet.absoluteFill} />
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.forgotKeyboard}>
-          <ScrollView keyboardShouldPersistTaps="handled" style={styles.forgotScroll} contentContainerStyle={styles.forgotSheet}>
+        <Pressable
+          accessibilityLabel="Đóng khôi phục mật khẩu"
+          disabled={isSubmitting}
+          onPress={onClose}
+          style={StyleSheet.absoluteFill}
+        />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.forgotKeyboard}
+        >
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            style={styles.forgotScroll}
+            contentContainerStyle={styles.forgotSheet}
+          >
             <View style={styles.sheetHandle} />
             <View style={styles.forgotHeader}>
               <View style={styles.forgotTitleRow}>
@@ -426,7 +456,9 @@ function ForgotPasswordSheet({
                 </View>
                 <View>
                   <Text style={styles.forgotTitle}>Khôi phục mật khẩu</Text>
-                  <Text style={styles.forgotStep}>Bước {step === 'email' ? 1 : step === 'otp' ? 2 : 3}/3</Text>
+                  <Text style={styles.forgotStep}>
+                    Bước {step === 'email' ? 1 : step === 'otp' ? 2 : 3}/3
+                  </Text>
                 </View>
               </View>
               <Pressable
@@ -443,7 +475,9 @@ function ForgotPasswordSheet({
 
             {step === 'email' && (
               <>
-                <Text style={styles.forgotDescription}>Nhập email đã đăng ký để nhận mã đặt lại mật khẩu.</Text>
+                <Text style={styles.forgotDescription}>
+                  Nhập email đã đăng ký để nhận mã đặt lại mật khẩu.
+                </Text>
                 <Text style={styles.forgotLabel}>EMAIL ĐĂNG KÝ</Text>
                 <InputField
                   icon="email-outline"
@@ -460,28 +494,54 @@ function ForgotPasswordSheet({
               <>
                 <Text style={styles.forgotDescription}>
                   Nhập mã 6 chữ số đã gửi tới <Text style={styles.strongText}>{email.trim()}</Text>.
-                  {challenge && ` Mã có hiệu lực đến ${new Date(challenge.expiresAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}.`}
+                  {challenge &&
+                    ` Mã có hiệu lực đến ${new Date(challenge.expiresAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}.`}
                 </Text>
                 <Text style={styles.forgotLabel}>MÃ OTP</Text>
-                <InputField icon="key-variant" placeholder="Mã OTP 6 chữ số" value={otp}
-                  onChangeText={setOtp} keyboardType="number-pad" maxLength={6} />
-                <Pressable accessibilityRole="button" disabled={isSubmitting || cooldown.seconds > 0} onPress={requestCode}
-                  style={({ pressed }) => [styles.otpResendButton, pressed && styles.subtlePressed]}>
+                <InputField
+                  icon="key-variant"
+                  placeholder="Mã OTP 6 chữ số"
+                  value={otp}
+                  onChangeText={setOtp}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={isSubmitting || cooldown.seconds > 0}
+                  onPress={requestCode}
+                  style={({ pressed }) => [styles.otpResendButton, pressed && styles.subtlePressed]}
+                >
                   <MaterialCommunityIcons name="refresh" size={15} color={colors.blue} />
-                  <Text style={styles.link}>{cooldown.seconds > 0 ? `Gửi lại sau ${cooldown.seconds}s` : 'Gửi lại mã'}</Text>
+                  <Text style={styles.link}>
+                    {cooldown.seconds > 0 ? `Gửi lại sau ${cooldown.seconds}s` : 'Gửi lại mã'}
+                  </Text>
                 </Pressable>
               </>
             )}
             {step === 'password' && (
               <>
-                <Text style={styles.forgotDescription}>Tạo mật khẩu mới cho tài khoản {email.trim()}.</Text>
+                <Text style={styles.forgotDescription}>
+                  Tạo mật khẩu mới cho tài khoản {email.trim()}.
+                </Text>
                 <Text style={styles.forgotLabel}>MẬT KHẨU MỚI</Text>
-                <PasswordField placeholder="Mật khẩu mới" value={newPassword} onChangeText={setNewPassword}
-                  visible={showPassword} onToggle={() => setShowPassword(!showPassword)} autoComplete="new-password" />
+                <PasswordField
+                  placeholder="Mật khẩu mới"
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  visible={showPassword}
+                  onToggle={() => setShowPassword(!showPassword)}
+                  autoComplete="new-password"
+                />
                 <Text style={styles.forgotLabel}>XÁC NHẬN MẬT KHẨU</Text>
-                <PasswordField placeholder="Nhập lại mật khẩu mới" value={confirmPassword}
-                  onChangeText={setConfirmPassword} visible={showPassword}
-                  onToggle={() => setShowPassword(!showPassword)} autoComplete="new-password" />
+                <PasswordField
+                  placeholder="Nhập lại mật khẩu mới"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  visible={showPassword}
+                  onToggle={() => setShowPassword(!showPassword)}
+                  autoComplete="new-password"
+                />
               </>
             )}
             <InlineError message={apiError} />
@@ -497,18 +557,43 @@ function ForgotPasswordSheet({
                 }}
                 style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
               >
-                <Text style={styles.secondaryButtonText}>{step === 'email' ? 'Hủy' : 'Quay lại'}</Text>
+                <Text style={styles.secondaryButtonText}>
+                  {step === 'email' ? 'Hủy' : 'Quay lại'}
+                </Text>
               </Pressable>
               <Pressable
-                accessibilityLabel={step === 'email' ? 'Gửi mã OTP' : step === 'otp' ? 'Tiếp tục' : 'Đặt lại mật khẩu'}
+                accessibilityLabel={
+                  step === 'email' ? 'Gửi mã OTP' : step === 'otp' ? 'Tiếp tục' : 'Đặt lại mật khẩu'
+                }
                 accessibilityRole="button"
-                accessibilityState={{ busy: isSubmitting, disabled: isSubmitting || (step === 'email' && cooldown.seconds > 0) }}
+                accessibilityState={{
+                  busy: isSubmitting,
+                  disabled: isSubmitting || (step === 'email' && cooldown.seconds > 0),
+                }}
                 disabled={isSubmitting || (step === 'email' && cooldown.seconds > 0)}
-                onPress={step === 'email' ? requestCode : step === 'otp' ? continueToPassword : resetPassword}
-                style={({ pressed }) => [styles.modalPrimaryButton, isSubmitting && styles.disabledButton, pressed && styles.pressed]}
+                onPress={
+                  step === 'email'
+                    ? requestCode
+                    : step === 'otp'
+                      ? continueToPassword
+                      : resetPassword
+                }
+                style={({ pressed }) => [
+                  styles.modalPrimaryButton,
+                  isSubmitting && styles.disabledButton,
+                  pressed && styles.pressed,
+                ]}
               >
                 <Text style={styles.modalPrimaryText}>
-                  {isSubmitting ? 'Đang xử lý…' : step === 'email' ? (cooldown.seconds > 0 ? `Gửi lại sau ${cooldown.seconds}s` : 'Gửi mã OTP') : step === 'otp' ? 'Tiếp tục' : 'Đổi mật khẩu'}
+                  {isSubmitting
+                    ? 'Đang xử lý…'
+                    : step === 'email'
+                      ? cooldown.seconds > 0
+                        ? `Gửi lại sau ${cooldown.seconds}s`
+                        : 'Gửi mã OTP'
+                      : step === 'otp'
+                        ? 'Tiếp tục'
+                        : 'Đổi mật khẩu'}
                 </Text>
                 <MaterialCommunityIcons name="arrow-right" size={17} color={colors.white} />
               </Pressable>
@@ -520,7 +605,13 @@ function ForgotPasswordSheet({
   );
 }
 
-function LoginPanel({ onRegister, onAuthenticated }: { onRegister: () => void; onAuthenticated: OnAuthenticated }) {
+function LoginPanel({
+  onRegister,
+  onAuthenticated,
+}: {
+  onRegister: () => void;
+  onAuthenticated: OnAuthenticated;
+}) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -588,7 +679,11 @@ function LoginPanel({ onRegister, onAuthenticated }: { onRegister: () => void; o
       />
 
       <View style={styles.loginOptions}>
-        <CheckToggle checked={rememberMe} label="Ghi nhớ tôi" onPress={() => setRememberMe((value) => !value)} />
+        <CheckToggle
+          checked={rememberMe}
+          label="Ghi nhớ tôi"
+          onPress={() => setRememberMe((value) => !value)}
+        />
         <Pressable
           accessibilityRole="button"
           onPress={() => setForgotVisible(true)}
@@ -612,7 +707,13 @@ function LoginPanel({ onRegister, onAuthenticated }: { onRegister: () => void; o
   );
 }
 
-function RegisterPanel({ onLogin, onAuthenticated }: { onLogin: () => void; onAuthenticated: OnAuthenticated }) {
+function RegisterPanel({
+  onLogin,
+  onAuthenticated,
+}: {
+  onLogin: () => void;
+  onAuthenticated: OnAuthenticated;
+}) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -640,16 +741,23 @@ function RegisterPanel({ onLogin, onAuthenticated }: { onLogin: () => void; onAu
     setApiError(null);
     setRegisterStep('form');
     if (pendingId) {
-      void authRequest<void>('/auth/register/cancel', { verificationId: pendingId }).catch(() => {});
+      void authRequest<void>('/auth/register/cancel', { verificationId: pendingId }).catch(
+        () => {},
+      );
     }
   };
 
-  useEffect(() => () => {
-    const pendingId = pendingVerificationRef.current;
-    if (pendingId) {
-      void authRequest<void>('/auth/register/cancel', { verificationId: pendingId }).catch(() => {});
-    }
-  }, []);
+  useEffect(
+    () => () => {
+      const pendingId = pendingVerificationRef.current;
+      if (pendingId) {
+        void authRequest<void>('/auth/register/cancel', { verificationId: pendingId }).catch(
+          () => {},
+        );
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (registerStep !== 'otp') return;
@@ -661,7 +769,13 @@ function RegisterPanel({ onLogin, onAuthenticated }: { onLogin: () => void; onAu
   }, [registerStep, isSubmitting]);
 
   const submit = async () => {
-    if (!name.trim() || !email.trim() || !phone.trim() || !password.trim() || !confirmPassword.trim()) {
+    if (
+      !name.trim() ||
+      !email.trim() ||
+      !phone.trim() ||
+      !password.trim() ||
+      !confirmPassword.trim()
+    ) {
       Alert.alert('Lỗi', 'Vui lòng điền đầy đủ thông tin đăng ký.');
       return;
     }
@@ -670,7 +784,10 @@ function RegisterPanel({ onLogin, onAuthenticated }: { onLogin: () => void; onAu
       return;
     }
     const validationError = passwordError(password);
-    if (validationError) { setApiError(validationError); return; }
+    if (validationError) {
+      setApiError(validationError);
+      return;
+    }
     if (!agreeTerms) {
       Alert.alert('Thông báo', 'Vui lòng đồng ý với điều khoản sử dụng.');
       return;
@@ -770,8 +887,14 @@ function RegisterPanel({ onLogin, onAuthenticated }: { onLogin: () => void; onAu
         </Text>
         <View style={styles.mockNotice}>
           <Text style={styles.mockNoticeTitle}>EMAIL OTP</Text>
-          <Text style={styles.mockNoticeText}>Kiểm tra hộp thư đến và thư rác để lấy mã xác minh.</Text>
-          {challenge && <Text style={styles.mockNoticeMeta}>Mã hết hạn lúc {new Date(challenge.expiresAt).toLocaleTimeString('vi-VN')}.</Text>}
+          <Text style={styles.mockNoticeText}>
+            Kiểm tra hộp thư đến và thư rác để lấy mã xác minh.
+          </Text>
+          {challenge && (
+            <Text style={styles.mockNoticeMeta}>
+              Mã hết hạn lúc {new Date(challenge.expiresAt).toLocaleTimeString('vi-VN')}.
+            </Text>
+          )}
         </View>
         <InputField
           icon="key-variant"
@@ -799,19 +922,26 @@ function RegisterPanel({ onLogin, onAuthenticated }: { onLogin: () => void; onAu
             style={({ pressed }) => [styles.otpResendButton, pressed && styles.subtlePressed]}
           >
             <MaterialCommunityIcons name="refresh" size={15} color={colors.blue} />
-            <Text style={styles.link}>{cooldown.seconds > 0 ? `Gửi lại sau ${cooldown.seconds}s` : 'Gửi lại mã'}</Text>
+            <Text style={styles.link}>
+              {cooldown.seconds > 0 ? `Gửi lại sau ${cooldown.seconds}s` : 'Gửi lại mã'}
+            </Text>
           </Pressable>
         </View>
       </View>
     );
-  };
+  }
 
   return (
     <View style={styles.panelContent}>
       <GoogleButton label="Đăng ký với Google" onPress={submitGoogle} disabled={isSubmitting} />
       <Divider label="hoặc đăng ký với email" />
 
-      <InputField icon="account-outline" placeholder="Họ và tên" value={name} onChangeText={setName} />
+      <InputField
+        icon="account-outline"
+        placeholder="Họ và tên"
+        value={name}
+        onChangeText={setName}
+      />
       <InputField
         icon="email-outline"
         placeholder="Địa chỉ email"
@@ -892,26 +1022,45 @@ function PrimaryButton({
       android_ripple={{ color: colors.blueBright }}
       disabled={loading}
       onPress={onPress}
-      style={({ pressed }) => [styles.primaryButton, loading && styles.disabledButton, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.primaryButton,
+        loading && styles.disabledButton,
+        pressed && styles.pressed,
+      ]}
     >
       <Text style={styles.primaryButtonText}>{loading ? 'Đang xử lý…' : label}</Text>
     </Pressable>
   );
 }
 
-function AuthSheet({ activeTab, onChangeTab, onAuthenticated }: { activeTab: AuthTab; onChangeTab: (tab: AuthTab) => void; onAuthenticated: OnAuthenticated }) {
+function AuthSheet({
+  activeTab,
+  onChangeTab,
+  onAuthenticated,
+}: {
+  activeTab: AuthTab;
+  onChangeTab: (tab: AuthTab) => void;
+  onAuthenticated: OnAuthenticated;
+}) {
   return (
     <View style={styles.sheet}>
       <View style={styles.sheetHandle} />
       <View style={styles.segmentedControl}>
-        <View style={[styles.segmentIndicator, activeTab === 'register' && styles.segmentIndicatorRegister]} />
+        <View
+          style={[
+            styles.segmentIndicator,
+            activeTab === 'register' && styles.segmentIndicatorRegister,
+          ]}
+        />
         <Pressable
           accessibilityRole="tab"
           accessibilityState={{ selected: activeTab === 'login' }}
           onPress={() => onChangeTab('login')}
           style={styles.segmentButton}
         >
-          <Text style={[styles.segmentText, activeTab === 'login' && styles.segmentTextActive]}>Đăng nhập</Text>
+          <Text style={[styles.segmentText, activeTab === 'login' && styles.segmentTextActive]}>
+            Đăng nhập
+          </Text>
         </Pressable>
         <Pressable
           accessibilityRole="tab"
@@ -919,7 +1068,9 @@ function AuthSheet({ activeTab, onChangeTab, onAuthenticated }: { activeTab: Aut
           onPress={() => onChangeTab('register')}
           style={styles.segmentButton}
         >
-          <Text style={[styles.segmentText, activeTab === 'register' && styles.segmentTextActive]}>Đăng ký</Text>
+          <Text style={[styles.segmentText, activeTab === 'register' && styles.segmentTextActive]}>
+            Đăng ký
+          </Text>
         </Pressable>
       </View>
 
@@ -932,7 +1083,11 @@ function AuthSheet({ activeTab, onChangeTab, onAuthenticated }: { activeTab: Aut
   );
 }
 
-function CompletePhoneDialog({ onComplete, onLogout, sessionError }: {
+function CompletePhoneDialog({
+  onComplete,
+  onLogout,
+  sessionError,
+}: {
   onComplete: (phone: string) => Promise<void>;
   onLogout: () => Promise<void>;
   sessionError: string | null;
@@ -950,42 +1105,90 @@ function CompletePhoneDialog({ onComplete, onLogout, sessionError }: {
     if (!/^\+?[0-9 ()-]{7,32}$/.test(normalized)) return;
     setError(null);
     setSubmitting(true);
-    try { await onComplete(normalized); }
-    catch (cause) { setError(getApiErrorMessage(cause)); }
-    finally { setSubmitting(false); }
+    try {
+      await onComplete(normalized);
+    } catch (cause) {
+      setError(getApiErrorMessage(cause));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  return <Modal visible transparent animationType="fade" onRequestClose={() => {}}>
-    <SafeAreaView style={styles.phoneOverlay} edges={['top', 'bottom']}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.phoneDialogScroll} keyboardShouldPersistTaps="handled">
-          <View style={styles.phoneDialog}>
-            <View accessible={false} style={styles.phoneDialogIcon}><MaterialCommunityIcons name="phone-outline" size={24} color={colors.blue} /></View>
-            <Text style={styles.phoneDialogTitle}>Vui lòng nhập SĐT của bạn</Text>
-            <Text style={styles.phoneDialogDescription}>Bạn cần thêm số điện thoại trước khi tiếp tục vào TripMate.</Text>
-            <Text style={styles.phoneDialogLabel}>Số điện thoại (bắt buộc)</Text>
-            <InputField icon="phone-outline" placeholder="Số điện thoại" value={phone} onChangeText={setPhone}
-              onBlur={() => setTouched(true)} autoComplete="tel" keyboardType="phone-pad" maxLength={32} />
-            {invalid && <Text accessibilityRole="alert" style={styles.phoneFieldError}>Nhập số điện thoại hợp lệ từ 7 đến 32 ký tự.</Text>}
-            <InlineError message={error ?? sessionError} />
-            <PrimaryButton label="Lưu và tiếp tục" loading={submitting} onPress={submit} />
-            <Pressable accessibilityRole="button" disabled={submitting} onPress={() => { void onLogout(); }}
-              style={({ pressed }) => [styles.phoneLogout, pressed && styles.subtlePressed]}>
-              <Text style={styles.link}>Đăng xuất</Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
-  </Modal>;
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={() => {}}>
+      <SafeAreaView style={styles.phoneOverlay} edges={['top', 'bottom']}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.flex}
+        >
+          <ScrollView
+            contentContainerStyle={styles.phoneDialogScroll}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.phoneDialog}>
+              <View accessible={false} style={styles.phoneDialogIcon}>
+                <MaterialCommunityIcons name="phone-outline" size={24} color={colors.blue} />
+              </View>
+              <Text style={styles.phoneDialogTitle}>Vui lòng nhập SĐT của bạn</Text>
+              <Text style={styles.phoneDialogDescription}>
+                Bạn cần thêm số điện thoại trước khi tiếp tục vào TripMate.
+              </Text>
+              <Text style={styles.phoneDialogLabel}>Số điện thoại (bắt buộc)</Text>
+              <InputField
+                icon="phone-outline"
+                placeholder="Số điện thoại"
+                value={phone}
+                onChangeText={setPhone}
+                onBlur={() => setTouched(true)}
+                autoComplete="tel"
+                keyboardType="phone-pad"
+                maxLength={32}
+              />
+              {invalid && (
+                <Text accessibilityRole="alert" style={styles.phoneFieldError}>
+                  Nhập số điện thoại hợp lệ từ 7 đến 32 ký tự.
+                </Text>
+              )}
+              <InlineError message={error ?? sessionError} />
+              <PrimaryButton label="Lưu và tiếp tục" loading={submitting} onPress={submit} />
+              <Pressable
+                accessibilityRole="button"
+                disabled={submitting}
+                onPress={() => {
+                  void onLogout();
+                }}
+                style={({ pressed }) => [styles.phoneLogout, pressed && styles.subtlePressed]}
+              >
+                <Text style={styles.link}>Đăng xuất</Text>
+              </Pressable>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </Modal>
+  );
 }
 
 function AppContent() {
   const theme = useAppTheme();
   const [activeTab, setActiveTab] = useState<AuthTab>('login');
-  const { session, request, restoring, restoreError, sessionError, restoreSession, authenticate,
-    completePhone, logout, changePassword: updatePassword, discardSavedSession, realtimeCredentials } = useSessionViewModel(authApiBaseUrl);
-  useEffect(() => { if (!session) setActiveTab('login'); }, [session]);
+  const {
+    session,
+    request,
+    restoring,
+    restoreError,
+    sessionError,
+    restoreSession,
+    authenticate,
+    completePhone,
+    logout,
+    changePassword: updatePassword,
+    discardSavedSession,
+    realtimeCredentials,
+  } = useSessionViewModel(authApiBaseUrl);
+  useEffect(() => {
+    if (!session) setActiveTab('login');
+  }, [session]);
 
   const changePassword = async (currentPassword: string, newPassword: string) => {
     if (!session) throw new Error('Cần đăng nhập lại.');
@@ -997,28 +1200,71 @@ function AppContent() {
       }
       throw error;
     }
-    Alert.alert('Đổi mật khẩu thành công', 'Các phiên đăng nhập đã được đăng xuất. Hãy đăng nhập bằng mật khẩu mới.');
+    Alert.alert(
+      'Đổi mật khẩu thành công',
+      'Các phiên đăng nhập đã được đăng xuất. Hãy đăng nhập bằng mật khẩu mới.',
+    );
   };
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={[styles.screen, session && { backgroundColor: theme.colors.pale }]} edges={['top', 'bottom']}>
+      <SafeAreaView
+        style={[styles.screen, session && { backgroundColor: theme.colors.pale }]}
+        edges={['top', 'bottom']}
+      >
         <StatusBar style={session && theme.mode === 'dark' ? 'light' : 'dark'} />
-        {restoring || restoreError ? <View style={[styles.panelContent, { flex: 1, justifyContent: 'center' }]}>
-          {restoring ? <><ActivityIndicator /><Text style={styles.promptText}>Đang khôi phục phiên đăng nhập…</Text></> : <>
-            <InlineError message={restoreError} />
-            <PrimaryButton label="Thử lại" loading={false} onPress={() => { void restoreSession(); }} />
-            <Pressable accessibilityRole="button" onPress={() => { void discardSavedSession(); }}><Text style={styles.link}>Đăng nhập bằng tài khoản khác</Text></Pressable>
-          </>}
-        </View> : session && !session.user.phone?.trim() ? <>
-          <MapBackdrop />
-          <CompletePhoneDialog onComplete={completePhone} onLogout={logout} sessionError={sessionError} />
-        </> : session ? <>
-          <InlineError message={sessionError} />
-          <ProfileProvider key={session.user.id} user={session.user} request={request}>
-            <ExploreHome request={request} realtimeCredentials={realtimeCredentials} onLogout={() => { void logout(); }} onChangePassword={changePassword} />
-          </ProfileProvider>
-        </> : (
+        {restoring || restoreError ? (
+          <View style={[styles.panelContent, { flex: 1, justifyContent: 'center' }]}>
+            {restoring ? (
+              <>
+                <ActivityIndicator />
+                <Text style={styles.promptText}>Đang khôi phục phiên đăng nhập…</Text>
+              </>
+            ) : (
+              <>
+                <InlineError message={restoreError} />
+                <PrimaryButton
+                  label="Thử lại"
+                  loading={false}
+                  onPress={() => {
+                    void restoreSession();
+                  }}
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    void discardSavedSession();
+                  }}
+                >
+                  <Text style={styles.link}>Đăng nhập bằng tài khoản khác</Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+        ) : session && !session.user.phone?.trim() ? (
+          <>
+            <MapBackdrop />
+            <CompletePhoneDialog
+              onComplete={completePhone}
+              onLogout={logout}
+              sessionError={sessionError}
+            />
+          </>
+        ) : session ? (
+          <>
+            <InlineError message={sessionError} />
+            <ProfileProvider key={session.user.id} user={session.user} request={request}>
+              <ExploreHome
+                request={request}
+                realtimeCredentials={realtimeCredentials}
+                onLogout={() => {
+                  void logout();
+                }}
+                onChangePassword={changePassword}
+              />
+            </ProfileProvider>
+          </>
+        ) : (
           <>
             <MapBackdrop />
             <KeyboardAvoidingView
@@ -1032,7 +1278,11 @@ function AppContent() {
               >
                 <Hero activeTab={activeTab} />
                 <InlineError message={sessionError} />
-                <AuthSheet activeTab={activeTab} onChangeTab={setActiveTab} onAuthenticated={authenticate} />
+                <AuthSheet
+                  activeTab={activeTab}
+                  onChangeTab={setActiveTab}
+                  onAuthenticated={authenticate}
+                />
               </ScrollView>
             </KeyboardAvoidingView>
           </>
@@ -1042,7 +1292,15 @@ function AppContent() {
   );
 }
 
-export default function App() { return <ThemeProvider><ToastProvider><AppContent /></ToastProvider></ThemeProvider>; }
+export default function App() {
+  return (
+    <ThemeProvider>
+      <ToastProvider>
+        <AppContent />
+      </ToastProvider>
+    </ThemeProvider>
+  );
+}
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
@@ -1063,15 +1321,41 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   heroImage: { height: '100%', width: '100%' },
-  heroShade: { backgroundColor: 'rgba(0,0,0,0.34)', bottom: 0, left: 0, position: 'absolute', right: 0, top: 0 },
+  heroShade: {
+    backgroundColor: 'rgba(0,0,0,0.34)',
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+  },
   heroCaption: { bottom: 13, left: 14, position: 'absolute' },
-  heroEyebrow: { color: 'rgba(255,255,255,0.82)', fontSize: 10, fontWeight: '700', letterSpacing: 1.1 },
+  heroEyebrow: {
+    color: 'rgba(255,255,255,0.82)',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.1,
+  },
   heroCaptionTitle: { color: colors.white, fontSize: 16, fontWeight: '700', marginTop: 2 },
   brand: { color: colors.ink, fontSize: 24, fontWeight: '700', letterSpacing: -0.6, marginTop: 12 },
   brandDot: { color: colors.blue, fontSize: 24 },
-  heroTitle: { color: colors.ink, fontSize: 22, fontWeight: '700', lineHeight: 28, marginTop: 4, textAlign: 'center' },
+  heroTitle: {
+    color: colors.ink,
+    fontSize: 22,
+    fontWeight: '700',
+    lineHeight: 28,
+    marginTop: 4,
+    textAlign: 'center',
+  },
   heroTitleAccent: { color: colors.blue },
-  heroSubtitle: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 2, maxWidth: 280, textAlign: 'center' },
+  heroSubtitle: {
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 2,
+    maxWidth: 280,
+    textAlign: 'center',
+  },
   sheet: {
     backgroundColor: colors.white,
     borderColor: colors.border,
@@ -1083,87 +1367,315 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 12,
   },
-  sheetHandle: { alignSelf: 'center', backgroundColor: colors.border, borderRadius: 3, height: 4, marginBottom: 12, width: 36 },
+  sheetHandle: {
+    alignSelf: 'center',
+    backgroundColor: colors.border,
+    borderRadius: 3,
+    height: 4,
+    marginBottom: 12,
+    width: 36,
+  },
   phoneOverlay: { flex: 1, backgroundColor: 'rgba(18, 29, 45, 0.58)' },
   phoneDialogScroll: { flexGrow: 1, justifyContent: 'center', padding: 24 },
-  phoneDialog: { alignSelf: 'center', backgroundColor: colors.white, borderRadius: 24, gap: 12, maxWidth: 420, padding: 24, width: '100%' },
-  phoneDialogIcon: { alignItems: 'center', justifyContent: 'center', width: 48, height: 48, borderRadius: 24, backgroundColor: '#EAF3FF' },
+  phoneDialog: {
+    alignSelf: 'center',
+    backgroundColor: colors.white,
+    borderRadius: 24,
+    gap: 12,
+    maxWidth: 420,
+    padding: 24,
+    width: '100%',
+  },
+  phoneDialogIcon: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#EAF3FF',
+  },
   phoneDialogTitle: { color: colors.ink, fontSize: 20, fontWeight: '700' },
   phoneDialogDescription: { color: colors.muted, fontSize: 14, lineHeight: 21 },
   phoneDialogLabel: { color: colors.ink, fontSize: 14, fontWeight: '600', marginTop: 4 },
   phoneFieldError: { color: '#B42318', fontSize: 13 },
   phoneLogout: { alignItems: 'center', borderRadius: 18, justifyContent: 'center', minHeight: 48 },
-  segmentedControl: { backgroundColor: colors.canvas, borderColor: colors.border, borderRadius: 24, borderWidth: 1, flexDirection: 'row', height: 42, marginBottom: 12, padding: 3, position: 'relative' },
-  segmentIndicator: { backgroundColor: colors.white, borderColor: colors.border, borderRadius: 20, borderWidth: 1, bottom: 3, left: 3, position: 'absolute', top: 3, width: '50%' },
+  segmentedControl: {
+    backgroundColor: colors.canvas,
+    borderColor: colors.border,
+    borderRadius: 24,
+    borderWidth: 1,
+    flexDirection: 'row',
+    height: 42,
+    marginBottom: 12,
+    padding: 3,
+    position: 'relative',
+  },
+  segmentIndicator: {
+    backgroundColor: colors.white,
+    borderColor: colors.border,
+    borderRadius: 20,
+    borderWidth: 1,
+    bottom: 3,
+    left: 3,
+    position: 'absolute',
+    top: 3,
+    width: '50%',
+  },
   segmentIndicatorRegister: { left: '50%' },
-  segmentButton: { alignItems: 'center', flex: 1, justifyContent: 'center', minHeight: 36, zIndex: 1 },
+  segmentButton: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 36,
+    zIndex: 1,
+  },
   segmentText: { color: colors.muted, fontSize: 13, fontWeight: '400' },
   segmentTextActive: { color: colors.ink, fontWeight: '600' },
   panelContent: { paddingHorizontal: 0 },
-  errorBanner: { alignItems: 'center', backgroundColor: '#FFF4F2', borderColor: '#FECACA', borderRadius: 12, borderWidth: 1, flexDirection: 'row', marginTop: 8, paddingHorizontal: 12, paddingVertical: 9 },
+  errorBanner: {
+    alignItems: 'center',
+    backgroundColor: '#FFF4F2',
+    borderColor: '#FECACA',
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
   errorText: { color: '#B42318', flex: 1, fontSize: 12, lineHeight: 17, marginLeft: 7 },
-  googleButton: { alignItems: 'center', backgroundColor: colors.white, borderColor: colors.border, borderRadius: 22, borderWidth: 1, flexDirection: 'row', height: 44, justifyContent: 'center', minHeight: 44 },
+  googleButton: {
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    borderColor: colors.border,
+    borderRadius: 22,
+    borderWidth: 1,
+    flexDirection: 'row',
+    height: 44,
+    justifyContent: 'center',
+    minHeight: 44,
+  },
   googleText: { color: colors.ink, fontSize: 13, fontWeight: '400', marginLeft: 9 },
   dividerRow: { alignItems: 'center', flexDirection: 'row', marginVertical: 11 },
   divider: { backgroundColor: colors.border, flex: 1, height: 1 },
-  dividerLabel: { backgroundColor: colors.white, color: colors.muted, fontSize: 11, marginHorizontal: 10, paddingHorizontal: 2 },
-  inputWrap: { alignItems: 'center', backgroundColor: colors.field, borderColor: colors.border, borderRadius: 22, borderWidth: 1, flexDirection: 'row', height: 44, marginBottom: 9, paddingHorizontal: 15 },
+  dividerLabel: {
+    backgroundColor: colors.white,
+    color: colors.muted,
+    fontSize: 11,
+    marginHorizontal: 10,
+    paddingHorizontal: 2,
+  },
+  inputWrap: {
+    alignItems: 'center',
+    backgroundColor: colors.field,
+    borderColor: colors.border,
+    borderRadius: 22,
+    borderWidth: 1,
+    flexDirection: 'row',
+    height: 44,
+    marginBottom: 9,
+    paddingHorizontal: 15,
+  },
   input: { color: colors.ink, flex: 1, fontSize: 13, marginLeft: 9, paddingVertical: 0 },
-  eyeButton: { alignItems: 'center', justifyContent: 'center', minHeight: 44, minWidth: 44, marginRight: -12 },
-  loginOptions: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', minHeight: 34, paddingHorizontal: 2 },
+  eyeButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+    minWidth: 44,
+    marginRight: -12,
+  },
+  loginOptions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: 34,
+    paddingHorizontal: 2,
+  },
   checkRow: { alignItems: 'center', flexDirection: 'row', minHeight: 44 },
   checkLabel: { color: colors.muted, fontSize: 12, marginLeft: 6 },
   termsCheck: { alignItems: 'center', justifyContent: 'center', minHeight: 44, minWidth: 32 },
-  forgotLinkButton: { alignItems: 'center', justifyContent: 'center', minHeight: 44, paddingLeft: 10 },
+  forgotLinkButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingLeft: 10,
+  },
   link: { color: colors.blue, fontSize: 12, fontWeight: '600' },
-  primaryButton: { alignItems: 'center', backgroundColor: colors.blue, borderRadius: 22, flexDirection: 'row', height: 44, justifyContent: 'center', marginTop: 4, minHeight: 44 },
+  primaryButton: {
+    alignItems: 'center',
+    backgroundColor: colors.blue,
+    borderRadius: 22,
+    flexDirection: 'row',
+    height: 44,
+    justifyContent: 'center',
+    marginTop: 4,
+    minHeight: 44,
+  },
   disabledButton: { backgroundColor: '#8DB5E5' },
   primaryButtonText: { color: colors.white, fontSize: 14, fontWeight: '400' },
-  switchPrompt: { alignItems: 'center', flexDirection: 'row', justifyContent: 'center', marginTop: 11 },
-  switchPromptRegister: { alignItems: 'center', flexDirection: 'row', justifyContent: 'center', marginTop: 9 },
+  switchPrompt: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 11,
+  },
+  switchPromptRegister: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 9,
+  },
   promptText: { color: colors.muted, fontSize: 12 },
   termsRow: { alignItems: 'center', flexDirection: 'row', minHeight: 42, paddingHorizontal: 1 },
   termsText: { color: colors.muted, flex: 1, fontSize: 11, marginLeft: -2 },
   otpHeader: { alignItems: 'center', flexDirection: 'row', marginBottom: 14 },
-  otpIconCircle: { alignItems: 'center', backgroundColor: '#EAF2FF', borderRadius: 19, height: 38, justifyContent: 'center', marginRight: 10, width: 38 },
+  otpIconCircle: {
+    alignItems: 'center',
+    backgroundColor: '#EAF2FF',
+    borderRadius: 19,
+    height: 38,
+    justifyContent: 'center',
+    marginRight: 10,
+    width: 38,
+  },
   otpTitle: { color: colors.ink, fontSize: 16, fontWeight: '700' },
   otpStep: { color: colors.muted, fontSize: 11, marginTop: 2 },
   otpDescription: { color: colors.muted, fontSize: 12, lineHeight: 18, marginBottom: 12 },
   strongText: { color: colors.ink, fontWeight: '600' },
-  mockNotice: { backgroundColor: '#EAF2FF', borderColor: '#B9D4F8', borderRadius: 14, borderWidth: 1, marginBottom: 12, paddingHorizontal: 12, paddingVertical: 10 },
+  mockNotice: {
+    backgroundColor: '#EAF2FF',
+    borderColor: '#B9D4F8',
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
   mockNoticeTitle: { color: colors.blue, fontSize: 10, fontWeight: '800', letterSpacing: 0.8 },
   mockNoticeText: { color: '#335B86', fontSize: 12, marginTop: 3 },
   mockNoticeMeta: { color: '#6B86A2', fontSize: 10, marginTop: 4 },
-  otpActions: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-  otpBackButton: { alignItems: 'center', justifyContent: 'center', minHeight: 44, paddingHorizontal: 10 },
+  otpActions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  otpBackButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingHorizontal: 10,
+  },
   otpBackText: { color: colors.muted, fontSize: 12, fontWeight: '500' },
-  otpResendButton: { alignItems: 'center', flexDirection: 'row', minHeight: 44, paddingHorizontal: 10 },
+  otpResendButton: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    minHeight: 44,
+    paddingHorizontal: 10,
+  },
   pressed: { opacity: 0.78 },
   subtlePressed: { opacity: 0.62 },
   modalBackdrop: { backgroundColor: 'rgba(0,0,0,0.42)', flex: 1, justifyContent: 'flex-end' },
-  forgotSheet: { backgroundColor: colors.white, borderColor: colors.border, borderTopLeftRadius: 30, borderTopRightRadius: 30, borderWidth: 1, paddingBottom: 24, paddingHorizontal: 20, paddingTop: 12 },
+  forgotSheet: {
+    backgroundColor: colors.white,
+    borderColor: colors.border,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    borderWidth: 1,
+    paddingBottom: 24,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+  },
   forgotKeyboard: { maxHeight: '90%' },
   forgotScroll: { flexGrow: 0 },
   forgotHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   forgotTitleRow: { alignItems: 'center', flexDirection: 'row' },
-  forgotIconCircle: { alignItems: 'center', backgroundColor: '#EAF2FF', borderRadius: 17, height: 34, justifyContent: 'center', marginRight: 9, width: 34 },
+  forgotIconCircle: {
+    alignItems: 'center',
+    backgroundColor: '#EAF2FF',
+    borderRadius: 17,
+    height: 34,
+    justifyContent: 'center',
+    marginRight: 9,
+    width: 34,
+  },
   forgotTitle: { color: colors.ink, fontSize: 16, fontWeight: '700' },
   forgotStep: { color: colors.muted, fontSize: 11, marginTop: 2 },
-  closeButton: { alignItems: 'center', backgroundColor: colors.canvas, borderRadius: 16, height: 32, justifyContent: 'center', width: 32 },
-  forgotDescription: { color: colors.muted, fontSize: 12, lineHeight: 18, marginBottom: 14, marginTop: 14 },
-  forgotLabel: { color: colors.muted, fontSize: 11, fontWeight: '700', letterSpacing: 0.6, marginBottom: 5 },
+  closeButton: {
+    alignItems: 'center',
+    backgroundColor: colors.canvas,
+    borderRadius: 16,
+    height: 32,
+    justifyContent: 'center',
+    width: 32,
+  },
+  forgotDescription: {
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 14,
+    marginTop: 14,
+  },
+  forgotLabel: {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    marginBottom: 5,
+  },
   modalActions: { flexDirection: 'row', gap: 8, marginTop: 5 },
-  secondaryButton: { alignItems: 'center', backgroundColor: colors.canvas, borderRadius: 21, flex: 1, height: 42, justifyContent: 'center', minHeight: 42 },
+  secondaryButton: {
+    alignItems: 'center',
+    backgroundColor: colors.canvas,
+    borderRadius: 21,
+    flex: 1,
+    height: 42,
+    justifyContent: 'center',
+    minHeight: 42,
+  },
   secondaryButtonText: { color: colors.ink, fontSize: 13, fontWeight: '500' },
-  modalPrimaryButton: { alignItems: 'center', backgroundColor: colors.blue, borderRadius: 21, flex: 1.5, flexDirection: 'row', height: 42, justifyContent: 'center', minHeight: 42 },
+  modalPrimaryButton: {
+    alignItems: 'center',
+    backgroundColor: colors.blue,
+    borderRadius: 21,
+    flex: 1.5,
+    flexDirection: 'row',
+    height: 42,
+    justifyContent: 'center',
+    minHeight: 42,
+  },
   modalPrimaryText: { color: colors.white, fontSize: 13, fontWeight: '600', marginRight: 5 },
   mapGlow: { borderRadius: 200, position: 'absolute' },
-  mapGlowBlue: { backgroundColor: 'rgba(191,219,254,0.38)', height: 300, right: -80, top: -50, width: 300 },
-  mapGlowGold: { backgroundColor: 'rgba(253,230,138,0.28)', bottom: 100, height: 330, left: -130, width: 330 },
-  mapRoute: { borderColor: 'rgba(148,163,184,0.28)', borderRadius: 180, borderWidth: 2, height: 380, position: 'absolute', width: 580 },
+  mapGlowBlue: {
+    backgroundColor: 'rgba(191,219,254,0.38)',
+    height: 300,
+    right: -80,
+    top: -50,
+    width: 300,
+  },
+  mapGlowGold: {
+    backgroundColor: 'rgba(253,230,138,0.28)',
+    bottom: 100,
+    height: 330,
+    left: -130,
+    width: 330,
+  },
+  mapRoute: {
+    borderColor: 'rgba(148,163,184,0.28)',
+    borderRadius: 180,
+    borderWidth: 2,
+    height: 380,
+    position: 'absolute',
+    width: 580,
+  },
   mapRouteOne: { left: -260, top: 90, transform: [{ rotate: '-18deg' }] },
   mapRouteTwo: { left: -80, top: -90, transform: [{ rotate: '38deg' }] },
-  mapCircle: { borderColor: 'rgba(148,163,184,0.2)', borderRadius: 100, borderWidth: 1.5, position: 'absolute' },
+  mapCircle: {
+    borderColor: 'rgba(148,163,184,0.2)',
+    borderRadius: 100,
+    borderWidth: 1.5,
+    position: 'absolute',
+  },
   mapCircleOne: { height: 180, left: 70, top: 160, width: 180 },
   mapCircleTwo: { height: 100, right: 10, top: 100, width: 100 },
   mapPin: { borderRadius: 8, height: 12, position: 'absolute', width: 12 },
@@ -1171,5 +1683,14 @@ const styles = StyleSheet.create({
   mapPinSky: { backgroundColor: '#0EA5E9', right: 62, top: 168 },
   mapPinRose: { backgroundColor: '#FB7185', left: 96, top: 250 },
   mapPinGreen: { backgroundColor: '#10B981', right: 26, top: 280 },
-  mapWord: { color: 'rgba(168,162,158,0.22)', fontSize: 64, fontWeight: '900', left: 0, position: 'absolute', right: 0, textAlign: 'center', top: 190 },
+  mapWord: {
+    color: 'rgba(168,162,158,0.22)',
+    fontSize: 64,
+    fontWeight: '900',
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    textAlign: 'center',
+    top: 190,
+  },
 });

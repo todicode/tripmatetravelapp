@@ -4,7 +4,8 @@ const vm = require('node:vm');
 
 const sourcePath = path.resolve(__dirname, '../../template_gui/tripsStore.js');
 const outputPath = path.resolve(__dirname, '../src/data/destinations.json');
-const source = fs.readFileSync(sourcePath, 'utf8')
+const source = fs
+  .readFileSync(sourcePath, 'utf8')
   .replace(/export \{ TripsStore, OSM_DESTINATIONS, KNOWN_COORDINATES \};/, '')
   .replace(/export default TripsStore;/, '');
 const { destinations, knownCoordinates } = vm.runInNewContext(

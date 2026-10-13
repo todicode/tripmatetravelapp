@@ -5,7 +5,8 @@ const { spawnSync } = require('node:child_process');
 const projectRoot = path.resolve(__dirname, '..');
 const toolchainsDir = path.join(projectRoot, '.expo', 'toolchains');
 const localJdks = fs.existsSync(toolchainsDir)
-  ? fs.readdirSync(toolchainsDir, { withFileTypes: true })
+  ? fs
+      .readdirSync(toolchainsDir, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => path.join(toolchainsDir, entry.name))
   : [];
@@ -13,7 +14,8 @@ const candidates = process.env.ANDROID_JAVA_HOME
   ? [process.env.ANDROID_JAVA_HOME]
   : [
       ...localJdks,
-      process.platform === 'win32' && 'C:\\Program Files\\Eclipse Adoptium\\jdk-17.0.20.101-hotspot',
+      process.platform === 'win32' &&
+        'C:\\Program Files\\Eclipse Adoptium\\jdk-17.0.20.101-hotspot',
       process.env.JAVA_HOME,
     ].filter(Boolean);
 const javaExecutable = process.platform === 'win32' ? 'java.exe' : 'java';
@@ -30,7 +32,9 @@ const javaHome = candidates.find((candidate) => {
 });
 
 if (!javaHome) {
-  console.error('JDK 17 not found. Extract a JDK 17 into .expo/toolchains, or set ANDROID_JAVA_HOME to its installation directory.');
+  console.error(
+    'JDK 17 not found. Extract a JDK 17 into .expo/toolchains, or set ANDROID_JAVA_HOME to its installation directory.',
+  );
   process.exit(1);
 }
 
@@ -47,15 +51,22 @@ if (process.argv[2] === '--all-emulators') {
     console.error('Usage: npm run android:all');
     process.exit(1);
   }
-  require('./run-all-emulators.cjs').runAllEmulators({
-    projectRoot, env, expoCli: path.resolve(path.dirname(expoPackage), expoBin),
-  }).catch(error => { console.error(error.message); process.exitCode = 1; });
+  require('./run-all-emulators.cjs')
+    .runAllEmulators({
+      projectRoot,
+      env,
+      expoCli: path.resolve(path.dirname(expoPackage), expoBin),
+    })
+    .catch((error) => {
+      console.error(error.message);
+      process.exitCode = 1;
+    });
 } else {
-  const result = spawnSync(process.execPath, [
-    path.resolve(path.dirname(expoPackage), expoBin),
-    'run:android',
-    ...process.argv.slice(2),
-  ], { cwd: projectRoot, env, stdio: 'inherit' });
+  const result = spawnSync(
+    process.execPath,
+    [path.resolve(path.dirname(expoPackage), expoBin), 'run:android', ...process.argv.slice(2)],
+    { cwd: projectRoot, env, stdio: 'inherit' },
+  );
 
   if (result.error) console.error(result.error.message);
   process.exit(result.status ?? 1);

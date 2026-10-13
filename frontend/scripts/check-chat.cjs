@@ -5,13 +5,18 @@ const vm = require('node:vm');
 const ts = require('typescript');
 function readModel(file, requireModule) {
   const source = fs.readFileSync(path.resolve(__dirname, '../src', file), 'utf8');
-  const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } });
+  const compiled = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  });
   const context = { exports: {}, require: requireModule };
   vm.runInNewContext(compiled.outputText, context);
   return context.exports;
 }
 const trips = readModel('trips/tripModel.ts');
-const chat = readModel('chat/chatModel.ts', id => { assert.equal(id, '../trips/tripModel'); return trips; });
+const chat = readModel('chat/chatModel.ts', (id) => {
+  assert.equal(id, '../trips/tripModel');
+  return trips;
+});
 const conversations = chat.initialConversations();
 assert.equal(conversations.length, 0);
 const original = chat.createGroup('Test', []);
@@ -30,4 +35,6 @@ assert.equal(group.messages.length, 0);
 assert.ok(chat.matchesFriend({ name: 'Test Name', phone: '0123456789' }, 'test name'));
 assert.ok(chat.matchesFriend({ name: 'Test Name', phone: '0123456789' }, '0123456789'));
 assert.equal(chat.matchesFriend({ name: 'Test Name', phone: '0123456789' }, 'unknown'), false);
-console.log('Chat checks passed: message isolation, blank validation, unique IDs, member deduplication, trip links and search.');
+console.log(
+  'Chat checks passed: message isolation, blank validation, unique IDs, member deduplication, trip links and search.',
+);

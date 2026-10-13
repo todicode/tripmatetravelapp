@@ -1,0 +1,7 @@
+android/
+ios/
+node_modules/
+.expo/
+dist/
+package-lock.json
+src/trips/destinationData.json
