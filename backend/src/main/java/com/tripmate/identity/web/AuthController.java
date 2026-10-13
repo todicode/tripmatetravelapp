@@ -1,5 +1,6 @@
 package com.tripmate.identity.web;
 
+import com.tripmate.identity.application.GoogleLoginService;
 import com.tripmate.identity.application.IdentityService;
 import com.tripmate.identity.application.PasswordResetService;
 import com.tripmate.identity.web.AuthRequests.CancelRegistrationRequest;
@@ -17,6 +18,7 @@ import com.tripmate.identity.web.AuthResponses.RegistrationChallengeResponse;
 import com.tripmate.identity.web.AuthResponses.SessionResponse;
 import com.tripmate.shared.web.ApiResponse;
 import com.tripmate.shared.web.RequestIdFilter;
+import com.tripmate.shared.web.RequestIds;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -38,11 +40,15 @@ public class AuthController {
 
     private final IdentityService identityService;
     private final PasswordResetService passwordResetService;
+    private final GoogleLoginService googleLogin;
 
     public AuthController(
-            IdentityService identityService, PasswordResetService passwordResetService) {
+            IdentityService identityService,
+            PasswordResetService passwordResetService,
+            GoogleLoginService googleLogin) {
         this.identityService = identityService;
         this.passwordResetService = passwordResetService;
+        this.googleLogin = googleLogin;
     }
 
     @PostMapping("/register")
@@ -123,10 +129,7 @@ public class AuthController {
             @Valid @RequestBody GoogleAuthRequest request, HttpServletRequest httpRequest) {
         return ResponseEntity.ok()
                 .header("Cache-Control", NO_STORE)
-                .body(
-                        new ApiResponse<>(
-                                identityService.authenticateWithGoogle(request),
-                                requestId(httpRequest)));
+                .body(new ApiResponse<>(googleLogin.authenticate(request), requestId(httpRequest)));
     }
 
     @PostMapping("/refresh")
@@ -157,7 +160,6 @@ public class AuthController {
     }
 
     private UUID requestId(HttpServletRequest request) {
-        Object requestId = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
-        return requestId instanceof UUID uuid ? uuid : UUID.randomUUID();
+        return RequestIds.from(request);
     }
 }

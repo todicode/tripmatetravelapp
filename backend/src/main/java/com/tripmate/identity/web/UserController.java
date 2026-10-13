@@ -4,7 +4,7 @@ import com.tripmate.identity.application.IdentityService;
 import com.tripmate.identity.application.ProfileService;
 import com.tripmate.identity.web.AuthResponses.ProfileResponse;
 import com.tripmate.shared.web.ApiResponse;
-import com.tripmate.shared.web.RequestIdFilter;
+import com.tripmate.shared.web.RequestIds;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -33,8 +33,7 @@ public class UserController {
     public ResponseEntity<ApiResponse<ProfileResponse>> updateProfile(
             @RequestBody(required = false) Object body, HttpServletRequest request) {
         ProfileUpdateRequest update = ProfileUpdateRequest.parse(body);
-        Object requestId = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
-        UUID id = requestId instanceof UUID uuid ? uuid : UUID.randomUUID();
+        UUID id = RequestIds.from(request);
         return ResponseEntity.ok()
                 .header("Cache-Control", "private, no-store")
                 .body(new ApiResponse<>(profileService.update(update), id));
@@ -42,8 +41,7 @@ public class UserController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<ProfileResponse>> getProfile(HttpServletRequest request) {
-        Object requestId = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
-        UUID id = requestId instanceof UUID uuid ? uuid : UUID.randomUUID();
+        UUID id = RequestIds.from(request);
         return ResponseEntity.ok()
                 .header("Cache-Control", "private, no-store")
                 .body(new ApiResponse<>(identityService.getCurrentProfile(), id));

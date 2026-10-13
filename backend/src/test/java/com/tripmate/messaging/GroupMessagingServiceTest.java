@@ -8,6 +8,7 @@ import com.tripmate.identity.security.AuthenticatedUser;
 import com.tripmate.messaging.application.*;
 import com.tripmate.messaging.infrastructure.GroupConversationRepository;
 import com.tripmate.messaging.infrastructure.GroupConversationRepository.*;
+import com.tripmate.shared.persistence.SignedCursor;
 import com.tripmate.shared.web.ApiException;
 import com.tripmate.social.api.FriendshipAccess;
 import com.tripmate.trips.api.GroupTripSharing;
@@ -24,8 +25,7 @@ class GroupMessagingServiceTest {
     private final UserDirectory users = mock(UserDirectory.class);
     private final FriendshipAccess friends = mock(FriendshipAccess.class);
     private final GroupTripSharing trips = mock(GroupTripSharing.class);
-    private final ConversationCursor cursors =
-            new ConversationCursor("group-service-test-cursor-secret");
+    private final SignedCursor cursors = new SignedCursor("group-service-test-cursor-secret");
     private final GroupMessagingService service =
             new GroupMessagingService(
                     repo,

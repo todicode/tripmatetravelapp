@@ -9,6 +9,7 @@ import com.tripmate.messaging.application.*;
 import com.tripmate.messaging.domain.*;
 import com.tripmate.messaging.infrastructure.*;
 import com.tripmate.messaging.web.*;
+import com.tripmate.shared.persistence.SignedCursor;
 import com.tripmate.social.api.FriendshipAccess;
 
 import org.junit.jupiter.api.*;
@@ -85,7 +86,16 @@ class DirectRealtimeIntegrationTest {
 
         @Bean
         UserDirectory users() {
-            return mock(UserDirectory.class);
+            UserDirectory users = mock(UserDirectory.class);
+            when(users.findAll(any()))
+                    .thenAnswer(
+                            call -> {
+                                Map<UUID, UserDirectory.UserSummary> result = new HashMap<>();
+                                java.util.Collection<UUID> ids = call.getArgument(0);
+                                for (UUID id : ids) result.put(id, users.find(id));
+                                return result;
+                            });
+            return users;
         }
 
         @Bean
@@ -114,8 +124,8 @@ class DirectRealtimeIntegrationTest {
         }
 
         @Bean
-        ConversationCursor cursors() {
-            return new ConversationCursor("isolated-websocket-test-secret-32-chars");
+        SignedCursor cursors() {
+            return new SignedCursor("isolated-websocket-test-secret-32-chars");
         }
 
         @Bean

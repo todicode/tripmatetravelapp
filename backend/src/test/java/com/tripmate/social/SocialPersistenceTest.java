@@ -2,7 +2,6 @@ package com.tripmate.social;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.tripmate.identity.application.UserLookupService;
 import com.tripmate.identity.domain.UserEntity;
 import com.tripmate.identity.infrastructure.UserRepository;
 import com.tripmate.identity.security.AuthenticatedUser;
@@ -11,6 +10,7 @@ import com.tripmate.social.application.SocialService;
 import com.tripmate.social.application.SocialService.AlreadyFriendsResult;
 import com.tripmate.social.application.SocialService.Direction;
 import com.tripmate.social.application.SocialService.PendingResult;
+import com.tripmate.social.application.UserLookupService;
 import com.tripmate.social.domain.FriendRequestStatus;
 
 import org.junit.jupiter.api.Test;
@@ -44,6 +44,88 @@ class SocialPersistenceTest {
     @Autowired private UserRepository users;
     @Autowired private SocialService social;
     @Autowired private UserLookupService lookup;
+    @Autowired private org.springframework.jdbc.core.JdbcTemplate jdbc;
+    @Autowired private org.springframework.transaction.PlatformTransactionManager transactions;
+
+    @Test
+    void concurrentAcceptAndCancelObserveOneTerminalResult() throws Exception {
+        UserEntity sender = user("Concurrent sender"), recipient = user("Concurrent recipient");
+        authenticate(sender);
+        UUID request = ((PendingResult) social.send(recipient.getId(), null)).request().id();
+        UUID low =
+                sender.getId().toString().compareTo(recipient.getId().toString()) < 0
+                        ? sender.getId()
+                        : recipient.getId();
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var futures =
+                    new java.util.ArrayList<java.util.concurrent.Future<FriendRequestStatus>>();
+            new org.springframework.transaction.support.TransactionTemplate(transactions)
+                    .executeWithoutResult(
+                            tx -> {
+                                jdbc.queryForList(
+                                        "select id from app_users where id=? for update", low);
+                                futures.add(
+                                        pool.submit(
+                                                () -> {
+                                                    authenticate(recipient);
+                                                    try {
+                                                        return social.accept(request).status();
+                                                    } finally {
+                                                        SecurityContextHolder.clearContext();
+                                                    }
+                                                }));
+                                futures.add(
+                                        pool.submit(
+                                                () -> {
+                                                    authenticate(sender);
+                                                    try {
+                                                        return social.cancel(request).status();
+                                                    } finally {
+                                                        SecurityContextHolder.clearContext();
+                                                    }
+                                                }));
+                                // Both transactions must reach the pair lock before either resolves
+                                // the request.
+                                long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(15);
+                                while (System.nanoTime() < deadline) {
+                                    jdbc.queryForList("select pg_stat_clear_snapshot()");
+                                    int blocked =
+                                            jdbc.queryForObject(
+                                                    "select count(*) from pg_stat_activity where"
+                                                        + " datname=current_database() and"
+                                                        + " wait_event_type='Lock' and query like"
+                                                        + " '%app_users%'",
+                                                    Integer.class);
+                                    if (blocked >= 2) return;
+                                    try {
+                                        Thread.sleep(25);
+                                    } catch (InterruptedException error) {
+                                        Thread.currentThread().interrupt();
+                                        throw new IllegalStateException(error);
+                                    }
+                                }
+                                fail("Both resolutions must block on the controlled pair lock");
+                            });
+            FriendRequestStatus first = futures.get(0).get(15, TimeUnit.SECONDS);
+            assertEquals(first, futures.get(1).get(15, TimeUnit.SECONDS));
+            assertEquals(
+                    first.name(),
+                    jdbc.queryForObject(
+                            "select status from friend_requests where id=?",
+                            String.class,
+                            request));
+            int friendships =
+                    jdbc.queryForObject(
+                            "select count(*) from friendships where user_low_id=? and"
+                                    + " user_high_id=?",
+                            Integer.class,
+                            low,
+                            low.equals(sender.getId()) ? recipient.getId() : sender.getId());
+            assertEquals(first == FriendRequestStatus.ACCEPTED ? 1 : 0, friendships);
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+    }
 
     @Test
     void requestMessageRolesRelationshipAndUnfriendPersist() {

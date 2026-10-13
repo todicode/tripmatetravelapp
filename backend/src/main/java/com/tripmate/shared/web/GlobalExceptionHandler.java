@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -12,12 +13,14 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -96,6 +99,24 @@ public class GlobalExceptionHandler {
                 request);
     }
 
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    ResponseEntity<ApiErrorResponse> handleUnsupportedMethod(
+            HttpRequestMethodNotSupportedException exception, HttpServletRequest request) {
+        var result =
+                response(
+                        HttpStatus.METHOD_NOT_ALLOWED,
+                        "INVALID_REQUEST",
+                        "HTTP method is not supported.",
+                        List.of(),
+                        Map.of(),
+                        request);
+        var headers = new HttpHeaders();
+        headers.putAll(result.getHeaders());
+        if (exception.getSupportedHttpMethods() != null)
+            headers.setAllow(exception.getSupportedHttpMethods());
+        return new ResponseEntity<>(result.getBody(), headers, result.getStatusCode());
+    }
+
     @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
     ResponseEntity<ApiErrorResponse> handleUploadSize(HttpServletRequest request) {
         return response(
@@ -151,10 +172,28 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     ResponseEntity<ApiErrorResponse> handleDataIntegrity(
             DataIntegrityViolationException exception, HttpServletRequest request) {
+        for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+            if (cause instanceof SQLException sql && "23505".equals(sql.getSQLState())) {
+                return response(
+                        HttpStatus.CONFLICT,
+                        "DATA_CONFLICT",
+                        "Dữ liệu đang xung đột.",
+                        List.of(),
+                        Map.of(),
+                        request);
+            }
+        }
+        // Driver messages can include submitted values; log only safe diagnostic metadata.
+        log.error(
+                "Unexpected integrity failure: method={}, path={}, requestId={}, type={}",
+                request.getMethod(),
+                request.getRequestURI(),
+                requestId(request),
+                exception.getClass().getName());
         return response(
-                HttpStatus.CONFLICT,
-                "DATA_CONFLICT",
-                "Dữ liệu đang xung đột.",
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "INTERNAL_ERROR",
+                "Đã xảy ra lỗi không mong muốn.",
                 List.of(),
                 Map.of(),
                 request);
@@ -204,7 +243,6 @@ public class GlobalExceptionHandler {
     }
 
     private UUID requestId(HttpServletRequest request) {
-        Object value = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
-        return value instanceof UUID uuid ? uuid : UUID.randomUUID();
+        return RequestIds.from(request);
     }
 }

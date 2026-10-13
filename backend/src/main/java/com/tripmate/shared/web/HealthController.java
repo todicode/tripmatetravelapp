@@ -16,13 +16,12 @@ public class HealthController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<Map<String, String>>> health(HttpServletRequest request) {
-        Object value = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
-        UUID requestId = value instanceof UUID uuid ? uuid : UUID.randomUUID();
+        UUID requestId = RequestIds.from(request);
         return ResponseEntity.ok(
                 new ApiResponse<>(
                         Map.of(
                                 "status", "UP",
-                                "contractVersion", "1.3.0"),
+                                "contractVersion", "1.7.0"),
                         requestId));
     }
 }

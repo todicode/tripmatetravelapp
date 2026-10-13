@@ -3,14 +3,14 @@ package com.tripmate.messaging.application;
 import com.tripmate.identity.api.UserDirectory;
 import com.tripmate.messaging.domain.*;
 import com.tripmate.messaging.infrastructure.*;
-import com.tripmate.shared.security.AuthenticatedActor;
+import com.tripmate.shared.persistence.SignedCursor;
+import com.tripmate.shared.security.CurrentActor;
 import com.tripmate.shared.web.ApiException;
 import com.tripmate.social.api.FriendshipAccess;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,7 +23,7 @@ public class DirectMessagingService {
     private final FriendshipAccess friendships;
     private final DirectConversationRepository conversations;
     private final DirectMessageRepository messages;
-    private final ConversationCursor cursors;
+    private final SignedCursor cursors;
     private final ApplicationEventPublisher events;
 
     public DirectMessagingService(
@@ -31,7 +31,7 @@ public class DirectMessagingService {
             FriendshipAccess friendships,
             DirectConversationRepository conversations,
             DirectMessageRepository messages,
-            ConversationCursor cursors,
+            SignedCursor cursors,
             ApplicationEventPublisher events) {
         this.users = users;
         this.friendships = friendships;
@@ -81,8 +81,37 @@ public class DirectMessagingService {
                                 items.getLast().getUpdatedAt(),
                                 items.getLast().getId())
                         : null;
+        if (items.isEmpty()) return new ConversationPage(List.of(), new PageInfo(next, more));
+        var ids = items.stream().map(DirectConversationEntity::getId).toList();
+        Map<UUID, DirectMessageEntity> last = new HashMap<>();
+        messages.lastMessages(ids).forEach(m -> last.put(m.getConversation().getId(), m));
+        var profileIds = new HashSet<UUID>();
+        items.forEach(c -> profileIds.add(c.otherId(actor)));
+        last.values().forEach(m -> profileIds.add(m.getSenderId()));
+        var profiles = users.findAll(profileIds);
+        var currentFriends =
+                friendships.friendsOf(actor, items.stream().map(c -> c.otherId(actor)).toList());
+        Map<UUID, Long> unreadCounts = new HashMap<>();
+        messages.unreadCounts(ids, actor)
+                .forEach(c -> unreadCounts.put(c.getConversationId(), c.getUnreadCount()));
         return new ConversationPage(
-                items.stream().map(c -> view(c, actor)).toList(), new PageInfo(next, more));
+                items.stream()
+                        .map(
+                                c -> {
+                                    var peer = profiles.get(c.otherId(actor));
+                                    var lastMessage = last.get(c.getId());
+                                    return conversationView(
+                                            c,
+                                            actor,
+                                            peer,
+                                            lastMessage == null
+                                                    ? null
+                                                    : message(lastMessage, profiles),
+                                            Long.toString(unreadCounts.getOrDefault(c.getId(), 0L)),
+                                            currentFriends.contains(peer.id()) && peer.active());
+                                })
+                        .toList(),
+                new PageInfo(next, more));
     }
 
     @Transactional
@@ -149,8 +178,14 @@ public class DirectMessagingService {
         long min = selected.isEmpty() ? 0 : selected.getFirst().getSeq();
         long max = selected.isEmpty() ? (after == null ? 0 : after) : selected.getLast().getSeq();
         // Sequences are contiguous and messages are retained; min > 1 means older history exists.
+        var profiles =
+                users.findAll(
+                        selected.stream()
+                                .map(DirectMessageEntity::getSenderId)
+                                .distinct()
+                                .toList());
         return new MessagePage(
-                selected.stream().map(this::message).toList(),
+                selected.stream().map(m -> message(m, profiles)).toList(),
                 new MessagePageInfo(more, min > 1 ? Long.toString(min) : null, Long.toString(max)));
     }
 
@@ -192,14 +227,30 @@ public class DirectMessagingService {
                         : messages.findByConversationIdAndSeq(c.getId(), c.getLastSeq())
                                 .map(this::message)
                                 .orElse(null);
+        return conversationView(
+                c,
+                actor,
+                other,
+                last,
+                unread(c, actor),
+                friendships.areFriends(actor, other.id()) && other.active());
+    }
+
+    private ConversationView conversationView(
+            DirectConversationEntity c,
+            UUID actor,
+            UserDirectory.UserSummary other,
+            MessageView last,
+            String unread,
+            boolean canSend) {
         return new ConversationView(
                 c.getId(),
                 summary(other),
                 last,
                 Long.toString(c.getLastSeq()),
                 Long.toString(c.readSeq(actor)),
-                unread(c, actor),
-                friendships.areFriends(actor, other.id()) && other.active(),
+                unread,
+                canSend,
                 c.getCreatedAt(),
                 c.getUpdatedAt());
     }
@@ -211,11 +262,16 @@ public class DirectMessagingService {
     }
 
     private MessageView message(DirectMessageEntity m) {
+        return message(m, Map.of(m.getSenderId(), users.find(m.getSenderId())));
+    }
+
+    private MessageView message(
+            DirectMessageEntity m, Map<UUID, UserDirectory.UserSummary> profiles) {
         return new MessageView(
                 m.getId(),
                 m.getConversation().getId(),
                 Long.toString(m.getSeq()),
-                summary(users.find(m.getSenderId())),
+                summary(profiles.get(m.getSenderId())),
                 m.getClientMessageId(),
                 m.getBody(),
                 m.getCreatedAt());
@@ -258,11 +314,7 @@ public class DirectMessagingService {
     }
 
     private UUID actorId() {
-        var authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null
-                || !(authentication.getPrincipal() instanceof AuthenticatedActor actor))
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Cần đăng nhập.");
-        return actor.userId();
+        return CurrentActor.userId();
     }
 
     private ApiException invalid(String message) {

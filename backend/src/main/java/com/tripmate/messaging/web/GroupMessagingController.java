@@ -3,6 +3,7 @@ package com.tripmate.messaging.web;
 import com.tripmate.messaging.application.GroupMessagingService;
 import com.tripmate.messaging.application.GroupMessagingService.*;
 import com.tripmate.shared.web.*;
+import com.tripmate.shared.web.RequestIds;
 import com.tripmate.trips.api.GroupTripSharing;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -165,8 +166,7 @@ public class GroupMessagingController {
     }
 
     private UUID requestId(HttpServletRequest request) {
-        Object id = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
-        return id instanceof UUID uuid ? uuid : UUID.randomUUID();
+        return RequestIds.from(request);
     }
 
     private <T> ResponseEntity<ApiResponse<T>> ok(T data, HttpServletRequest request) {

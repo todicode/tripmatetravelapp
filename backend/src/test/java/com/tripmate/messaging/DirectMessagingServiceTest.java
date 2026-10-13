@@ -9,6 +9,7 @@ import com.tripmate.identity.security.AuthenticatedUser;
 import com.tripmate.messaging.application.*;
 import com.tripmate.messaging.domain.*;
 import com.tripmate.messaging.infrastructure.*;
+import com.tripmate.shared.persistence.SignedCursor;
 import com.tripmate.shared.web.ApiException;
 import com.tripmate.social.api.FriendshipAccess;
 
@@ -27,8 +28,8 @@ class DirectMessagingServiceTest {
     private final DirectConversationRepository conversations =
             mock(DirectConversationRepository.class);
     private final DirectMessageRepository messages = mock(DirectMessageRepository.class);
-    private final ConversationCursor cursors =
-            new ConversationCursor("test-secret-for-direct-conversation-cursors");
+    private final SignedCursor cursors =
+            new SignedCursor("test-secret-for-direct-conversation-cursors");
     private final org.springframework.context.ApplicationEventPublisher events =
             mock(org.springframework.context.ApplicationEventPublisher.class);
     private final DirectMessagingService service =
@@ -50,6 +51,15 @@ class DirectMessagingServiceTest {
         when(friends.lockFriends(any(), any()))
                 .thenReturn(new UserDirectory.UserPair(lowSummary, highSummary));
         when(friends.areFriends(any(), any())).thenReturn(true);
+        when(friends.friendsOf(any(), any())).thenReturn(Set.of(low.getId(), high.getId()));
+        when(users.findAll(any()))
+                .thenAnswer(
+                        call -> {
+                            Map<UUID, UserDirectory.UserSummary> result = new HashMap<>();
+                            Collection<UUID> ids = call.getArgument(0);
+                            for (UUID id : ids) result.put(id, users.find(id));
+                            return result;
+                        });
         when(conversations.findById(conversation.getId())).thenReturn(Optional.of(conversation));
         when(conversations.findByIdForUpdate(conversation.getId()))
                 .thenReturn(Optional.of(conversation));
@@ -137,6 +147,7 @@ class DirectMessagingServiceTest {
     @Test
     void nonFriendCannotCreateOrSendButCanReadHistoryAfterUnfriend() {
         when(friends.areFriends(any(), any())).thenReturn(false);
+        when(friends.friendsOf(any(), any())).thenReturn(Set.of());
         when(friends.lockFriends(any(), any()))
                 .thenThrow(new ApiException(HttpStatus.FORBIDDEN, "NOT_FRIENDS", "Not friends"));
         assertCode("NOT_FRIENDS", () -> service.open(high.getId()));

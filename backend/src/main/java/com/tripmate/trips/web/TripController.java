@@ -1,6 +1,7 @@
 package com.tripmate.trips.web;
 
 import com.tripmate.shared.web.*;
+import com.tripmate.shared.web.RequestIds;
 import com.tripmate.trips.application.TripModels.*;
 import com.tripmate.trips.application.TripService;
 
@@ -80,7 +81,7 @@ public class TripController {
     }
 
     static <T> ResponseEntity<ApiResponse<T>> response(T value, HttpServletRequest r, int status) {
-        UUID requestId = (UUID) r.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
+        UUID requestId = RequestIds.from(r);
         return ResponseEntity.status(status)
                 .header("Cache-Control", "private, no-store")
                 .body(new ApiResponse<>(value, requestId));

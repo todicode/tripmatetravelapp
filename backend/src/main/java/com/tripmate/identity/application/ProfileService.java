@@ -1,15 +1,15 @@
 package com.tripmate.identity.application;
 
+import com.tripmate.catalog.api.InterestCatalog;
 import com.tripmate.identity.domain.UserStatus;
 import com.tripmate.identity.infrastructure.UserRepository;
 import com.tripmate.identity.web.AuthResponses.ProfileResponse;
 import com.tripmate.identity.web.ProfileUpdateRequest;
 import com.tripmate.media.api.AvatarMedia;
-import com.tripmate.shared.security.AuthenticatedActor;
+import com.tripmate.shared.security.CurrentActor;
 import com.tripmate.shared.web.ApiException;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,27 +17,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class ProfileService {
     private final UserRepository users;
     private final AvatarMedia media;
-    private final IdentityService identity;
-    private final com.tripmate.catalog.api.InterestCatalog interests;
+    private final InterestCatalog interests;
 
-    public ProfileService(
-            UserRepository users,
-            AvatarMedia media,
-            IdentityService identity,
-            com.tripmate.catalog.api.InterestCatalog interests) {
+    public ProfileService(UserRepository users, AvatarMedia media, InterestCatalog interests) {
         this.users = users;
         this.media = media;
-        this.identity = identity;
         this.interests = interests;
     }
 
     @Transactional
     public ProfileResponse update(ProfileUpdateRequest update) {
-        var authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null
-                || !(authentication.getPrincipal() instanceof AuthenticatedActor actor)) {
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Cần đăng nhập.");
-        }
+        var actor = CurrentActor.require();
         var user =
                 users.findByIdForUpdate(actor.userId())
                         .orElseThrow(
@@ -74,6 +64,6 @@ public class ProfileService {
         if (update.phone() != null && user.getPhone() == null) user.setPhone(update.phone());
         if (update.interestCodes() != null) user.setInterestCodes(update.interestCodes());
         users.saveAndFlush(user);
-        return identity.getCurrentProfile();
+        return ProfileMapper.toProfile(user);
     }
 }

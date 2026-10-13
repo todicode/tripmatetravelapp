@@ -18,7 +18,7 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshTokenEntity
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query(
             "select token from RefreshTokenEntity token join fetch token.user join fetch"
-                + " token.device where token.tokenHash = :tokenHash")
+                    + " token.device where token.tokenHash = :tokenHash")
     Optional<RefreshTokenEntity> findByTokenHashForUpdate(@Param("tokenHash") String tokenHash);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -27,13 +27,13 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshTokenEntity
 
     @Query(
             "select token from RefreshTokenEntity token where token.user.id = :userId and"
-                + " token.device.id = :deviceId and token.revokedAt is null")
+                    + " token.device.id = :deviceId and token.revokedAt is null")
     List<RefreshTokenEntity> findActiveByUserAndDevice(
             @Param("userId") UUID userId, @Param("deviceId") UUID deviceId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query(
             "select token from RefreshTokenEntity token where token.user.id = :userId and"
-                + " token.revokedAt is null")
+                    + " token.revokedAt is null")
     List<RefreshTokenEntity> findUnrevokedByUserIdForUpdate(@Param("userId") UUID userId);
 }

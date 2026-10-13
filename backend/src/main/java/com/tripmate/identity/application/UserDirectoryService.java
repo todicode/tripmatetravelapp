@@ -27,6 +27,56 @@ public class UserDirectoryService implements UserDirectory {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public java.util.Map<UUID, UserSummary> findAll(java.util.Collection<UUID> userIds) {
+        if (userIds.isEmpty()) return java.util.Map.of();
+        var summaries = new java.util.HashMap<UUID, UserSummary>();
+        for (var user : users.findSummaries(userIds)) {
+            summaries.put(
+                    user.getId(),
+                    new UserSummary(
+                            user.getId(),
+                            user.getDisplayName(),
+                            user.getAvatarMediaId(),
+                            user.getStatus() == UserStatus.ACTIVE));
+        }
+        if (!summaries.keySet().containsAll(userIds)) throw notFound();
+        return java.util.Map.copyOf(summaries);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserSummary byPhone(String phone) {
+        return active(users.findByPhoneLookup(PhoneNumber.key(phone)).orElseThrow(this::notFound));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserSummary byFriendCode(String friendCode) {
+        String code =
+                friendCode == null ? "" : friendCode.trim().toUpperCase(java.util.Locale.ROOT);
+        if (code.isEmpty() || code.length() > 32)
+            throw new ApiException(
+                    HttpStatus.UNPROCESSABLE_ENTITY,
+                    "VALIDATION_ERROR",
+                    "Mã kết bạn không hợp lệ.");
+        return active(users.findByFriendCode(code).orElseThrow(this::notFound));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public String friendCode(UUID userId) {
+        var user = users.findById(userId).orElseThrow(this::notFound);
+        active(user);
+        return user.getFriendCode();
+    }
+
+    private UserSummary active(UserEntity user) {
+        if (user.getStatus() != UserStatus.ACTIVE) throw notFound();
+        return summary(user);
+    }
+
+    @Override
     @Transactional
     public UserPair lockActivePair(UUID firstId, UUID secondId) {
         if (firstId.equals(secondId)) throw new IllegalArgumentException("Two users required");

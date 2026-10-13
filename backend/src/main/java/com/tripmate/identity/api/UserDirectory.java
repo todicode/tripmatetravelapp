@@ -6,6 +6,14 @@ import java.util.UUID;
 public interface UserDirectory {
     UserSummary find(UUID userId);
 
+    java.util.Map<UUID, UserSummary> findAll(java.util.Collection<UUID> userIds);
+
+    UserSummary byPhone(String phone);
+
+    UserSummary byFriendCode(String friendCode);
+
+    String friendCode(UUID userId);
+
     UserPair lockActivePair(UUID firstId, UUID secondId);
 
     record UserSummary(UUID id, String displayName, UUID avatarMediaId, boolean active) {}

@@ -32,6 +32,8 @@ public class GroupConversationRepository {
             String body,
             Instant createdAt) {}
 
+    public record Summary(UUID id, long readSeq, int memberCount, long unreadCount) {}
+
     private final NamedParameterJdbcTemplate jdbc;
 
     public GroupConversationRepository(NamedParameterJdbcTemplate jdbc) {
@@ -123,7 +125,7 @@ public class GroupConversationRepository {
         }
         return jdbc.query(
                 "select g.* from group_conversations g join group_members m on"
-                    + " m.conversation_id=g.id where m.user_id=:actor and m.status='ACTIVE'"
+                        + " m.conversation_id=g.id where m.user_id=:actor and m.status='ACTIVE'"
                         + keyset
                         + " order by g.updated_at desc,g.id desc limit :limit",
                 p,
@@ -140,10 +142,38 @@ public class GroupConversationRepository {
                 .findFirst();
     }
 
+    public List<Summary> summaries(UUID actor, Collection<UUID> ids) {
+        if (ids.isEmpty()) return List.of();
+        return jdbc.query(
+                """
+                select g.id, m.read_seq,
+                  (select count(*) from group_members members where members.conversation_id=g.id and members.status='ACTIVE') as member_count,
+                  (select count(*) from group_messages messages where messages.conversation_id=g.id and messages.seq>m.read_seq and messages.sender_id<>:actor) as unread_count
+                from group_conversations g join group_members m on m.conversation_id=g.id
+                where g.id in (:ids) and m.user_id=:actor and m.status='ACTIVE'
+                """,
+                Map.of("actor", actor, "ids", ids),
+                (r, n) ->
+                        new Summary(
+                                r.getObject("id", UUID.class),
+                                r.getLong("read_seq"),
+                                r.getInt("member_count"),
+                                r.getLong("unread_count")));
+    }
+
+    public List<Message> lastMessages(Collection<UUID> ids) {
+        if (ids.isEmpty()) return List.of();
+        return jdbc.query(
+                "select distinct on (conversation_id) * from group_messages where conversation_id"
+                        + " in (:ids) order by conversation_id,seq desc",
+                Map.of("ids", ids),
+                MESSAGE);
+    }
+
     public List<Member> members(UUID group) {
         return jdbc.query(
                 "select * from group_members where conversation_id=:g and status='ACTIVE' order by"
-                    + " joined_at,user_id",
+                        + " joined_at,user_id",
                 Map.of("g", group),
                 MEMBER);
     }
@@ -159,14 +189,14 @@ public class GroupConversationRepository {
     public void end(UUID group, UUID user, String status, Instant now) {
         jdbc.update(
                 "update group_members set status=:status,ended_at=:now where conversation_id=:g and"
-                    + " user_id=:u",
+                        + " user_id=:u",
                 Map.of("g", group, "u", user, "status", status, "now", Timestamp.from(now)));
     }
 
     public void read(UUID group, UUID user, long seq) {
         jdbc.update(
                 "update group_members set read_seq=greatest(read_seq,:seq) where conversation_id=:g"
-                    + " and user_id=:u",
+                        + " and user_id=:u",
                 Map.of("g", group, "u", user, "seq", seq));
     }
 
@@ -174,7 +204,7 @@ public class GroupConversationRepository {
         return jdbc
                 .query(
                         "select * from group_messages where conversation_id=:g and sender_id=:u and"
-                            + " client_message_id=:client",
+                                + " client_message_id=:client",
                         Map.of("g", group, "u", sender, "client", client),
                         MESSAGE)
                 .stream()
@@ -207,7 +237,7 @@ public class GroupConversationRepository {
         return jdbc
                 .query(
                         "select * from group_messages where conversation_id=:g order by seq desc"
-                            + " limit 1",
+                                + " limit 1",
                         Map.of("g", group),
                         MESSAGE)
                 .stream()
@@ -217,7 +247,7 @@ public class GroupConversationRepository {
     public long unread(UUID group, UUID actor, long readSeq) {
         return jdbc.queryForObject(
                 "select count(*) from group_messages where conversation_id=:g and seq>:seq and"
-                    + " sender_id<>:u",
+                        + " sender_id<>:u",
                 Map.of("g", group, "seq", readSeq, "u", actor),
                 Long.class);
     }

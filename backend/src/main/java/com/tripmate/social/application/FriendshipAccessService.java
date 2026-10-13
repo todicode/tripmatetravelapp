@@ -41,4 +41,12 @@ public class FriendshipAccessService implements FriendshipAccess {
         return !firstId.equals(secondId)
                 && friendships.existsById(new FriendshipKey(firstId, secondId));
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.Set<UUID> friendsOf(UUID actorId, java.util.Collection<UUID> candidates) {
+        return candidates.isEmpty()
+                ? java.util.Set.of()
+                : java.util.Set.copyOf(friendships.friendsWithin(actorId, candidates));
+    }
 }

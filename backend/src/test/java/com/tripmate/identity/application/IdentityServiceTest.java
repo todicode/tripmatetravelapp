@@ -83,7 +83,6 @@ class IdentityServiceTest {
                         authIdentityRepository,
                         passwordEncoder,
                         jwtTokenService,
-                        googleIdentityVerifier,
                         eventPublisher,
                         Duration.ofMinutes(3),
                         Duration.ofSeconds(60),
@@ -329,8 +328,8 @@ class IdentityServiceTest {
                 .thenReturn("access-token");
 
         SessionResponse response =
-                service.authenticateWithGoogle(
-                        new GoogleAuthRequest("google-id-token", installationId));
+                new GoogleLoginService(googleIdentityVerifier, service)
+                        .authenticate(new GoogleAuthRequest("google-id-token", installationId));
 
         assertEquals(existing.getId(), response.user().id());
         assertEquals("0901234567", response.user().phone());
@@ -367,8 +366,8 @@ class IdentityServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         SessionResponse response =
-                service.authenticateWithGoogle(
-                        new GoogleAuthRequest("google-id-token", installationId));
+                new GoogleLoginService(googleIdentityVerifier, service)
+                        .authenticate(new GoogleAuthRequest("google-id-token", installationId));
 
         assertEquals(existing.getId(), response.user().id());
         assertNull(response.user().phone());
@@ -403,9 +402,10 @@ class IdentityServiceTest {
                 assertThrows(
                         ApiException.class,
                         () ->
-                                service.authenticateWithGoogle(
-                                        new GoogleAuthRequest(
-                                                "google-id-token", UUID.randomUUID())));
+                                new GoogleLoginService(googleIdentityVerifier, service)
+                                        .authenticate(
+                                                new GoogleAuthRequest(
+                                                        "google-id-token", UUID.randomUUID())));
 
         assertEquals(HttpStatus.CONFLICT, error.getStatus());
         assertEquals("GOOGLE_IDENTITY_CONFLICT", error.getCode());
@@ -437,9 +437,10 @@ class IdentityServiceTest {
                 assertThrows(
                         ApiException.class,
                         () ->
-                                service.authenticateWithGoogle(
-                                        new GoogleAuthRequest(
-                                                "google-id-token", UUID.randomUUID())));
+                                new GoogleLoginService(googleIdentityVerifier, service)
+                                        .authenticate(
+                                                new GoogleAuthRequest(
+                                                        "google-id-token", UUID.randomUUID())));
 
         assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
         assertEquals("ACCOUNT_DISABLED", error.getCode());
@@ -481,8 +482,8 @@ class IdentityServiceTest {
         when(jwtTokenService.issue(savedUser, device)).thenReturn("access-token");
 
         SessionResponse response =
-                service.authenticateWithGoogle(
-                        new GoogleAuthRequest("google-token", installationId));
+                new GoogleLoginService(googleIdentityVerifier, service)
+                        .authenticate(new GoogleAuthRequest("google-token", installationId));
 
         assertSame(savedUser, device.getUser());
         assertEquals(savedUser.getId(), response.user().id());
@@ -717,7 +718,6 @@ class IdentityServiceTest {
                     new ProfileService(
                             userRepository,
                             org.mockito.Mockito.mock(com.tripmate.media.api.AvatarMedia.class),
-                            service,
                             org.mockito.Mockito.mock(
                                     com.tripmate.catalog.api.InterestCatalog.class));
             ProfileResponse response =
@@ -744,7 +744,6 @@ class IdentityServiceTest {
                 new ProfileService(
                         userRepository,
                         org.mockito.Mockito.mock(com.tripmate.media.api.AvatarMedia.class),
-                        service,
                         org.mockito.Mockito.mock(com.tripmate.catalog.api.InterestCatalog.class));
         assertEquals(
                 HttpStatus.UNAUTHORIZED,
@@ -789,7 +788,6 @@ class IdentityServiceTest {
                         "TM-G",
                         Instant.now());
         when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         SecurityContextHolder.getContext()
                 .setAuthentication(
                         new UsernamePasswordAuthenticationToken(
@@ -801,7 +799,6 @@ class IdentityServiceTest {
                     new ProfileService(
                             userRepository,
                             org.mockito.Mockito.mock(com.tripmate.media.api.AvatarMedia.class),
-                            service,
                             org.mockito.Mockito.mock(
                                     com.tripmate.catalog.api.InterestCatalog.class));
             assertEquals(
@@ -854,7 +851,6 @@ class IdentityServiceTest {
                     new ProfileService(
                             userRepository,
                             org.mockito.Mockito.mock(com.tripmate.media.api.AvatarMedia.class),
-                            service,
                             org.mockito.Mockito.mock(
                                     com.tripmate.catalog.api.InterestCatalog.class));
             assertEquals(

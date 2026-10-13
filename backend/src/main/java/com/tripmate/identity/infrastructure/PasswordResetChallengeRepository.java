@@ -19,14 +19,14 @@ public interface PasswordResetChallengeRepository
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query(
             "select challenge from PasswordResetChallengeEntity challenge where challenge.user.id ="
-                + " :userId and challenge.usedAt is null")
+                    + " :userId and challenge.usedAt is null")
     Optional<PasswordResetChallengeEntity> findActiveByUserIdForUpdate(
             @Param("userId") UUID userId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query(
             "select challenge from PasswordResetChallengeEntity challenge join fetch challenge.user"
-                + " where challenge.id = :id")
+                    + " where challenge.id = :id")
     Optional<PasswordResetChallengeEntity> findByIdForUpdate(@Param("id") UUID id);
 
     long deleteByOtpExpiresAtBefore(Instant now);

@@ -1,10 +1,10 @@
-package com.tripmate.identity.web;
+package com.tripmate.social.web;
 
-import com.tripmate.identity.application.UserLookupService;
-import com.tripmate.identity.application.UserLookupService.FriendCodeResult;
-import com.tripmate.identity.application.UserLookupService.LookupResult;
 import com.tripmate.shared.web.ApiResponse;
 import com.tripmate.shared.web.RequestIdFilter;
+import com.tripmate.social.application.UserLookupService;
+import com.tripmate.social.application.UserLookupService.FriendCodeResult;
+import com.tripmate.social.application.UserLookupService.LookupResult;
 
 import jakarta.servlet.http.HttpServletRequest;
 

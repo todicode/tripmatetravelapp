@@ -1,8 +1,9 @@
-package com.tripmate.identity.application;
+package com.tripmate.social.application;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.tripmate.identity.application.UserDirectoryService;
 import com.tripmate.identity.domain.UserEntity;
 import com.tripmate.identity.domain.UserStatus;
 import com.tripmate.identity.infrastructure.UserRepository;
@@ -23,7 +24,8 @@ import java.util.UUID;
 class UserLookupServiceTest {
     private final UserRepository users = mock(UserRepository.class);
     private final RelationshipLookup relationships = mock(RelationshipLookup.class);
-    private final UserLookupService lookup = new UserLookupService(users, relationships);
+    private final UserLookupService lookup =
+            new UserLookupService(new UserDirectoryService(users), relationships);
 
     @AfterEach
     void clearSecurity() {

@@ -2,6 +2,16 @@
 
 Backend API for the Login and Register screens in `frontend/App.tsx`. The Android development build calls this backend for Google sign-in, email/password login, registration, and email OTP verification.
 
+## Formatting and backend checks
+
+Java sources use google-java-format 1.37.0 with AOSP indentation. From the repository root, run `python scripts/format-backend.py` to format or add `--check` to verify. Set Java 26 in `JAVA_HOME`, or pass `--java-home`. The script verifies the official formatter's SHA-256 and caches it under ignored `outputs/tools`; the application has no formatter runtime dependency.
+
+Use `scripts/test-trips.ps1` for the full PostgreSQL regression suite. It creates disposable databases with random passwords, restores process environment variables and removes its containers. `-Tests 'SocialPersistenceTest,QueryEfficiencyTest'` selects targeted tests. Profile/avatar tests also accept `PROFILE_TEST_DATABASE_PASSWORD`; the script and CI no longer require trust authentication.
+
+The backend CI checks formatting, runs Maven verify against dedicated PostgreSQL services and rejects skipped tests. Refactoring details and measured query counts are in [BACKEND_REFACTOR_PLAN.md](../docs/BACKEND_REFACTOR_PLAN.md).
+
+For `prod`, configure a private `JWT_SECRET` of at least 32 characters. The public development fallback and logging OTP sender are rejected. SMTP defaults to 5-second connection/read/write timeouts; override with `MAIL_CONNECTION_TIMEOUT_MS`, `MAIL_READ_TIMEOUT_MS` and `MAIL_WRITE_TIMEOUT_MS` if needed.
+
 ## Local email configuration
 
 `scripts/run-backend.ps1` reads email settings directly from `backend/.env`:

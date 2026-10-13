@@ -1,7 +1,5 @@
 package com.tripmate.social.domain;
 
-import com.tripmate.identity.domain.UserEntity;
-
 import jakarta.persistence.*;
 
 import java.time.Instant;
@@ -12,13 +10,11 @@ import java.util.UUID;
 public class FriendRequestEntity {
     @Id private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "sender_id")
-    private UserEntity sender;
+    @Column(name = "sender_id", nullable = false, updatable = false)
+    private UUID senderId;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "recipient_id")
-    private UserEntity recipient;
+    @Column(name = "recipient_id", nullable = false, updatable = false)
+    private UUID recipientId;
 
     @Column(length = 500)
     private String message;
@@ -35,10 +31,10 @@ public class FriendRequestEntity {
 
     protected FriendRequestEntity() {}
 
-    public FriendRequestEntity(UUID id, UserEntity sender, UserEntity recipient, String message) {
+    public FriendRequestEntity(UUID id, UUID senderId, UUID recipientId, String message) {
         this.id = id;
-        this.sender = sender;
-        this.recipient = recipient;
+        this.senderId = senderId;
+        this.recipientId = recipientId;
         this.message = message;
         this.status = FriendRequestStatus.PENDING;
     }
@@ -52,12 +48,12 @@ public class FriendRequestEntity {
         return id;
     }
 
-    public UserEntity getSender() {
-        return sender;
+    public UUID getSenderId() {
+        return senderId;
     }
 
-    public UserEntity getRecipient() {
-        return recipient;
+    public UUID getRecipientId() {
+        return recipientId;
     }
 
     public String getMessage() {

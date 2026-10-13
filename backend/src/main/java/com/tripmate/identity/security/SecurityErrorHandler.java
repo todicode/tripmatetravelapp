@@ -2,6 +2,7 @@ package com.tripmate.identity.security;
 
 import com.tripmate.shared.web.ApiErrorResponse;
 import com.tripmate.shared.web.RequestIdFilter;
+import com.tripmate.shared.web.RequestIds;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -54,10 +55,7 @@ public class SecurityErrorHandler implements AuthenticationEntryPoint, AccessDen
             String code,
             String message)
             throws IOException {
-        UUID requestId =
-                request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE) instanceof UUID id
-                        ? id
-                        : UUID.randomUUID();
+        UUID requestId = RequestIds.from(request);
         response.setStatus(status);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");

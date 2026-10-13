@@ -27,12 +27,12 @@ public interface DirectConversationRepository
     // Scalar projection avoids loading a stale managed conversation before the pair locks.
     @Query(
             "select c.lowUserId as lowId, c.highUserId as highId from DirectConversationEntity c"
-                + " where c.id = :id")
+                    + " where c.id = :id")
     Optional<Participants> participants(@Param("id") UUID id);
 
     @Query(
             "select c from DirectConversationEntity c where c.lowUserId = :actor or c.highUserId ="
-                + " :actor order by c.updatedAt desc, c.id desc")
+                    + " :actor order by c.updatedAt desc, c.id desc")
     List<DirectConversationEntity> firstPage(@Param("actor") UUID actor, Pageable pageable);
 
     @Query(

@@ -1,14 +1,14 @@
-package com.tripmate.identity.web;
+package com.tripmate.social.web;
 
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.tripmate.identity.application.UserLookupService;
-import com.tripmate.identity.application.UserLookupService.LookupResult;
-import com.tripmate.identity.application.UserLookupService.UserSummary;
 import com.tripmate.shared.web.GlobalExceptionHandler;
+import com.tripmate.social.application.UserLookupService;
+import com.tripmate.social.application.UserLookupService.LookupResult;
+import com.tripmate.social.application.UserLookupService.UserSummary;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;

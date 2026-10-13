@@ -14,7 +14,6 @@ import com.tripmate.identity.infrastructure.UserRepository;
 import com.tripmate.identity.security.AuthenticatedUser;
 import com.tripmate.identity.security.JwtTokenService;
 import com.tripmate.identity.web.AuthRequests.ChangePasswordRequest;
-import com.tripmate.identity.web.AuthRequests.GoogleAuthRequest;
 import com.tripmate.identity.web.AuthRequests.LoginRequest;
 import com.tripmate.identity.web.AuthRequests.RefreshRequest;
 import com.tripmate.identity.web.AuthRequests.RegisterRequest;
@@ -57,7 +56,6 @@ public class IdentityService {
     private final AuthIdentityRepository authIdentityRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
-    private final GoogleIdentityVerifier googleIdentityVerifier;
     private final ApplicationEventPublisher eventPublisher;
     private final Duration verificationTtl;
     private final Duration resendCooldown;
@@ -72,7 +70,6 @@ public class IdentityService {
             AuthIdentityRepository authIdentityRepository,
             PasswordEncoder passwordEncoder,
             JwtTokenService jwtTokenService,
-            GoogleIdentityVerifier googleIdentityVerifier,
             ApplicationEventPublisher eventPublisher,
             @Value("${tripmate.email.verification-ttl}") Duration verificationTtl,
             @Value("${tripmate.email.resend-cooldown}") Duration resendCooldown,
@@ -85,7 +82,6 @@ public class IdentityService {
         this.authIdentityRepository = authIdentityRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenService = jwtTokenService;
-        this.googleIdentityVerifier = googleIdentityVerifier;
         this.eventPublisher = eventPublisher;
         this.verificationTtl = verificationTtl;
         this.resendCooldown = resendCooldown;
@@ -256,9 +252,8 @@ public class IdentityService {
     }
 
     @Transactional
-    public SessionResponse authenticateWithGoogle(GoogleAuthRequest request) {
-        GoogleIdentityVerifier.GoogleProfile profile =
-                googleIdentityVerifier.verify(request.idToken());
+    public SessionResponse completeGoogleLogin(
+            UUID installationId, GoogleIdentityVerifier.GoogleProfile profile) {
         String email = normalizeEmail(profile.email());
         AuthIdentityEntity identity =
                 authIdentityRepository
@@ -302,7 +297,7 @@ public class IdentityService {
                     new AuthIdentityEntity(
                             UUID.randomUUID(), user, GOOGLE_PROVIDER, profile.subject(), email));
         }
-        DeviceEntity device = bindDevice(request.installationId(), user);
+        DeviceEntity device = bindDevice(installationId, user);
         return issueSession(user, device, null, null);
     }
 
@@ -485,15 +480,7 @@ public class IdentityService {
     }
 
     private ProfileResponse toProfile(UserEntity user) {
-        return new ProfileResponse(
-                user.getId(),
-                user.getDisplayName(),
-                user.getAvatarMediaId(),
-                user.getEmail(),
-                user.getPhone(),
-                user.getInterestCodes(),
-                user.getCreatedAt(),
-                user.getUpdatedAt());
+        return ProfileMapper.toProfile(user);
     }
 
     private AuthenticatedUser authenticatedUser() {

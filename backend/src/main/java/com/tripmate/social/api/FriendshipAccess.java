@@ -9,4 +9,6 @@ public interface FriendshipAccess {
     UserPair lockFriends(UUID firstId, UUID secondId);
 
     boolean areFriends(UUID firstId, UUID secondId);
+
+    java.util.Set<UUID> friendsOf(UUID actorId, java.util.Collection<UUID> candidates);
 }

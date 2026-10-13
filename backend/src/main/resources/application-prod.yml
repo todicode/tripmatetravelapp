@@ -6,6 +6,7 @@ spring:
     open-in-view: false
 
 tripmate:
+  security:
+    jwt-secret: ${JWT_SECRET:}
   email:
     mode: smtp
-

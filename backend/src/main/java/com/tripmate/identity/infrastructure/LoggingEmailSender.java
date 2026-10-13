@@ -3,11 +3,13 @@ package com.tripmate.identity.infrastructure;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 
 @Component
+@Profile("!prod")
 @ConditionalOnProperty(name = "tripmate.email.mode", havingValue = "log", matchIfMissing = true)
 public class LoggingEmailSender implements EmailSender {
 

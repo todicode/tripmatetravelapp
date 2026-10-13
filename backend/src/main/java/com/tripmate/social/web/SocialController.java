@@ -2,6 +2,7 @@ package com.tripmate.social.web;
 
 import com.tripmate.shared.web.ApiResponse;
 import com.tripmate.shared.web.RequestIdFilter;
+import com.tripmate.shared.web.RequestIds;
 import com.tripmate.social.application.SocialService;
 import com.tripmate.social.application.SocialService.Direction;
 import com.tripmate.social.application.SocialService.FriendRequestView;
@@ -88,8 +89,7 @@ public class SocialController {
     }
 
     private UUID requestId(HttpServletRequest request) {
-        Object value = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
-        return value instanceof UUID uuid ? uuid : UUID.randomUUID();
+        return RequestIds.from(request);
     }
 
     public record SendRequest(@NotNull UUID recipientId, @Size(max = 500) String message) {}

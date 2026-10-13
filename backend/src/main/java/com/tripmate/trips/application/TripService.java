@@ -4,12 +4,11 @@ import static com.tripmate.trips.application.TripModels.*;
 import static com.tripmate.trips.application.TripRules.*;
 
 import com.tripmate.shared.persistence.SignedCursor;
-import com.tripmate.shared.security.AuthenticatedActor;
+import com.tripmate.shared.security.CurrentActor;
 import com.tripmate.shared.web.ApiException;
 import com.tripmate.trips.infrastructure.TripRepository;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,20 +21,13 @@ public class TripService {
     private final TripRepository trips;
     private final SignedCursor cursors;
 
-    public TripService(
-            TripRepository trips,
-            @org.springframework.beans.factory.annotation.Qualifier("signedCursor")
-                    SignedCursor cursors) {
+    public TripService(TripRepository trips, SignedCursor cursors) {
         this.trips = trips;
         this.cursors = cursors;
     }
 
     public UUID actor() {
-        var authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null
-                || !(authentication.getPrincipal() instanceof AuthenticatedActor user))
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Cần đăng nhập.");
-        return user.userId();
+        return CurrentActor.userId();
     }
 
     public List<City> cities() {
@@ -84,7 +76,7 @@ public class TripService {
                         limit + 1);
         boolean more = ids.size() > limit;
         var selected = ids.subList(0, Math.min(ids.size(), limit));
-        var values = selected.stream().map(this::get).toList();
+        var values = selected;
         var tail = values.isEmpty() ? null : values.getLast();
         return new Page(
                 values,

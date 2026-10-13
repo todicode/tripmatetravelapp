@@ -5,12 +5,15 @@ import com.tripmate.shared.web.ApiException;
 
 import jakarta.annotation.PreDestroy;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.exception.SdkServiceException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -21,6 +24,7 @@ import java.time.Duration;
 
 @Component
 public class R2ObjectStorage implements ObjectStorage {
+    private static final Logger log = LoggerFactory.getLogger(R2ObjectStorage.class);
     private final String endpoint, bucket, accessKey, secretKey;
     private S3Client client;
 
@@ -68,7 +72,7 @@ public class R2ObjectStorage implements ObjectStorage {
                             request -> request.bucket(bucket).key(key).contentType("image/jpeg"),
                             RequestBody.fromBytes(content));
         } catch (RuntimeException exception) {
-            throw unavailable();
+            throw unavailable("put", exception);
         }
     }
 
@@ -77,7 +81,7 @@ public class R2ObjectStorage implements ObjectStorage {
         try {
             return client().getObject(request -> request.bucket(bucket).key(key));
         } catch (RuntimeException exception) {
-            throw unavailable();
+            throw unavailable("open", exception);
         }
     }
 
@@ -86,13 +90,24 @@ public class R2ObjectStorage implements ObjectStorage {
         try {
             client().deleteObject(request -> request.bucket(bucket).key(key));
         } catch (RuntimeException exception) {
-            throw unavailable();
+            throw unavailable("delete", exception);
         }
     }
 
     @PreDestroy
     void close() {
         if (client != null) client.close();
+    }
+
+    private ApiException unavailable(String operation, RuntimeException failure) {
+        Integer status =
+                failure instanceof SdkServiceException service ? service.statusCode() : null;
+        log.warn(
+                "Object storage failure: operation={}, type={}, status={}",
+                operation,
+                failure.getClass().getSimpleName(),
+                status);
+        return unavailable();
     }
 
     private ApiException unavailable() {

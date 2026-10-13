@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -53,23 +54,40 @@ public class AuthRateLimitInterceptor implements HandlerInterceptor {
                         ? actor.userId().toString()
                         : request.getRemoteAddr();
         String key = category + '|' + subject;
-        Bucket bucket = buckets.computeIfAbsent(key, ignored -> new Bucket());
         long now = System.nanoTime();
-        synchronized (bucket) {
-            if (bucket.windowStartedNanos == 0
-                    || now - bucket.windowStartedNanos >= window.toNanos()) {
-                bucket.windowStartedNanos = now;
-                bucket.count = 0;
-            }
-            if (bucket.count >= limit) {
-                long elapsed = now - bucket.windowStartedNanos;
-                long remainingNanos = Math.max(1, window.toNanos() - elapsed);
-                long retryAfter = Math.max(1, (remainingNanos + 999_999_999L) / 1_000_000_000L);
-                throw new RateLimitExceededException(retryAfter);
-            }
-            bucket.count++;
-        }
+        buckets.compute(
+                key,
+                (ignored, existing) -> {
+                    Bucket bucket = existing == null ? new Bucket() : existing;
+                    if (bucket.windowStartedNanos == 0
+                            || now - bucket.windowStartedNanos >= window.toNanos()) {
+                        bucket.windowStartedNanos = now;
+                        bucket.count = 0;
+                    }
+                    if (bucket.count >= limit) {
+                        long elapsed = now - bucket.windowStartedNanos;
+                        long remainingNanos = Math.max(1, window.toNanos() - elapsed);
+                        long retryAfter =
+                                Math.max(1, (remainingNanos + 999_999_999L) / 1_000_000_000L);
+                        throw new RateLimitExceededException(retryAfter);
+                    }
+                    bucket.count++;
+                    return bucket;
+                });
         return true;
+    }
+
+    @Scheduled(fixedDelay = 60000)
+    public void cleanupExpiredBuckets() {
+        long now = System.nanoTime();
+        buckets.forEach(
+                (key, ignored) ->
+                        buckets.computeIfPresent(
+                                key,
+                                (id, bucket) ->
+                                        now - bucket.windowStartedNanos >= window.toNanos()
+                                                ? null
+                                                : bucket));
     }
 
     private String category(String method, String uri) {

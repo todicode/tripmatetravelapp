@@ -38,7 +38,7 @@ class GroupSchemaMigrationTest {
         for (UUID user : ids)
             jdbc.update(
                     "insert into app_users(id,email,password_hash,display_name,friend_code)"
-                        + " values(?,?,'hash','Kept',?)",
+                            + " values(?,?,'hash','Kept',?)",
                     user,
                     user + "@example.test",
                     "TM-" + user.toString().substring(0, 8));

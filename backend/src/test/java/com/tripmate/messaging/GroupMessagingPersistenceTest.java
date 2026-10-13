@@ -5,8 +5,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.tripmate.identity.domain.UserEntity;
 import com.tripmate.identity.infrastructure.UserRepository;
 import com.tripmate.identity.security.AuthenticatedUser;
-import com.tripmate.messaging.application.ConversationCursor;
 import com.tripmate.messaging.application.GroupMessagingService;
+import com.tripmate.shared.persistence.SignedCursor;
 import com.tripmate.shared.web.ApiException;
 import com.tripmate.social.application.SocialService;
 
@@ -41,7 +41,7 @@ class GroupMessagingPersistenceTest {
     @Autowired UserRepository users;
     @Autowired SocialService social;
     @Autowired GroupMessagingService groups;
-    @Autowired ConversationCursor cursors;
+    @Autowired SignedCursor cursors;
     @Autowired JdbcTemplate jdbc;
     @Autowired PlatformTransactionManager transactions;
 
@@ -209,7 +209,7 @@ class GroupMessagingPersistenceTest {
             var filler = user("Filler");
             jdbc.update(
                     "insert into group_members(conversation_id,user_id,status,read_seq,joined_at)"
-                        + " values(?,?,'ACTIVE',0,now())",
+                            + " values(?,?,'ACTIVE',0,now())",
                     g,
                     filler.getId());
         }
@@ -345,7 +345,7 @@ class GroupMessagingPersistenceTest {
                         status -> {
                             jdbc.update(
                                     "insert into cities(code,name) values('GROUP_TEST','Test city')"
-                                        + " on conflict do nothing");
+                                            + " on conflict do nothing");
                             jdbc.update(
                                     "insert into"
                                         + " trips(id,owner_id,city_code,title,start_date,end_date)"
@@ -363,7 +363,7 @@ class GroupMessagingPersistenceTest {
                                     owner.getId());
                             jdbc.update(
                                     "insert into itinerary_days(id,trip_id,day_number)"
-                                        + " values(?,?,1)",
+                                            + " values(?,?,1)",
                                     day,
                                     trip);
                             jdbc.update(

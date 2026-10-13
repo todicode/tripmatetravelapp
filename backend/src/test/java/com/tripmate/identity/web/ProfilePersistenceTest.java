@@ -32,7 +32,7 @@ import java.util.UUID;
         properties = {
             "spring.datasource.url=${PROFILE_TEST_DATABASE_URL}",
             "spring.datasource.username=postgres",
-            "spring.datasource.password=",
+            "spring.datasource.password=${PROFILE_TEST_DATABASE_PASSWORD:}",
             "spring.flyway.enabled=true",
             "tripmate.email.mode=log",
             "tripmate.security.auth-rate-limit-per-window=100"

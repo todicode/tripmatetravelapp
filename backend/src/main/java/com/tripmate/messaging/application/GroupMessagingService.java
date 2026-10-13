@@ -3,14 +3,14 @@ package com.tripmate.messaging.application;
 import com.tripmate.identity.api.UserDirectory;
 import com.tripmate.messaging.infrastructure.GroupConversationRepository;
 import com.tripmate.messaging.infrastructure.GroupConversationRepository.*;
-import com.tripmate.shared.security.AuthenticatedActor;
+import com.tripmate.shared.persistence.SignedCursor;
+import com.tripmate.shared.security.CurrentActor;
 import com.tripmate.shared.web.ApiException;
 import com.tripmate.social.api.FriendshipAccess;
 import com.tripmate.trips.api.GroupTripSharing;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,7 +26,7 @@ public class GroupMessagingService {
     private final UserDirectory users;
     private final FriendshipAccess friends;
     private final GroupTripSharing trips;
-    private final ConversationCursor cursors;
+    private final SignedCursor cursors;
     private final ApplicationEventPublisher events;
 
     public GroupMessagingService(
@@ -34,7 +34,7 @@ public class GroupMessagingService {
             UserDirectory users,
             FriendshipAccess friends,
             GroupTripSharing trips,
-            ConversationCursor cursors,
+            SignedCursor cursors,
             ApplicationEventPublisher events) {
         this.groups = groups;
         this.users = users;
@@ -78,8 +78,29 @@ public class GroupMessagingService {
         boolean more = found.size() > limit;
         var selected = found.subList(0, Math.min(found.size(), limit));
         var tail = selected.isEmpty() ? null : selected.getLast();
+        var ids = selected.stream().map(Group::id).toList();
+        Map<UUID, Summary> summaries = new HashMap<>();
+        groups.summaries(actor, ids).forEach(s -> summaries.put(s.id(), s));
+        Map<UUID, Message> lastMessages = new HashMap<>();
+        groups.lastMessages(ids).forEach(m -> lastMessages.put(m.conversationId(), m));
+        var profiles =
+                users.findAll(
+                        lastMessages.values().stream().map(Message::senderId).distinct().toList());
         return new GroupPage(
-                selected.stream().map(g -> view(g, actor)).toList(),
+                selected.stream()
+                        .map(
+                                g -> {
+                                    Summary summary = summaries.get(g.id());
+                                    if (summary == null) throw notFound();
+                                    Message last = lastMessages.get(g.id());
+                                    return groupView(
+                                            g,
+                                            summary.readSeq(),
+                                            summary.memberCount(),
+                                            last == null ? null : message(last, profiles),
+                                            summary.unreadCount());
+                                })
+                        .toList(),
                 new PageInfo(
                         more
                                 ? cursors.encode(
@@ -132,7 +153,17 @@ public class GroupMessagingService {
     public List<MemberView> members(UUID id) {
         UUID actor = actor();
         Group g = access(id, actor, false);
-        return groups.members(id).stream().map(m -> memberView(g, m)).toList();
+        var members = groups.members(id);
+        var profiles = users.findAll(members.stream().map(Member::userId).toList());
+        return members.stream()
+                .map(
+                        m ->
+                                new MemberView(
+                                        summary(profiles.get(m.userId())),
+                                        g.ownerId().equals(m.userId()) ? "OWNER" : "MEMBER",
+                                        Long.toString(m.readSeq()),
+                                        m.joinedAt()))
+                .toList();
     }
 
     public MemberView add(UUID id, UUID userId, String expectedVersion) {
@@ -263,8 +294,9 @@ public class GroupMessagingService {
         if (after == null) Collections.reverse(selected);
         long min = selected.isEmpty() ? 0 : selected.getFirst().seq();
         long max = selected.isEmpty() ? (after == null ? 0 : after) : selected.getLast().seq();
+        var profiles = users.findAll(selected.stream().map(Message::senderId).distinct().toList());
         return new MessagePage(
-                selected.stream().map(this::message).toList(),
+                selected.stream().map(m -> message(m, profiles)).toList(),
                 new MessagePageInfo(more, min > 1 ? Long.toString(min) : null, Long.toString(max)));
     }
 
@@ -319,17 +351,27 @@ public class GroupMessagingService {
 
     private GroupView view(Group g, UUID actor) {
         var member = active(g.id(), actor);
+        return groupView(
+                g,
+                member.readSeq(),
+                groups.members(g.id()).size(),
+                groups.last(g.id()).map(this::message).orElse(null),
+                groups.unread(g.id(), actor, member.readSeq()));
+    }
+
+    private GroupView groupView(
+            Group g, long readSeq, int memberCount, MessageView last, long unread) {
         return new GroupView(
                 g.id(),
                 g.name(),
                 g.ownerId(),
                 g.tripId(),
                 Long.toString(g.version()),
-                groups.members(g.id()).size(),
-                groups.last(g.id()).map(this::message).orElse(null),
+                memberCount,
+                last,
                 Long.toString(g.lastSeq()),
-                Long.toString(member.readSeq()),
-                Long.toString(groups.unread(g.id(), actor, member.readSeq())),
+                Long.toString(readSeq),
+                Long.toString(unread),
                 g.archivedAt() != null,
                 g.archivedAt() == null,
                 g.createdAt(),
@@ -345,11 +387,15 @@ public class GroupMessagingService {
     }
 
     private MessageView message(Message m) {
+        return message(m, Map.of(m.senderId(), users.find(m.senderId())));
+    }
+
+    private MessageView message(Message m, Map<UUID, UserDirectory.UserSummary> profiles) {
         return new MessageView(
                 m.id(),
                 m.conversationId(),
                 Long.toString(m.seq()),
-                summary(users.find(m.senderId())),
+                summary(profiles.get(m.senderId())),
                 m.clientMessageId(),
                 m.body(),
                 m.createdAt());
@@ -432,11 +478,7 @@ public class GroupMessagingService {
     }
 
     private UUID actor() {
-        var authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null
-                || !(authentication.getPrincipal() instanceof AuthenticatedActor actor))
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Cần đăng nhập.");
-        return actor.userId();
+        return CurrentActor.userId();
     }
 
     private Instant now() {

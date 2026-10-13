@@ -4,7 +4,7 @@ import com.tripmate.media.application.MediaService;
 import com.tripmate.shared.security.AuthenticatedActor;
 import com.tripmate.shared.web.ApiException;
 import com.tripmate.shared.web.ApiResponse;
-import com.tripmate.shared.web.RequestIdFilter;
+import com.tripmate.shared.web.RequestIds;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -94,7 +94,6 @@ public class MediaController {
     }
 
     private UUID requestId(HttpServletRequest request) {
-        Object value = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
-        return value instanceof UUID id ? id : UUID.randomUUID();
+        return RequestIds.from(request);
     }
 }

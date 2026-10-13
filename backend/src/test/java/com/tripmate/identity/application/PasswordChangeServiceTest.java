@@ -57,7 +57,6 @@ class PasswordChangeServiceTest {
                         identities,
                         encoder,
                         jwt,
-                        google,
                         events,
                         Duration.ofMinutes(3),
                         Duration.ofSeconds(60),

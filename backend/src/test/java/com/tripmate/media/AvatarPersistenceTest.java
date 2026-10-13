@@ -44,7 +44,8 @@ import javax.imageio.ImageIO;
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
             "spring.datasource.url=${PROFILE_TEST_DATABASE_URL}",
-                    "spring.datasource.username=postgres", "spring.datasource.password=",
+                    "spring.datasource.username=postgres",
+                    "spring.datasource.password=${PROFILE_TEST_DATABASE_PASSWORD:}",
             "spring.flyway.enabled=true", "tripmate.email.mode=log",
                     "tripmate.media.cleanup-delay-ms=3600000"
         })
@@ -299,7 +300,7 @@ class AvatarPersistenceTest {
         } finally {
             jdbc.update(
                     "UPDATE media_assets SET orphan_expires_at=now()-interval '1 second' WHERE"
-                        + " uploader_id=? AND status='READY'",
+                            + " uploader_id=? AND status='READY'",
                     userId);
             media.cleanup();
             jdbc.update("UPDATE media_storage_quota SET reserved_bytes=0 WHERE id=1");

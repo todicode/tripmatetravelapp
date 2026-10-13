@@ -20,8 +20,8 @@ public class GroupTripSharingRepository {
         return jdbc
                 .query(
                         "select t.*, c.name as city_name from trips t join cities c on"
-                            + " c.code=t.city_code where t.id=:trip and t.owner_id=:owner and"
-                            + " t.deleted_at is null for share of t",
+                                + " c.code=t.city_code where t.id=:trip and t.owner_id=:owner and"
+                                + " t.deleted_at is null for share of t",
                         Map.of("trip", tripId, "owner", ownerId),
                         (r, n) ->
                                 new TripView(
@@ -51,43 +51,44 @@ public class GroupTripSharingRepository {
                         .stream()
                         .findFirst()
                         .orElse("0");
+        Map<UUID, List<ItemView>> itemsByDay = new HashMap<>();
+        jdbc.query(
+                "select i.* from itinerary_items i join itinerary_days d on d.id=i.day_id "
+                        + "where d.trip_id=:trip order by d.day_number,i.position",
+                params,
+                i -> {
+                    var item =
+                            new ItemView(
+                                    i.getObject("id", UUID.class),
+                                    i.getString("kind"),
+                                    i.getObject("place_id", UUID.class),
+                                    i.getString("custom_title"),
+                                    i.getTime("start_time") == null
+                                            ? null
+                                            : i.getTime("start_time")
+                                                    .toLocalTime()
+                                                    .format(DateTimeFormatter.ofPattern("HH:mm")),
+                                    i.getTime("end_time") == null
+                                            ? null
+                                            : i.getTime("end_time")
+                                                    .toLocalTime()
+                                                    .format(DateTimeFormatter.ofPattern("HH:mm")),
+                                    i.getString("note"),
+                                    i.getString("estimated_cost_vnd"),
+                                    i.getString("cost_source"),
+                                    i.getString("origin"));
+                    itemsByDay
+                            .computeIfAbsent(
+                                    i.getObject("day_id", UUID.class), ignored -> new ArrayList<>())
+                            .add(item);
+                });
         var days =
                 jdbc.query(
                         "select * from itinerary_days where trip_id=:trip order by day_number",
                         params,
                         (r, n) -> {
                             UUID day = r.getObject("id", UUID.class);
-                            var items =
-                                    jdbc.query(
-                                            "select * from itinerary_items where day_id=:day order"
-                                                + " by position",
-                                            Map.of("day", day),
-                                            (i, k) ->
-                                                    new ItemView(
-                                                            i.getObject("id", UUID.class),
-                                                            i.getString("kind"),
-                                                            i.getObject("place_id", UUID.class),
-                                                            i.getString("custom_title"),
-                                                            i.getTime("start_time") == null
-                                                                    ? null
-                                                                    : i.getTime("start_time")
-                                                                            .toLocalTime()
-                                                                            .format(
-                                                                                    DateTimeFormatter
-                                                                                            .ofPattern(
-                                                                                                    "HH:mm")),
-                                                            i.getTime("end_time") == null
-                                                                    ? null
-                                                                    : i.getTime("end_time")
-                                                                            .toLocalTime()
-                                                                            .format(
-                                                                                    DateTimeFormatter
-                                                                                            .ofPattern(
-                                                                                                    "HH:mm")),
-                                                            i.getString("note"),
-                                                            i.getString("estimated_cost_vnd"),
-                                                            i.getString("cost_source"),
-                                                            i.getString("origin")));
+                            var items = itemsByDay.getOrDefault(day, List.of());
                             int number = r.getInt("day_number");
                             return new DayView(
                                     day,

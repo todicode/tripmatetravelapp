@@ -13,6 +13,20 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface UserRepository extends JpaRepository<UserEntity, UUID> {
+    @Query(
+            "select u.id as id, u.displayName as displayName, u.avatarMediaId as avatarMediaId,"
+                    + " u.status as status from UserEntity u where u.id in :ids")
+    java.util.List<PublicProfile> findSummaries(@Param("ids") java.util.Collection<UUID> ids);
+
+    interface PublicProfile {
+        UUID getId();
+
+        String getDisplayName();
+
+        UUID getAvatarMediaId();
+
+        com.tripmate.identity.domain.UserStatus getStatus();
+    }
 
     Optional<UserEntity> findByEmail(String email);
 

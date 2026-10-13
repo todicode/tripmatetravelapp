@@ -88,7 +88,7 @@ public class MediaService implements AvatarMedia {
                             Objects.requireNonNull(
                                     jdbc.queryForObject(
                                             "SELECT reserved_bytes FROM media_storage_quota WHERE"
-                                                + " id=1 FOR UPDATE",
+                                                    + " id=1 FOR UPDATE",
                                             Long.class));
                     if (used + reserved > 2_000_000_000L)
                         throw error(
@@ -97,7 +97,7 @@ public class MediaService implements AvatarMedia {
                                 "Kho ảnh đã đầy.");
                     jdbc.update(
                             "UPDATE media_storage_quota SET reserved_bytes=reserved_bytes+? WHERE"
-                                + " id=1",
+                                    + " id=1",
                             reserved);
                     jdbc.update(
                             """
@@ -121,14 +121,14 @@ public class MediaService implements AvatarMedia {
             storage.put(thumbnail, image.thumbnail());
             jdbc.update(
                     "UPDATE media_assets SET status='READY',updated_at=now() WHERE id=? AND"
-                        + " status='PENDING'",
+                            + " status='PENDING'",
                     id);
             return own(id, userId, false).view();
         } catch (RuntimeException exception) {
             // Persist cleanup intent; reserve is retained until both objects are removed.
             jdbc.update(
                     "UPDATE media_assets SET status='FAILED',updated_at=now() WHERE id=? AND"
-                        + " status='PENDING'",
+                            + " status='PENDING'",
                     id);
             throw exception;
         }
@@ -169,7 +169,7 @@ public class MediaService implements AvatarMedia {
             }
             jdbc.update(
                     "UPDATE media_assets SET status='ATTACHED',attached_at=now(),updated_at=now()"
-                        + " WHERE id=?",
+                            + " WHERE id=?",
                     nextId);
         }
         if (previousId != null) {
@@ -199,7 +199,10 @@ public class MediaService implements AvatarMedia {
                 id);
     }
 
-    @Scheduled(fixedDelayString = "${tripmate.media.cleanup-delay-ms:60000}", initialDelay = 60000)
+    @Scheduled(
+            fixedDelayString = "${tripmate.media.cleanup-delay-ms:60000}",
+            initialDelay = 60000,
+            scheduler = "mediaCleanupScheduler")
     public void cleanup() {
         var ids =
                 jdbc.queryForList(
@@ -232,7 +235,7 @@ public class MediaService implements AvatarMedia {
                                     return null;
                                 jdbc.update(
                                         "UPDATE media_assets SET status='FAILED',updated_at=now()"
-                                            + " WHERE id=?",
+                                                + " WHERE id=?",
                                         id);
                             }
                             return current;
@@ -249,7 +252,7 @@ public class MediaService implements AvatarMedia {
                     if (current.reservedBytes == 0) return;
                     jdbc.update(
                             "UPDATE media_storage_quota SET reserved_bytes=reserved_bytes-? WHERE"
-                                + " id=1",
+                                    + " id=1",
                             current.reservedBytes);
                     jdbc.update(
                             "UPDATE media_assets SET"

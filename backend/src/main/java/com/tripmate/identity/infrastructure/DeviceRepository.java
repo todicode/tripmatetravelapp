@@ -21,7 +21,7 @@ public interface DeviceRepository extends JpaRepository<DeviceEntity, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query(
             "select device from DeviceEntity device left join fetch device.user where device.id ="
-                + " :id")
+                    + " :id")
     Optional<DeviceEntity> findByIdForUpdate(@Param("id") UUID id);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

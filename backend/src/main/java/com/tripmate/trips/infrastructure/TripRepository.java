@@ -59,7 +59,7 @@ public class TripRepository {
         return jdbc
                 .query(
                         "select trip_id,request_body=cast(? as jsonb) as matches from"
-                            + " trip_create_requests where user_id=? and client_request_id=?",
+                                + " trip_create_requests where user_id=? and client_request_id=?",
                         (r, n) -> new Receipt(r.getObject(1, UUID.class), r.getBoolean(2)),
                         body,
                         actor,
@@ -150,15 +150,18 @@ public class TripRepository {
                 r.getTimestamp("updated_at").toInstant());
     }
 
-    public List<UUID> list(UUID actor, Instant before, UUID beforeId, int count) {
+    public List<Trip> list(UUID actor, Instant before, UUID beforeId, int count) {
         return jdbc.query(
                 """
-                select t.id from trips t join trip_members m on m.trip_id=t.id
+                select t.*,c.code,c.name,c.frontend_key,c.latitude,c.longitude,i.version as itinerary_version,
+                (select count(*) from trip_members where trip_id=t.id and status='ACTIVE') as member_count
+                from trips t join trip_members m on m.trip_id=t.id
+                join cities c on c.code=t.city_code join itineraries i on i.trip_id=t.id
                 where m.user_id=? and m.status='ACTIVE' and t.deleted_at is null
                 and (cast(? as timestamptz) is null or (t.created_at,t.id)<(?,?))
                 order by t.created_at desc,t.id desc limit ?
                 """,
-                (r, n) -> r.getObject(1, UUID.class),
+                (r, n) -> trip(r, actor),
                 actor,
                 before == null ? null : Timestamp.from(before),
                 before == null ? null : Timestamp.from(before),
@@ -188,7 +191,7 @@ public class TripRepository {
         return Boolean.TRUE.equals(
                 jdbc.queryForObject(
                         "select exists(select 1 from itinerary_items i join itinerary_days d on"
-                            + " d.id=i.day_id where d.trip_id=? and d.day_number>?)",
+                                + " d.id=i.day_id where d.trip_id=? and d.day_number>?)",
                         Boolean.class,
                         id,
                         day));
@@ -199,7 +202,7 @@ public class TripRepository {
         for (int day = 1; day <= count; day++)
             jdbc.update(
                     "insert into itinerary_days(id,trip_id,day_number) values(?,?,?) on"
-                        + " conflict(trip_id,day_number) do nothing",
+                            + " conflict(trip_id,day_number) do nothing",
                     UUID.randomUUID(),
                     id,
                     day);
@@ -220,7 +223,7 @@ public class TripRepository {
         Map<UUID, List<Item>> items = new HashMap<>();
         jdbc.query(
                 "select i.* from itinerary_items i join itinerary_days d on d.id=i.day_id where"
-                    + " d.trip_id=? order by d.day_number,i.position",
+                        + " d.trip_id=? order by d.day_number,i.position",
                 r -> {
                     String snapshot = r.getString("place_snapshot");
                     items.computeIfAbsent(r.getObject("day_id", UUID.class), k -> new ArrayList<>())
@@ -293,8 +296,8 @@ public class TripRepository {
         String providerId = s.providerPlaceId() == null ? id.toString() : s.providerPlaceId();
         return jdbc.queryForObject(
                 "insert into places(id,provider,provider_place_id,snapshot) values(?,?,?,cast(? as"
-                    + " jsonb)) on conflict(provider,provider_place_id) do update set"
-                    + " provider_place_id=excluded.provider_place_id returning id",
+                        + " jsonb)) on conflict(provider,provider_place_id) do update set"
+                        + " provider_place_id=excluded.provider_place_id returning id",
                 UUID.class,
                 id,
                 s.provider(),
@@ -370,7 +373,7 @@ public class TripRepository {
     public void bumpItinerary(UUID id, UUID actor) {
         jdbc.update(
                 "update itineraries set version=version+1,updated_by=?,updated_at=now() where"
-                    + " trip_id=?",
+                        + " trip_id=?",
                 actor,
                 id);
     }
@@ -379,8 +382,8 @@ public class TripRepository {
         if (status.equals("ACTIVE"))
             jdbc.update(
                     "update itinerary_items set status='COMPLETED',updated_by=?,updated_at=now()"
-                        + " where status='ACTIVE' and id<>? and day_id in(select id from"
-                        + " itinerary_days where trip_id=?)",
+                            + " where status='ACTIVE' and id<>? and day_id in(select id from"
+                            + " itinerary_days where trip_id=?)",
                     actor,
                     item,
                     trip);

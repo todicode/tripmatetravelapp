@@ -7,6 +7,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -34,17 +36,20 @@ public class BearerTokenFilter extends OncePerRequestFilter {
             return;
         }
 
+        Authentication authentication;
         try {
-            SecurityContextHolder.getContext()
-                    .setAuthentication(tokens.verify(header.substring(7)));
-            filterChain.doFilter(request, response);
+            authentication = tokens.verify(header.substring(7));
         } catch (RuntimeException exception) {
             SecurityContextHolder.clearContext();
             authenticationEntryPoint.commence(
                     request,
                     response,
-                    new org.springframework.security.authentication.BadCredentialsException(
-                            "Invalid bearer token", exception));
+                    new BadCredentialsException("Invalid bearer token", exception));
+            return;
+        }
+        try {
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+            filterChain.doFilter(request, response);
         } finally {
             SecurityContextHolder.clearContext();
         }

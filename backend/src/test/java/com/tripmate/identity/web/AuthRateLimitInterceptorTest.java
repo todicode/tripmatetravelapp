@@ -15,6 +15,37 @@ import org.junit.jupiter.api.Test;
 import java.time.Duration;
 
 class AuthRateLimitInterceptorTest {
+    @Test
+    void concurrentRequestsCannotBypassThePerSubjectLimit() throws Exception {
+        var interceptor = new AuthRateLimitInterceptor(Duration.ofMinutes(1), 10, 5);
+        var request =
+                new org.springframework.mock.web.MockHttpServletRequest(
+                        "POST", "/api/v1/auth/login");
+        var start = new java.util.concurrent.CountDownLatch(1);
+        try (var pool = java.util.concurrent.Executors.newFixedThreadPool(20)) {
+            var attempts = new java.util.ArrayList<java.util.concurrent.Future<Boolean>>();
+            for (int i = 0; i < 20; i++)
+                attempts.add(
+                        pool.submit(
+                                () -> {
+                                    start.await();
+                                    try {
+                                        return interceptor.preHandle(
+                                                request,
+                                                new org.springframework.mock.web
+                                                        .MockHttpServletResponse(),
+                                                new Object());
+                                    } catch (RateLimitExceededException limited) {
+                                        return false;
+                                    }
+                                }));
+            start.countDown();
+            int accepted = 0;
+            for (var attempt : attempts)
+                if (attempt.get(5, java.util.concurrent.TimeUnit.SECONDS)) accepted++;
+            org.junit.jupiter.api.Assertions.assertEquals(10, accepted);
+        }
+    }
 
     @Test
     void limitsPasswordChangeAttempts() {
