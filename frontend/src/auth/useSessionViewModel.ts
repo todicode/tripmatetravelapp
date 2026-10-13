@@ -1,15 +1,15 @@
+import * as SecureStore from 'expo-secure-store';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
+import { apiRequest } from './api';
 import {
   ApiRequestError,
   HttpMethod,
+  RealtimeCredentials,
   RequestOptions,
   SessionManager,
   SessionResponse,
-  RealtimeCredentials,
 } from './session';
-import { apiRequest } from './api';
 
 export function useSessionViewModel(baseUrl: string) {
   const [session, setSession] = useState<SessionResponse | null>(null);

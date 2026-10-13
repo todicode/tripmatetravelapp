@@ -8,7 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { addStop, displayDate, moveStop, reorderStop, Trip, TripDestination } from './tripModel';
+import { displayDate, Trip, TripDestination } from './tripModel';
 import { Button, Icon, useTripUi } from './tripUi';
 import { useTripPlanViewModel } from './useTripPlanViewModel';
 import TripMap from './TripMap';
@@ -49,16 +49,6 @@ export default function ManualPlannerScreen({
   const [moveId, setMoveId] = useState<string | null>(null);
   const day = Math.max(0, Math.min(vm.tab, trip.dayPlans.length - 1));
   const stops = trip.dayPlans[day].stops;
-  const remove = (id: string) => {
-    onUpdate({
-      ...trip,
-      dayPlans: trip.dayPlans.map((plan) => ({
-        ...plan,
-        stops: plan.stops.filter((stop) => stop.id !== id),
-      })),
-    });
-    vm.setEdit(null);
-  };
   return (
     <KeyboardAvoidingView
       pointerEvents={saving ? 'none' : 'auto'}
@@ -112,7 +102,7 @@ export default function ManualPlannerScreen({
             editable={trip.myRole !== 'MEMBER'}
             maxLength={160}
             value={trip.title}
-            onChangeText={(title) => onUpdate({ ...trip, title })}
+            onChangeText={vm.setTitle}
             style={{ color: c.ink, fontSize: 20, fontWeight: '600', padding: 0 }}
           />
           <View style={s.row}>
@@ -322,12 +312,7 @@ export default function ManualPlannerScreen({
                                 : `Đưa ${stop.name} xuống sau`
                             }
                             disabled={direction < 0 ? index === 0 : index === stops.length - 1}
-                            onPress={() =>
-                              onUpdate({
-                                ...trip,
-                                dayPlans: reorderStop(trip.dayPlans, day, stop.id, direction),
-                              })
-                            }
+                            onPress={() => vm.reorder(day, stop.id, direction)}
                             style={{
                               width: 44,
                               height: 44,
@@ -342,7 +327,10 @@ export default function ManualPlannerScreen({
                           </Pressable>
                         ))}
                       </View>
-                      <Pressable onPress={() => remove(stop.id)} style={[s.row, { minHeight: 44 }]}>
+                      <Pressable
+                        onPress={() => vm.removeStop(stop.id)}
+                        style={[s.row, { minHeight: 44 }]}
+                      >
                         <Icon name="trash-can-outline" size={16} color={c.red} />
                         <Text style={{ color: c.red, fontSize: 12 }}>Xóa điểm dừng</Text>
                       </Pressable>
@@ -414,19 +402,7 @@ export default function ManualPlannerScreen({
           selectedPlaces={trip.dayPlans.flatMap((plan) => plan.stops)}
           savedPlaces={trip.dayPlans.flatMap((plan) => plan.stops)}
           destination={destination}
-          onPick={(place) => {
-            try {
-              const dayPlans = addStop(trip.dayPlans, day, place);
-              onUpdate({ ...trip, dayPlans });
-              vm.setEdit(dayPlans[day].stops.at(-1)?.id ?? null);
-              vm.setPicker(null);
-              vm.setMessage('');
-            } catch (failure) {
-              vm.setMessage(
-                failure instanceof Error ? failure.message : 'Không thêm được địa điểm.',
-              );
-            }
-          }}
+          onPick={(place) => vm.pickPlace(day, place, true)}
         />
       </Sheet>
       <Sheet visible={!!moveId} title="Chuyển sang ngày" onClose={() => setMoveId(null)}>
@@ -436,8 +412,7 @@ export default function ManualPlannerScreen({
             outline
             label={`Ngày ${index + 1}`}
             onPress={() => {
-              if (moveId)
-                onUpdate({ ...trip, dayPlans: moveStop(trip.dayPlans, day, index, moveId) });
+              if (moveId) vm.move(day, index, moveId);
               setMoveId(null);
               vm.setEdit(null);
             }}

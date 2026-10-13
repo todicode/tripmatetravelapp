@@ -10,17 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import {
-  addStop,
-  addTripMember,
-  displayDate,
-  makeId,
-  normalizeName,
-  toggleStop,
-  Trip,
-  TripDestination,
-  TripStop,
-} from './tripModel';
+import { displayDate, Trip, TripDestination, TripStop } from './tripModel';
 import { Button, Icon, useTripUi } from './tripUi';
 import { useTripPlanViewModel } from './useTripPlanViewModel';
 import TripMap from './TripMap';
@@ -76,9 +66,18 @@ export default function SamplePlanScreen({
 }) {
   const { c, s } = useTripUi();
   const readOnly = trip.status === 'cancelled';
-  const vm = useTripPlanViewModel({ trip, destination, onBack, onUpdate, onSave, error });
+  const vm = useTripPlanViewModel({
+    trip,
+    destination,
+    onBack,
+    onUpdate,
+    onSave,
+    error,
+    notify: Alert.alert,
+    companions,
+  });
   const [utility, setUtility] = useState<'expenses' | 'checklist' | null>(null);
-  const [memberQuery, setMemberQuery] = useState('');
+  const { memberQuery, setMemberQuery, memberMatches: matches } = vm;
   const avatar = (member: Trip['members'][number]) => (
     <View
       style={{
@@ -125,36 +124,17 @@ export default function SamplePlanScreen({
       )}
     </View>
   );
-  const locate = (stop: TripStop) => {
-    if (typeof stop.lat !== 'number' || typeof stop.lng !== 'number')
-      return Alert.alert('Chưa có tọa độ', 'Địa điểm này chưa có vị trí bản đồ.');
-    vm.setFocus(stop);
-    vm.setSelected(null);
-  };
-  const remove = (id: string) =>
-    onUpdate({
-      ...trip,
-      dayPlans: trip.dayPlans.map((day) => ({
-        ...day,
-        stops: day.stops.filter((stop) => stop.id !== id),
-      })),
-    });
   if (vm.hotels)
     return (
       <HotelSetupScreen
         destination={destination}
         days={trip.dayPlans.length}
         stays={trip.hotelStays ?? []}
-        onChange={(hotelStays) => onUpdate({ ...trip, hotelStays })}
+        onChange={vm.changeHotelStays}
         onBack={() => vm.setHotels(false)}
         onDone={() => vm.setHotels(false)}
       />
     );
-  const matches = companions.filter(
-    (member) =>
-      !trip.members.some((item) => item.id === member.id) &&
-      normalizeName(member.name).includes(normalizeName(memberQuery)),
-  );
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: c.white }}
@@ -568,7 +548,7 @@ export default function SamplePlanScreen({
                           {!readOnly && (
                             <Pressable
                               accessibilityLabel={`Xóa ${stop.name} khỏi lịch trình`}
-                              onPress={() => remove(stop.id)}
+                              onPress={() => vm.removeStop(stop.id)}
                               style={{
                                 width: 44,
                                 height: 44,
@@ -590,7 +570,7 @@ export default function SamplePlanScreen({
                           </Text>
                           <Pressable
                             accessibilityLabel={`Chỉ đường đến ${stop.name}`}
-                            onPress={() => locate(stop)}
+                            onPress={() => vm.locate(stop)}
                             style={[
                               s.row,
                               {
@@ -657,10 +637,7 @@ export default function SamplePlanScreen({
                       ? 'Đang đi · hoàn thành'
                       : 'Bắt đầu đi'
                 }
-                onPress={() => {
-                  onUpdate(toggleStop(trip, vm.selected!.id));
-                  vm.setSelected(null);
-                }}
+                onPress={vm.advanceSelected}
               />
             </View>
           )}
@@ -673,7 +650,7 @@ export default function SamplePlanScreen({
                 place={vm.selected}
                 city={destination.name}
                 onSave={onSavePlace ? () => onSavePlace(vm.selected!) : undefined}
-                onLocate={() => locate(vm.selected!)}
+                onLocate={() => vm.selected && vm.locate(vm.selected)}
               />
             )}
           </ScrollView>
@@ -697,15 +674,7 @@ export default function SamplePlanScreen({
               savedPlaces={trip.dayPlans.flatMap((plan) => plan.stops)}
               destination={destination}
               onPick={(place) => {
-                if (vm.picker === null) return;
-                try {
-                  onUpdate({ ...trip, dayPlans: addStop(trip.dayPlans, vm.picker, place) });
-                  vm.setPicker(null);
-                } catch (failure) {
-                  vm.setMessage(
-                    failure instanceof Error ? failure.message : 'Không thêm được địa điểm.',
-                  );
-                }
+                if (vm.picker !== null) vm.pickPlace(vm.picker, place);
               }}
             />
           </ScrollView>
@@ -744,12 +713,7 @@ export default function SamplePlanScreen({
               <Text style={[s.text, s.grow]}>{member.name}</Text>
               <Pressable
                 accessibilityLabel={`Xóa ${member.name} khỏi chuyến đi`}
-                onPress={() =>
-                  onUpdate({
-                    ...trip,
-                    members: trip.members.filter((item) => item.id !== member.id),
-                  })
-                }
+                onPress={() => vm.removeMember(member.id)}
                 style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
               >
                 <Icon name="close" color={c.muted} />
@@ -775,7 +739,7 @@ export default function SamplePlanScreen({
         {matches.map((member) => (
           <Pressable
             key={member.id}
-            onPress={() => onUpdate(addTripMember(trip, member))}
+            onPress={() => vm.addMember(member)}
             style={[s.row, { minHeight: 64, borderBottomWidth: 1, borderColor: c.border }]}
           >
             {avatar(member)}
@@ -783,21 +747,12 @@ export default function SamplePlanScreen({
             <Icon name="plus" />
           </Pressable>
         ))}
-        {memberQuery.trim().length >= 2 &&
-          ![...trip.members, ...matches].some(
-            (member) => normalizeName(member.name) === normalizeName(memberQuery),
-          ) && (
-            <Pressable
-              onPress={() => {
-                onUpdate(addTripMember(trip, { id: makeId(), name: memberQuery.trim() }));
-                setMemberQuery('');
-              }}
-              style={[s.row, { minHeight: 44 }]}
-            >
-              <Icon name="plus" />
-              <Text style={{ color: c.blue, fontSize: 14 }}>Thêm “{memberQuery.trim()}”</Text>
-            </Pressable>
-          )}
+        {vm.canAddCustomMember && (
+          <Pressable onPress={vm.addCustomMember} style={[s.row, { minHeight: 44 }]}>
+            <Icon name="plus" />
+            <Text style={{ color: c.blue, fontSize: 14 }}>Thêm “{memberQuery.trim()}”</Text>
+          </Pressable>
+        )}
         <Text style={s.small}>
           Danh sách được giữ trong chuyến đi của phiên hiện tại. Chưa gửi lời mời thực tế.
         </Text>

@@ -125,34 +125,51 @@ export function fromServer(dto: TripDto, itinerary: ItineraryDto): Trip {
     aiRequested: false,
     aiPreferences: [],
     aiPrompt: '',
-    dayPlans: itinerary.days.map((day) => ({
-      dayNumber: day.dayNumber,
-      dayTitle: `Ngày ${day.dayNumber}`,
-      transportMode: day.transportMode,
-      note: day.note,
-      stops: day.items.map((item) => ({
-        id: item.id,
-        kind: item.kind,
-        placeId: item.placeId ?? undefined,
-        name: item.customTitle ?? item.placeSnapshot?.name ?? 'Địa điểm',
-        time: item.startTime ?? '',
-        endTime: item.endTime,
-        note: item.note ?? undefined,
-        lat: item.placeSnapshot?.lat ?? undefined,
-        lng: item.placeSnapshot?.lng ?? undefined,
-        address: item.placeSnapshot?.address ?? undefined,
-        provider: item.placeSnapshot?.provider,
-        providerPlaceId: item.placeSnapshot?.providerPlaceId ?? undefined,
-        estimatedCostVnd: item.estimatedCostVnd,
-        status: item.status.toLowerCase() as TripStop['status'],
-      })),
+    dayPlans: itineraryDays(itinerary),
+  };
+}
+function itineraryDays(itinerary: ItineraryDto): Trip['dayPlans'] {
+  return itinerary.days.map((day) => ({
+    dayNumber: day.dayNumber,
+    dayTitle: `Ngày ${day.dayNumber}`,
+    transportMode: day.transportMode,
+    note: day.note,
+    stops: day.items.map((item) => ({
+      id: item.id,
+      kind: item.kind,
+      placeId: item.placeId ?? undefined,
+      name: item.customTitle ?? item.placeSnapshot?.name ?? 'Địa điểm',
+      time: item.startTime ?? '',
+      endTime: item.endTime,
+      note: item.note ?? undefined,
+      lat: item.placeSnapshot?.lat ?? undefined,
+      lng: item.placeSnapshot?.lng ?? undefined,
+      address: item.placeSnapshot?.address ?? undefined,
+      provider: item.placeSnapshot?.provider,
+      providerPlaceId: item.placeSnapshot?.providerPlaceId ?? undefined,
+      estimatedCostVnd: item.estimatedCostVnd,
+      status: item.status.toLowerCase() as TripStop['status'],
     })),
+  }));
+}
+export function applyItinerary(trip: Trip, itinerary: ItineraryDto): Trip {
+  return {
+    ...trip,
+    version: itinerary.tripVersion,
+    itineraryVersion: itinerary.version,
+    dayPlans: itineraryDays(itinerary),
+  };
+}
+export function applyMetadata(trip: Trip, dto: TripDto): Trip {
+  return {
+    ...fromServer(dto, { version: dto.itineraryVersion, tripVersion: dto.version, days: [] }),
+    dayPlans: trip.dayPlans,
   };
 }
 export function tripApi(request: AuthorizedRequest) {
-  const get = async (id: string) => {
+  const get = async (id: string, initial?: TripDto) => {
     for (let attempt = 0; attempt < 3; attempt++) {
-      const dto = await request<TripDto>(`/trips/${id}`);
+      const dto = attempt === 0 && initial ? initial : await request<TripDto>(`/trips/${id}`);
       const itinerary = await request<ItineraryDto>(`/trips/${id}/itinerary`);
       if (dto.version === itinerary.tripVersion && dto.itineraryVersion === itinerary.version)
         return fromServer(dto, itinerary);

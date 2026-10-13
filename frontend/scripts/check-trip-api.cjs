@@ -24,9 +24,8 @@ function load(file) {
   );
   return exports;
 }
-const { fromServer, createTripInput, itineraryInput, tripApi } = load(
-  path.resolve(__dirname, '../src/trips/tripApi.ts'),
-);
+const { fromServer, createTripInput, itineraryInput, tripApi, applyItinerary, applyMetadata } =
+  load(path.resolve(__dirname, '../src/trips/tripApi.ts'));
 const copy = (value) => JSON.parse(JSON.stringify(value));
 const id = '00000000-0000-4000-8000-000000000031';
 const dto = () => ({
@@ -133,4 +132,44 @@ test('mutations carry expected versions; API errors reach the caller without bli
   assert.deepEqual(copy(calls[0].b), { expectedVersion: '2', status: 'COMPLETED' });
   await assert.rejects(api.remove(trip));
   assert.match(calls[1].p, /expectedTripVersion=9007199254740993/);
+});
+
+test('acknowledged server itinerary replaces temporary IDs without losing nullable stop fields', () => {
+  const draft = fromServer(dto(), schedule());
+  draft.dayPlans[0].stops[0].id = 'local';
+  const response = { ...schedule(), version: '3', tripVersion: '9007199254740994' };
+  const acknowledged = applyItinerary(draft, response);
+  assert.equal(acknowledged.dayPlans[0].stops[0].id, id);
+  assert.equal(acknowledged.dayPlans[0].stops[0].time, '');
+  assert.equal(acknowledged.version, '9007199254740994');
+  assert.equal(acknowledged.itineraryVersion, '3');
+  assert.equal(acknowledged.title, draft.title);
+  const metadata = applyMetadata(acknowledged, {
+    ...dto(),
+    title: 'Renamed',
+    status: 'CANCELLED',
+    version: '9007199254740995',
+  });
+  assert.equal(metadata.title, 'Renamed');
+  assert.equal(metadata.status, 'cancelled');
+  assert.equal(metadata.dayPlans[0].stops[0].id, id);
+});
+test('list hydration reuses page metadata and only fetches itinerary when versions match', async () => {
+  const calls = [];
+  const api = tripApi(async (path) => {
+    calls.push(path);
+    return schedule();
+  });
+  await api.get('trip', dto());
+  assert.deepEqual(calls, ['/trips/trip/itinerary']);
+});
+test('list hydration refetches both resources when page metadata is stale', async () => {
+  const calls = [];
+  const api = tripApi(async (path) => {
+    calls.push(path);
+    return path.endsWith('/itinerary') ? schedule() : dto();
+  });
+  const result = await api.get('trip', { ...dto(), version: '0' });
+  assert.equal(result.version, dto().version);
+  assert.deepEqual(calls, ['/trips/trip/itinerary', '/trips/trip', '/trips/trip/itinerary']);
 });

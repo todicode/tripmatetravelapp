@@ -5,89 +5,9 @@ const path = require('node:path');
 const vm = require('node:vm');
 const ts = require('typescript');
 
-function harness(moduleName, dependencies) {
-  const slots = [],
-    effects = [],
-    cleanup = [];
-  let cursor = 0;
-  const react = {
-    useState(initial) {
-      const index = cursor++;
-      if (!(index in slots)) slots[index] = typeof initial === 'function' ? initial() : initial;
-      return [
-        slots[index],
-        (next) => {
-          slots[index] = typeof next === 'function' ? next(slots[index]) : next;
-        },
-      ];
-    },
-    useRef(initial) {
-      const index = cursor++;
-      return (slots[index] ??= { current: initial });
-    },
-    useMemo(fn, deps) {
-      const index = cursor++;
-      if (!slots[index] || deps.some((v, i) => v !== slots[index].deps[i]))
-        slots[index] = { deps, value: fn() };
-      return slots[index].value;
-    },
-    useEffect(fn, deps) {
-      const index = cursor++;
-      if (!slots[index] || !deps || deps.some((v, i) => v !== slots[index][i])) {
-        slots[index] = deps;
-        effects.push(() => {
-          cleanup[index]?.();
-          cleanup[index] = fn();
-        });
-      }
-    },
-    createContext() {
-      return { Provider: 'provider' };
-    },
-    createElement(_type, props) {
-      return props.value;
-    },
-  };
-  react.default = react;
-  const exports = {};
-  const context = {
-    exports,
-    require: (name) =>
-      name === 'react'
-        ? react
-        : name === 'react-native'
-          ? { BackHandler: { addEventListener: () => ({ remove() {} }) } }
-          : dependencies[name],
-    Error,
-    Promise,
-    JSON,
-    console,
-  };
-  vm.runInNewContext(
-    ts.transpileModule(
-      fs.readFileSync(path.resolve(__dirname, '../src/trips', moduleName), 'utf8'),
-      {
-        compilerOptions: {
-          module: ts.ModuleKind.CommonJS,
-          target: ts.ScriptTarget.ES2022,
-          jsx: ts.JsxEmit.React,
-        },
-      },
-    ).outputText,
-    context,
-  );
-  return {
-    render(fn) {
-      cursor = 0;
-      const value = fn(exports);
-      effects.splice(0).forEach((effect) => effect());
-      return value;
-    },
-    unmount() {
-      cleanup.forEach((fn) => fn?.());
-    },
-  };
-}
+const { hookHarness } = require('./test-helpers/hook-harness.cjs');
+const harness = (name, deps) => hookHarness(path.resolve(__dirname, '../src/trips', name), deps);
+
 const copy = (value) => JSON.parse(JSON.stringify(value));
 const trip = () => ({
   id: 't',
@@ -108,7 +28,19 @@ const tick = () => new Promise((resolve) => setImmediate(resolve));
 function detail(session) {
   const h = harness('useTripDetailsViewModel.ts', {
     './TripProvider': { useTrips: () => session, message: (e) => e.message },
-    './tripApi': { itineraryInput: (t) => t.dayPlans },
+    './tripApi': {
+      itineraryInput: (t) => t.dayPlans,
+      applyMetadata: (t, dto) => ({ ...t, ...dto }),
+      applyItinerary: (t, dto) =>
+        dto
+          ? {
+              ...t,
+              version: dto.tripVersion,
+              itineraryVersion: dto.version,
+              dayPlans: dto.dayPlans ?? t.dayPlans,
+            }
+          : t,
+    },
   });
   const original = trip();
   return {
@@ -282,4 +214,137 @@ test('changing both dates preserves occupied days, while shortening refuses to s
   assert.equal(render().end, '2030-02-03');
   assert.match(render().error, /còn điểm dừng/);
   h.unmount();
+});
+
+test('acknowledged itinerary keeps server IDs and versions when the following read fails', async () => {
+  const acknowledged = {
+    version: '2',
+    tripVersion: '3',
+    dayPlans: [{ dayNumber: 1, stops: [{ id: 'server-id', status: 'pending' }] }],
+  };
+  const writes = [];
+  const session = {
+    api: {
+      replace: async (t) => {
+        writes.push(copy(t));
+        return acknowledged;
+      },
+    },
+    load: async () => {
+      throw Error('offline');
+    },
+  };
+  const d = detail(session);
+  d.render().update({
+    ...d.original,
+    dayPlans: [{ dayNumber: 1, stops: [{ id: 'local-id', status: 'pending' }] }],
+  });
+  await d.render().save();
+  assert.equal(d.render().draft.dayPlans[0].stops[0].id, 'server-id');
+  assert.equal(d.render().draft.version, '3');
+  assert.equal(d.render().dirty, false);
+  d.render().update({
+    ...d.render().draft,
+    dayPlans: [{ dayNumber: 1, stops: [{ id: 'server-id', status: 'pending', note: 'Edited' }] }],
+  });
+  await d.render().save();
+  assert.equal(writes[1].dayPlans[0].stops[0].id, 'server-id');
+  assert.equal(writes[1].itineraryVersion, '2');
+  d.h.unmount();
+});
+test('metadata retry uses the acknowledged version after a failed refresh', async () => {
+  const writes = [];
+  const session = {
+    api: {
+      update: async (_, body) => {
+        writes.push(body.expectedTripVersion);
+        return { title: 'Saved', version: String(writes.length), itineraryVersion: '0' };
+      },
+    },
+    load: async () => {
+      throw Error('offline');
+    },
+  };
+  const d = detail(session);
+  await d.render().saveMetadata({ title: 'Saved' });
+  await d.render().saveMetadata({ title: 'Saved again' });
+  assert.deepEqual(writes, ['0', '1']);
+  d.h.unmount();
+});
+
+function planner(initial) {
+  const model = {};
+  vm.runInNewContext(
+    ts.transpileModule(
+      fs.readFileSync(path.resolve(__dirname, '../src/trips/tripModel.ts'), 'utf8'),
+      { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } },
+    ).outputText,
+    { exports: model },
+  );
+  const h = harness('useTripPlanViewModel.ts', { './tripModel': model });
+  let current = initial;
+  const notices = [];
+  return {
+    h,
+    current: () => current,
+    render: () =>
+      h.render((e) =>
+        e.useTripPlanViewModel({
+          trip: current,
+          destination: {},
+          onBack() {},
+          onUpdate: (t) => {
+            current = t;
+          },
+          notify: (...args) => notices.push(args),
+        }),
+      ),
+    notices,
+  };
+}
+test('shared planner workflows preserve stops across reorder and day changes and reject duplicate picks', () => {
+  const d = planner({
+    ...trip(),
+    members: [],
+    dayPlans: [
+      {
+        dayNumber: 1,
+        stops: [
+          { id: 'a', name: 'First', status: 'pending' },
+          { id: 'b', name: 'Second', status: 'pending' },
+        ],
+      },
+      { dayNumber: 2, stops: [] },
+    ],
+  });
+  d.render().reorder(0, 'b', -1);
+  assert.equal(d.current().dayPlans[0].stops[0].id, 'b');
+  d.render().move(0, 1, 'b');
+  assert.equal(d.current().dayPlans[1].stops[0].id, 'b');
+  d.render().setPicker(1);
+  d.render().pickPlace(1, { name: 'First' });
+  assert.equal(d.current().dayPlans[1].stops.length, 1);
+  assert.ok(d.render().message);
+  assert.equal(d.render().picker, 1);
+  d.render().pickPlace(1, { name: 'Manual without coordinates' }, true);
+  const stop = d.current().dayPlans[1].stops.at(-1);
+  assert.equal(stop.lat, undefined);
+  assert.equal(d.render().edit, stop.id);
+  assert.equal(d.render().picker, null);
+  d.render().removeStop(stop.id);
+  assert.equal(d.current().dayPlans[1].stops.length, 1);
+  assert.equal(d.render().edit, null);
+  d.h.unmount();
+});
+test('planner progress retains the one-active-stop rule and unlocated stops do not reach the map', () => {
+  const d = planner({ ...trip(), members: [] });
+  const next = d.current().dayPlans[0].stops[1];
+  d.render().setSelected(next);
+  d.render().advanceSelected();
+  assert.equal(d.current().dayPlans[0].stops[0].status, 'completed');
+  assert.equal(d.current().dayPlans[0].stops[1].status, 'active');
+  d.render().locate(next);
+  assert.equal(d.render().focus, null);
+  assert.equal(d.notices.length, 1);
+  d.h.unmount();
 });

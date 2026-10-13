@@ -69,7 +69,12 @@ export class ProfileStore {
   uploadAvatar = (file: AvatarDraft) => this.api.upload(file);
   loadInterestOptions = async () => {
     const [items, profile] = await Promise.all([this.api.interests(), this.api.get()]);
-    return { items, codes: profile.interestCodes };
+    return {
+      items,
+      codes: profile.interestCodes,
+      displayName: profile.displayName,
+      hasAvatar: !!profile.avatarMediaId,
+    };
   };
   save = async (
     value: string,

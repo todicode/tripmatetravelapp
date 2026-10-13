@@ -513,3 +513,27 @@ test('API adapter reads retry hints and rejects malformed success payloads', asy
     );
   }
 });
+
+test('malformed error fields cannot enter the UI as objects or invalid retry delays', async () => {
+  const response = new Response(
+    JSON.stringify({
+      error: { code: { value: 'bad' }, message: ['bad'], context: { retryAfterSeconds: -3 } },
+    }),
+    { status: 429 },
+  );
+  await assert.rejects(
+    apiWith(response)('https://example.test', 'API', '/private'),
+    (error) =>
+      error.code === 'REQUEST_FAILED' &&
+      typeof error.message === 'string' &&
+      error.retryAfterSeconds === 0,
+  );
+  const retry = new Response(JSON.stringify({ error: { code: 'RATE_LIMITED', message: 'Wait' } }), {
+    status: 429,
+    headers: { 'Retry-After': '1.2' },
+  });
+  await assert.rejects(
+    apiWith(retry)('https://example.test', 'API', '/private'),
+    (error) => error.retryAfterSeconds === 2,
+  );
+});

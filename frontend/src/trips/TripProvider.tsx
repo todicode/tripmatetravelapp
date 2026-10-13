@@ -30,7 +30,7 @@ function useTripSession(request: AuthorizedRequest, userId: string) {
     setError('');
     try {
       const [page, catalog] = await Promise.all([api.page(next), api.cities()]);
-      const loaded = await Promise.all(page.items.map((t) => api.get(t.id)));
+      const loaded = await Promise.all(page.items.map((t) => api.get(t.id, t)));
       if (epoch === generation.current && ticket === sequence.current) {
         setCities(catalog.items);
         setTrips((previous) =>
@@ -49,6 +49,7 @@ function useTripSession(request: AuthorizedRequest, userId: string) {
   useEffect(() => {
     generation.current++;
     pendingCreate.current = null;
+    setHasPendingCreate(false);
     setTrips([]);
     setCursor(null);
     setCities([]);
@@ -68,7 +69,7 @@ function useTripSession(request: AuthorizedRequest, userId: string) {
     try {
       const dto = await api.create(pending.body);
       created = true;
-      const saved = await api.get(dto.id);
+      const saved = await api.get(dto.id, dto);
       if (epoch !== generation.current) throw new Error('Phiên đăng nhập đã thay đổi.');
       pendingCreate.current = null;
       setHasPendingCreate(false);
@@ -76,6 +77,7 @@ function useTripSession(request: AuthorizedRequest, userId: string) {
       return saved;
     } catch (failure) {
       if (
+        epoch === generation.current &&
         !created &&
         failure instanceof ApiRequestError &&
         failure.status >= 400 &&

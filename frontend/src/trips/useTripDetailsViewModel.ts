@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { BackHandler } from 'react-native';
 import type { Alert } from 'react-native';
 import { Trip } from './tripModel';
-import { itineraryInput } from './tripApi';
+import { applyItinerary, applyMetadata, itineraryInput } from './tripApi';
 import { message, useTrips } from './TripProvider';
 
 export function useTripDetailsViewModel(
@@ -12,17 +12,30 @@ export function useTripDetailsViewModel(
 ) {
   const session = useTrips();
   const [draft, setDraft] = useState(trip);
+  const baseline = useRef(trip);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(false);
   const [metadata, setMetadata] = useState(false);
   const dirty =
-    JSON.stringify(itineraryInput(draft)) !== JSON.stringify(itineraryInput(trip)) ||
-    draft.title !== trip.title;
+    JSON.stringify(itineraryInput(draft)) !== JSON.stringify(itineraryInput(baseline.current)) ||
+    draft.title !== baseline.current.title;
   useEffect(() => {
-    if (!dirty) setDraft(trip);
+    if (!dirty) {
+      baseline.current = trip;
+      setDraft(trip);
+    }
   }, [trip]);
+  const acknowledge = (saved: Trip) => {
+    baseline.current = saved;
+    setDraft(saved);
+  };
+  const load = async () => {
+    const saved = await session.load(trip.id);
+    acknowledge(saved);
+    return saved;
+  };
   const run = async (work: () => Promise<void>) => {
     if (busyRef.current) return;
     busyRef.current = true;
@@ -46,7 +59,7 @@ export function useTripDetailsViewModel(
         text: 'Bỏ thay đổi',
         style: 'destructive',
         onPress: () => {
-          setDraft(trip);
+          setDraft(baseline.current);
           action();
         },
       },
@@ -64,22 +77,18 @@ export function useTripDetailsViewModel(
   const save = () =>
     run(async () => {
       let current = draft;
-      if (draft.title !== trip.title) {
+      if (draft.title !== baseline.current.title) {
         const result = await session.api.update(trip.id, {
           expectedTripVersion: current.version,
           title: draft.title,
         });
-        current = {
-          ...current,
-          version: result.version,
-          itineraryVersion: result.itineraryVersion,
-        };
+        baseline.current = applyMetadata(baseline.current, result);
+        current = applyMetadata(current, result);
         setDraft(current);
       }
       const itinerary = await session.api.replace(current);
-      setDraft({ ...current, version: itinerary.tripVersion, itineraryVersion: itinerary.version });
-      const saved = await session.load(trip.id);
-      setDraft(saved);
+      acknowledge(applyItinerary(current, itinerary));
+      await load();
       setEditing(false);
     });
   const update = (next: Trip) => {
@@ -94,19 +103,22 @@ export function useTripDetailsViewModel(
         return;
       }
       void run(async () => {
-        await session.api.progress(draft, changed.id, changed.status);
-        setDraft(await session.load(trip.id));
+        const result = await session.api.progress(draft, changed.id, changed.status);
+        acknowledge(applyItinerary(draft, result));
+        await load();
       });
     } else setDraft(next);
   };
   const reload = () =>
     confirmDiscard(() => {
-      void run(async () => setDraft(await session.load(trip.id)));
+      void run(async () => {
+        await load();
+      });
     });
   const changeStatus = () =>
     confirmDiscard(() =>
       notify(
-        trip.status === 'cancelled' ? 'Khôi phục chuyến?' : 'Hủy chuyến?',
+        baseline.current.status === 'cancelled' ? 'Khôi phục chuyến?' : 'Hủy chuyến?',
         'Bạn có thể khôi phục chuyến đã hủy.',
         [
           { text: 'Đóng', style: 'cancel' },
@@ -114,11 +126,12 @@ export function useTripDetailsViewModel(
             text: 'Xác nhận',
             onPress: () => {
               void run(async () => {
-                await session.api.update(trip.id, {
-                  expectedTripVersion: trip.version,
-                  status: trip.status === 'cancelled' ? 'UPCOMING' : 'CANCELLED',
+                const result = await session.api.update(trip.id, {
+                  expectedTripVersion: baseline.current.version,
+                  status: baseline.current.status === 'cancelled' ? 'UPCOMING' : 'CANCELLED',
                 });
-                setDraft(await session.load(trip.id));
+                acknowledge(applyMetadata(baseline.current, result));
+                await load();
               });
             },
           },
@@ -136,7 +149,7 @@ export function useTripDetailsViewModel(
           style: 'destructive',
           onPress: () => {
             void run(async () => {
-              await session.remove(trip);
+              await session.remove(baseline.current);
               onBack();
             });
           },
@@ -145,8 +158,12 @@ export function useTripDetailsViewModel(
     );
   const saveMetadata = (body: Record<string, unknown>) =>
     run(async () => {
-      await session.api.update(trip.id, { expectedTripVersion: trip.version, ...body });
-      setDraft(await session.load(trip.id));
+      const result = await session.api.update(trip.id, {
+        ...body,
+        expectedTripVersion: baseline.current.version,
+      });
+      acknowledge(applyMetadata(baseline.current, result));
+      await load();
       setMetadata(false);
     });
   return {

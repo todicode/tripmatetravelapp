@@ -1,5 +1,5 @@
-import { ApiRequestError, HttpMethod, RequestOptions } from './session';
 import { File } from 'expo-file-system';
+import { ApiRequestError, HttpMethod, RequestOptions } from './session';
 
 export async function apiRequest<T>(
   baseUrl: string,
@@ -43,12 +43,18 @@ export async function apiRequest<T>(
     } | null;
 
     if (!response.ok || payload?.error) {
+      const code = payload?.error?.code;
+      const message = payload?.error?.message;
+      const retryAfter = payload?.error?.context?.retryAfterSeconds;
+      const headerDelay = Number(response.headers.get('Retry-After') ?? 0);
+      const delay = typeof retryAfter === 'number' ? retryAfter : headerDelay;
       throw new ApiRequestError(
-        payload?.error?.code ?? 'REQUEST_FAILED',
-        payload?.error?.message ?? `${serviceName} trả về HTTP ${response.status}.`,
+        typeof code === 'string' && code ? code : 'REQUEST_FAILED',
+        typeof message === 'string' && message
+          ? message
+          : `${serviceName} trả về HTTP ${response.status}.`,
         response.status,
-        payload?.error?.context?.retryAfterSeconds ??
-          Number(response.headers.get('Retry-After') ?? 0),
+        Number.isFinite(delay) && delay > 0 ? Math.ceil(delay) : 0,
       );
     }
 

@@ -1,10 +1,26 @@
-    # TripMate Frontend
+# TripMate Frontend
 
 Quy tắc triển khai bắt buộc: [MVVM, đặt tên và chất lượng code](../docs/CODING_STANDARDS.md).
 
-Thư mục triển khai ứng dụng Android TripMate. Màn hình đăng nhập mẫu đã được dựng bằng Expo/React Native trong `App.tsx`.
+Ứng dụng Android TripMate dùng Expo development build, React Native và TypeScript. `App.tsx` chỉ ghép provider và màn auth; state, validation và workflow nằm trong ViewModel.
 
-Stack theo kế hoạch: React Native, TypeScript, Expo development build, Expo Router, TanStack Query và Zustand.
+Stack hiện có dùng React hooks/Context, SecureStore cho refresh token và AsyncStorage cho dữ liệu cục bộ theo tài khoản. Chưa dùng Expo Router, TanStack Query hoặc Zustand.
+
+## MVVM và kiểm tra chất lượng
+
+`View → ViewModel → Model/API adapter → Backend`. Auth nằm trong `src/auth`, hồ sơ trong `src/profile`, chuyến đi trong `src/trips`; API có xác thực dùng chung SessionManager và HTTP adapter. View chỉ render và chuyển sự kiện. Không đưa HTTP, workflow lưu hoặc validation nghiệp vụ vào JSX.
+
+```powershell
+npm ci
+npm run format:check
+npm run typecheck
+npm test
+npx expo export --platform android
+```
+
+Prettier được pin trong devDependencies; `npm run format` chuẩn hóa source và scripts, không chạm Android hoặc file môi trường. Kiểm thử adapter với backend thật dùng `npm run test:backend`: đặt `TRIPMATE_TEST_BASE_URL`, `TRIPMATE_TEST_EMAIL`, `TRIPMATE_TEST_PASSWORD`, `TRIPMATE_TEST_OTHER_EMAIL`, `TRIPMATE_TEST_OTHER_PASSWORD` cho hai tài khoản test trên database riêng. Script tạo và xóa chuyến thử nghiệm, cập nhật rồi khôi phục hồ sơ; không chạy với tài khoản/dữ liệu thật.
+
+Kết quả Android và giới hạn kiểm chứng: [báo cáo refactor](../docs/FRONTEND_REFACTOR_PLAN.md).
 
 ## Chạy trên tất cả emulator đang bật
 
@@ -27,7 +43,7 @@ Tab **Nhóm** và mục **Tạo nhóm** dùng `/api/v1/group-conversations` trê
 - Mở thông tin nhóm để xem thành viên. Trưởng nhóm đổi tên, thêm/xóa thành viên, chuyển quyền, gỡ liên kết chuyến đi hoặc lưu trữ nhóm; thành viên khác có thể rời nhóm. Thao tác quản lý gửi `expectedVersion`, khi xung đột sẽ tải lại trạng thái và hiển thị lỗi, không tự lặp mutation.
 - Nhóm đã lưu trữ chỉ xem lịch sử. Khi bị xóa/rời nhóm, danh sách và lịch sử cache được dọn sau lần phản hồi API xác nhận mất quyền.
 - Nhóm và cá nhân dùng chung một WebSocket STOMP. Tin nhóm đến ngay, thay đổi nhóm làm mới danh sách và mất quyền sẽ xóa lịch sử cache. Sau reconnect, REST tải bù tin; khi socket hoạt động app đối soát mỗi 30 giây, khi mất kết nối thì polling foreground mỗi 3 giây cho tin và 10 giây cho danh sách.
-- Chuyến đi được liên kết từ server có màn hình xem chỉ đọc. Chuyến đang lưu local chưa thể chọn/gắn vào nhóm; cần tích hợp API chuyến đi trước.
+- Chuyến đi được liên kết từ server có màn hình xem chỉ đọc, hỗ trợ ngày linh hoạt và giờ nullable. Danh sách chọn chuyến dùng ID từ backend.
 
 Chạy `npm run typecheck`, `npm run test:groups` và `npm run test:messages` để kiểm tra. Test thủ công bằng hai tài khoản đã kết bạn: tạo nhóm trên máy A, mở tab Nhóm trên máy B, gửi qua lại, thử thêm/xóa thành viên và chuyển trưởng nhóm. Backend phải chạy phiên bản có migration V8/V9. Không cần cài dependency mới cho tính năng này.
 
@@ -35,9 +51,9 @@ Chạy `npm run typecheck`, `npm run test:groups` và `npm run test:messages` đ
 
 - Màn hình sau đăng nhập dùng component React Native và các hook ViewModel; giữ nguyên luồng auth và cấu trúc API hiện có.
 - Khám phá có tìm kiếm địa điểm, danh sách lưu theo tài khoản trên thiết bị và định vị khi người dùng cấp quyền. “Gần bạn” sắp xếp các địa điểm đã lưu theo khoảng cách.
-- Tạo chuyến đi hỗ trợ ngày cụ thể/linh hoạt, khách sạn không trùng đêm, lịch trình thủ công và gợi ý từ danh mục địa điểm. Màn hình lịch trình dùng chung cho chuyến đi mới/đã lưu, bản đồ 35%, nội dung 65%.
-- Theme sáng/tối và tùy chọn thông báo được lưu trên thiết bị. Bản đồ tiếp tục dùng WebView Leaflet/CARTO, tìm kiếm Photon và định tuyến OSRM; không gửi token auth đến các dịch vụ này.
-- Chuyến đi và chat nhóm hiện giữ dữ liệu ở bộ nhớ phiên; chưa tích hợp backend chuyến đi, chat nhóm, AI hoặc thông báo push. Chat cá nhân, kết bạn và cập nhật hồ sơ dùng API thật như các mục bên dưới; không chèn người dùng/tin nhắn mẫu và không mô phỏng AI.
+- Tạo chuyến đi hỗ trợ ngày cụ thể/linh hoạt từ 1–30 ngày và lịch trình thủ công. Khách sạn, chi phí, checklist và thêm thành viên hiện hiển thị “Sắp có”. Màn hình lịch trình dùng chung cho chuyến đi mới/đã lưu, bản đồ 35%, nội dung 65%.
+- Theme sáng/tối và tùy chọn thông báo được lưu trên thiết bị. Bản đồ tiếp tục dùng WebView Leaflet/OpenStreetMap, tìm kiếm Photon và định tuyến OSRM; không gửi token auth đến các dịch vụ này.
+- Chuyến đi, lịch trình, tiến độ, hồ sơ, kết bạn và nhắn tin dùng API thật, dữ liệu lưu trên server. Danh sách địa điểm yêu thích vẫn lưu cục bộ theo tài khoản. AI và thông báo push chưa triển khai; không chèn dữ liệu người dùng hoặc tin nhắn mẫu.
 - Có thêm AsyncStorage và expo-location: chạy `npm install`, sau đó `npm run android` để build lại development client. Chỉ tải lại JavaScript trên bản cài cũ sẽ thiếu native module.
 
 Kiểm tra: `npm run typecheck`, `node scripts/check-trips.cjs`, `node scripts/check-chat.cjs`, `npx expo export --platform android`. Cần thiết bị/emulator để nghiệm thu bố cục và gesture native.

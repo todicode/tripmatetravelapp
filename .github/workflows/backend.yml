@@ -4,7 +4,7 @@ on:
   pull_request:
     paths: ['backend/**', '.agents/skills/**', 'scripts/test-trips.ps1', 'scripts/format-backend.py', '.github/workflows/backend.yml']
   push:
-    branches: [dev, main]
+    branches: [dev, main, refactor/backend-quality]
     paths: ['backend/**', '.agents/skills/**', 'scripts/test-trips.ps1', 'scripts/format-backend.py', '.github/workflows/backend.yml']
   workflow_dispatch:
 

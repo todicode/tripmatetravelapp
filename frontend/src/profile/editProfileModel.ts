@@ -23,6 +23,7 @@ export class EditProfileModel {
   private uploadedId: string | undefined;
   private initialInterests: string[] = [];
   private interestSequence = 0;
+  private nameEdited = false;
   constructor(
     private initialName: string,
     private saveName: (
@@ -38,7 +39,12 @@ export class EditProfileModel {
       release(file: AvatarDraft | null): Promise<void>;
       hasAvatar: boolean;
     },
-    private loadInterests?: () => Promise<{ items: Interest[]; codes: string[] }>,
+    private loadInterests?: () => Promise<{
+      items: Interest[];
+      codes: string[];
+      displayName?: string;
+      hasAvatar?: boolean;
+    }>,
   ) {
     this.state = {
       name: initialName,
@@ -97,6 +103,11 @@ export class EditProfileModel {
       const result = await this.loadInterests();
       if (!this.active || sequence !== this.interestSequence) return;
       this.initialInterests = [...result.codes];
+      if (result.displayName !== undefined) {
+        this.initialName = result.displayName;
+        if (!this.nameEdited) this.publish({ name: result.displayName });
+      }
+      if (this.avatar && result.hasAvatar !== undefined) this.avatar.hasAvatar = result.hasAvatar;
       const known = new Set(result.items.map((item) => item.code));
       this.publish({
         interests: [
@@ -187,7 +198,10 @@ export class EditProfileModel {
     }
   };
   setName = (name: string) => {
-    if (!this.state.isSaving) this.publish({ name, errorMessage: null });
+    if (!this.state.isSaving) {
+      this.nameEdited = true;
+      this.publish({ name, errorMessage: null });
+    }
   };
   requestBack = (): 'blocked' | 'confirm' | 'leave' => {
     if (!this.active || this.state.isSaving || this.state.isPicking) return 'blocked';

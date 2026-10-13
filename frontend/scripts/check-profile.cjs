@@ -537,3 +537,42 @@ test('save blocks duplicates and load during write; failures preserve current pr
   assert.equal(store.getSnapshot().user.displayName, 'An');
   assert.equal(store.getSnapshot().isSaving, false);
 });
+
+test('late profile hydration seeds the current name and avatar without inventing a dirty draft', async () => {
+  const avatar = { hasAvatar: false };
+  const form = new EditProfileModel(
+    'Old',
+    async () => true,
+    () => {},
+    () => {},
+    avatar,
+    async () => ({ items: [], codes: [], displayName: 'Current', hasAvatar: true }),
+  );
+  await form.loadInterestOptions();
+  assert.equal(form.getSnapshot().name, 'Current');
+  assert.equal(form.isDirty, false);
+  assert.equal(form.canRemoveAvatar, true);
+});
+test('late profile hydration preserves a typed name while updating the comparison baseline', async () => {
+  const pending = deferred();
+  const writes = [];
+  const form = new EditProfileModel(
+    'Old',
+    async (name) => {
+      writes.push(name);
+      return true;
+    },
+    () => {},
+    () => {},
+    undefined,
+    () => pending.promise,
+  );
+  const loading = form.loadInterestOptions();
+  form.setName('Typed');
+  pending.resolve({ items: [], codes: [], displayName: 'Current' });
+  await loading;
+  assert.equal(form.getSnapshot().name, 'Typed');
+  assert.equal(form.isDirty, true);
+  await form.save();
+  assert.deepEqual(writes, ['Typed']);
+});

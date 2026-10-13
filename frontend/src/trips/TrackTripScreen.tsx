@@ -33,7 +33,7 @@ export default function TrackTripScreen({
   if (vm.metadata)
     return (
       <TripMetadataForm
-        trip={trip}
+        trip={vm.draft}
         busy={vm.busy}
         error={vm.error}
         onBack={() => vm.setMetadata(false)}
@@ -61,14 +61,14 @@ export default function TrackTripScreen({
         <Button
           outline
           label="Chỉnh lịch"
-          disabled={vm.busy || trip.status === 'cancelled'}
+          disabled={vm.busy || vm.draft.status === 'cancelled'}
           onPress={() => vm.setEditing(true)}
         />
         {trip.myRole === 'OWNER' && (
           <Button
             outline
             label="Thông tin"
-            disabled={vm.busy || trip.status === 'cancelled'}
+            disabled={vm.busy || vm.draft.status === 'cancelled'}
             onPress={() => vm.confirmDiscard(() => vm.setMetadata(true))}
           />
         )}
@@ -77,7 +77,7 @@ export default function TrackTripScreen({
           <>
             <Button
               outline
-              label={trip.status === 'cancelled' ? 'Khôi phục' : 'Hủy chuyến'}
+              label={vm.draft.status === 'cancelled' ? 'Khôi phục' : 'Hủy chuyến'}
               disabled={vm.busy}
               onPress={vm.changeStatus}
             />
@@ -85,7 +85,7 @@ export default function TrackTripScreen({
           </>
         )}
       </ScrollView>
-      {trip.status === 'cancelled' && (
+      {vm.draft.status === 'cancelled' && (
         <Text style={s.error}>Chuyến đã hủy. Khôi phục để chỉnh sửa.</Text>
       )}
       <View style={{ flex: 1 }} pointerEvents={vm.busy ? 'none' : 'auto'}>
@@ -95,7 +95,7 @@ export default function TrackTripScreen({
           companions={companions}
           onBack={vm.back}
           onUpdate={(next) => {
-            if (trip.status !== 'cancelled') vm.update(next);
+            if (vm.draft.status !== 'cancelled') vm.update(next);
           }}
           onSave={vm.save}
           error={vm.busy ? 'Đang lưu…' : vm.error}

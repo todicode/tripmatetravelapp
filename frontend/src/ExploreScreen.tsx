@@ -62,18 +62,16 @@ export default function ExploreScreen({
       }),
     [vm.setCollapsed],
   );
-  const suggestions: Place[] = destinations
-    .slice(0, 6)
-    .map((item) => ({
-      id: item.key,
-      name: item.name,
-      city: item.name,
-      lat: item.coords[0],
-      lng: item.coords[1],
-      image: item.image,
-      category: 'Destination',
-      description: item.fullName,
-    }));
+  const suggestions: Place[] = destinations.slice(0, 6).map((item) => ({
+    id: item.key,
+    name: item.name,
+    city: item.name,
+    lat: item.coords[0],
+    lng: item.coords[1],
+    image: item.image,
+    category: 'Destination',
+    description: item.fullName,
+  }));
   const results = vm.query.trim().length >= 2 ? vm.results : suggestions;
   const thumbnail = (place: Place, size = 44) => (
     <View
