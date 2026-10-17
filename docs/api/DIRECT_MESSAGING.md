@@ -1,13 +1,13 @@
 # Direct messaging API
 
-Implemented backend and frontend slice: REST, persisted 1-to-1 text messages. All paths below use `/api/v1`, require `Authorization: Bearer <access-token>`, and return HTTP 200 with `{data, requestId}`, `X-Request-Id` and `Cache-Control: private, no-store`.
+Implemented backend and frontend slice: REST, persisted 1-to-1 text and image messages. JSON endpoints below use `/api/v1`, require `Authorization: Bearer <access-token>`, and return HTTP 200 with `{data, requestId}`, `X-Request-Id` and `Cache-Control: private, no-store`. Binary image endpoints return authenticated JPEG streams.
 
 ## Rules
 
 - Only current friends may open a conversation or send. Each user pair has one conversation, reused when friendship is restored.
 - Unfriend retains history and read-marker access for the two participants, but blocks new sends and send retries. Conversation summaries expose `canSend=false`.
 - Outsiders get `404 CONVERSATION_NOT_FOUND` for message/history/read operations. Summary users contain only `id`, `displayName`, `avatarMediaId`.
-- Group chat, push, attachments, message edits/deletion, typing and online state are outside this slice.
+- Independent group chat is documented in [GROUP_MESSAGING.md](GROUP_MESSAGING.md). One image per message and online presence are implemented; push, other attachments, message edits/deletion and typing indicators remain outside this slice.
 
 ## Private realtime
 
@@ -21,7 +21,7 @@ The simple broker currently runs in one backend process. Deploy one backend inst
 
 ## Frontend integration
 
-In **Tin nhắn → Bạn bè**, tap a friend's name or message button to open/reuse the server conversation. **Tất cả** shows persisted conversation summaries and unread counts. Individual conversations use `DirectConversationScreen`; group conversations retain the existing screen and local implementation.
+In **Tin nhắn → Bạn bè**, tap a friend's name or message button to open/reuse the server conversation. **Tất cả** shows persisted conversation summaries and unread counts. Individual and group conversations share the message view, composer and account-scoped STOMP connection; both use server persistence.
 
 `directMessageApi.ts` uses the existing authorized request/refresh transport. `DirectMessagingSession` owns paging, pending sends, UUID-preserving retries, sequence catch-up and monotonic read results; `useDirectMessaging` adapts this state to React and the app lifecycle. `DirectRealtimeConnection` receives private events via STOMP. Connected chat reconciles via REST every 30 seconds; disconnected chat polls messages every 3 seconds and lists every 10 seconds while visible. Poll timers do not issue requests while the app is in the background. No chat contents are persisted to local storage.
 
@@ -53,7 +53,15 @@ Returns `{items, pageInfo:{nextCursor, hasMore}}`, ordered by `updatedAt DESC, i
 {"clientMessageId":"00000000-0000-4000-8000-000000000082","body":"  Hello!\n"}
 ```
 
-Returns `{id, conversationId, seq, sender, clientMessageId, body, createdAt}`. Body requires non-whitespace text and at most 4,000 Unicode code points; leading/trailing spaces and newlines are preserved. The authenticated session determines the sender. Generate a new UUID for each new message; on network retry reuse the same UUID and exact body. Same ID/body returns the original message, changed body returns `409 IDEMPOTENCY_CONFLICT`. IDs are scoped to conversation and sender. Sending does not automatically mark messages read.
+Returns `{id, conversationId, seq, sender, clientMessageId, body, createdAt, image?}`. Body allows at most 4,000 Unicode code points; leading/trailing spaces and newlines are preserved. Without an image, non-whitespace text is required. The authenticated session determines the sender. Generate a new UUID for each new message; on network retry reuse the same UUID, exact body and mediaId. Same payload returns the original message, changed payload returns `409 IDEMPOTENCY_CONFLICT`. IDs are scoped to conversation and sender. Sending does not automatically mark messages read.
+
+## Images and reader details
+
+Upload through `POST /media` with purpose `CHAT_IMAGE`, then send its UUID as `mediaId`; `body` is still required and may be empty for an image-only message. One owned READY, unexpired image can attach to exactly one message. Message persistence and attachment are one transaction. Upload and attachment retries are separate: reuse the uploaded media ID after an uncertain send response.
+
+`GET /direct-conversations/{id}/messages/{messageId}/image` returns the thumbnail by default; `thumbnail=false` returns the larger JPEG. Both participants retain image-history access after unfriend; outsiders cannot fetch it. Files/thumbnail remain private in R2 and metadata lives in PostgreSQL. `GET /chat/avatars/{mediaId}` separately checks the current avatar and self/friend/shared-active-group access, without broadening the original owner-only media endpoint.
+
+`GET /direct-conversations/{id}/readers` returns `{data:[{user,lastReadSeq}],requestId}`. The UI combines this snapshot with private read events to display actual readers, without inventing per-message read timestamps. See [acceptance results and limitations](../CHAT_EMULATOR_ACCEPTANCE_2026-10-15.md).
 
 ## History and polling
 

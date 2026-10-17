@@ -1,6 +1,7 @@
 import type { AuthorizedRequest } from '../auth/session';
 import type { UserSummary } from './friendApi';
 import type { DirectMessage, DirectMessagePage, DirectRead } from './directMessageApi';
+import { createChatImageApi } from './chatImageApi';
 
 export type GroupConversation = {
   id: string;
@@ -48,6 +49,8 @@ export type SharedTrip = {
 export function createGroupMessageApi(request: AuthorizedRequest) {
   const path = (id: string) => `/group-conversations/${encodeURIComponent(id)}`;
   return {
+    ...createChatImageApi(request, '/group-conversations'),
+    readers: (id: string) => request<GroupMember[]>(`${path(id)}/members`),
     conversations: async () => {
       const result = new Map<string, GroupConversation>();
       const seen = new Set<string>();
@@ -67,8 +70,8 @@ export function createGroupMessageApi(request: AuthorizedRequest) {
       } while (cursor);
       return [...result.values()];
     },
-    create: (name: string, memberIds: string[]) =>
-      request<GroupConversation>('/group-conversations', { name, memberIds, tripId: null }, 'POST'),
+    create: (name: string, memberIds: string[], tripId: string | null = null) =>
+      request<GroupConversation>('/group-conversations', { name, memberIds, tripId }, 'POST'),
     detail: (id: string) => request<GroupConversation>(path(id)),
     members: (id: string) => request<GroupMember[]>(`${path(id)}/members`),
     update: (
@@ -105,8 +108,12 @@ export function createGroupMessageApi(request: AuthorizedRequest) {
             : '';
       return request<DirectMessagePage>(`${path(id)}/messages?limit=50${bound}`);
     },
-    send: (id: string, clientMessageId: string, body: string) =>
-      request<DirectMessage>(`${path(id)}/messages`, { clientMessageId, body }, 'POST'),
+    send: (id: string, clientMessageId: string, body: string, mediaId?: string) =>
+      request<DirectMessage>(
+        `${path(id)}/messages`,
+        { clientMessageId, body, ...(mediaId ? { mediaId } : {}) },
+        'POST',
+      ),
     read: (id: string, lastReadSeq: string) =>
       request<DirectRead>(`${path(id)}/read`, { lastReadSeq }, 'PUT'),
   };

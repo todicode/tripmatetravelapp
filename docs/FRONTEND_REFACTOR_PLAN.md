@@ -59,7 +59,7 @@ Adapter integration chạy HTTP thật qua chính `apiRequest`, `tripApi` và `c
 
 ## Giới hạn và điểm tiếp tục
 
-- Chưa chạy OAuth Google thật, hoàn thiện phone sau OAuth, signup UI đầy đủ, iOS hoặc chat realtime giữa hai thiết bị; các Model/session/realtime tests hiện có vẫn đạt. Transport chat chỉ được format, không đổi nghiệp vụ.
+- Chưa chạy OAuth Google thật, hoàn thiện phone sau OAuth, signup UI đầy đủ hoặc iOS. Chat giữa hai emulator đã được kiểm tra ngày 2026-10-14; đã sửa cách tạo URL socket và tránh bàn phím, còn vấn đề mốc đã đọc tin mới khi màn đang mở. Xem [REALTIME_EMULATOR_QA.md](REALTIME_EMULATOR_QA.md) để biết bằng chứng, giới hạn và task bàn giao cho teammate chat. Không đổi transport hay nghiệp vụ backend.
 - Đây là kiểm chứng JavaScript/native integration trên development APK có sẵn và Hermes export; không thay thế build Gradle APK release/signing.
 - Npm audit còn 25 cảnh báo: 7 moderate, 18 high, 0 critical. Nhiều cảnh báo đi qua Expo/React Native/Google Sign-In. Cần đợt xử lý dependency riêng có kiểm chứng native; không dùng audit fix --force hoặc tự nâng framework trong đợt refactor này.
 - Địa điểm yêu thích còn là dữ liệu cục bộ theo tài khoản, không phải cloud sync. Khách sạn/chi phí/checklist/thành viên vẫn “Sắp có”; chưa refactor prototype TripUtilities thành feature hoàn chỉnh.

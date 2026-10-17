@@ -26,6 +26,8 @@ class GroupMessagingServiceTest {
     private final FriendshipAccess friends = mock(FriendshipAccess.class);
     private final GroupTripSharing trips = mock(GroupTripSharing.class);
     private final SignedCursor cursors = new SignedCursor("group-service-test-cursor-secret");
+    private final org.springframework.context.ApplicationEventPublisher events =
+            mock(org.springframework.context.ApplicationEventPublisher.class);
     private final GroupMessagingService service =
             new GroupMessagingService(
                     repo,
@@ -33,7 +35,8 @@ class GroupMessagingServiceTest {
                     friends,
                     trips,
                     cursors,
-                    mock(org.springframework.context.ApplicationEventPublisher.class));
+                    events,
+                    mock(com.tripmate.media.api.ChatMedia.class));
     private final UUID id = UUID.randomUUID(), owner = UUID.randomUUID(), peer = UUID.randomUUID();
     private Group group;
 
@@ -141,5 +144,19 @@ class GroupMessagingServiceTest {
         verify(repo).save(saved.capture());
         assertEquals(1, saved.getValue().version());
         assertEquals("GROUP_NOT_FOUND", error(() -> service.transfer(id, UUID.randomUUID(), "0")));
+    }
+
+    @Test
+    void readUpdatesArePublishedToAllActiveMembersForSenderReceipts() {
+        when(repo.members(id))
+                .thenReturn(
+                        List.of(
+                                new Member(owner, "ACTIVE", 4, Instant.now()),
+                                new Member(peer, "ACTIVE", 0, Instant.now())));
+        service.read(id, "5");
+        var captured = org.mockito.ArgumentCaptor.forClass(GroupRealtimeEvent.class);
+        verify(events).publishEvent(captured.capture());
+        assertEquals("group.read.updated", captured.getValue().payload().type());
+        assertEquals(Set.of(owner, peer), new HashSet<>(captured.getValue().recipients()));
     }
 }

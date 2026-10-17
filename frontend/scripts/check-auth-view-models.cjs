@@ -120,6 +120,27 @@ test('registration OTP validation rejects incomplete input without an API call',
   assert.match(d.render().apiError, /OTP_INVALID/);
   d.h.unmount();
 });
+
+test('consumed registration verification offers login recovery without authenticating again', async () => {
+  let accepted = 0;
+  const d = model(
+    'Registration',
+    {
+      authRequest: async () => {
+        throw Object.assign(Error('used'), { code: 'VERIFICATION_ALREADY_USED' });
+      },
+    },
+    () => accepted++,
+  );
+  d.render().setOtp('123456');
+  await d.render().verifyOtp();
+  assert.equal(d.render().verificationUsed, true);
+  assert.match(d.render().apiError, /đăng nhập/);
+  assert.equal(accepted, 0);
+  d.render().cancelPendingRegistration();
+  assert.equal(d.render().verificationUsed, false);
+  d.h.unmount();
+});
 test('password reset step transitions live in the ViewModel and a late success cannot close a new screen', async () => {
   const pending = deferred();
   let closed = 0;

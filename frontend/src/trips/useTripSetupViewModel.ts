@@ -52,6 +52,7 @@ export function useTripSetupViewModel({
   const [hotels, setHotels] = useState(false);
   const [importing, setImporting] = useState(false);
   const [imported, setImported] = useState<Place[]>([]);
+  const [pendingImport, setPendingImport] = useState<Place[] | null>(null);
   const [aiOpen, setAiOpen] = useState(false);
   const [notes, setNotes] = useState('');
   const [draft, setDraft] = useState<Trip | null>(null);
@@ -126,6 +127,7 @@ export function useTripSetupViewModel({
     if (searchOpen || importing) {
       setSearchOpen(false);
       setImporting(false);
+      setPendingImport(null);
     } else if (planning) setPlanning(false);
     else if (step > 0) setStep((value) => value - 1);
     else close();
@@ -144,7 +146,9 @@ export function useTripSetupViewModel({
       return;
     }
     setDestination(item);
-    setImported(places);
+    setImported(pendingImport ?? places);
+    setPendingImport(null);
+    setError('');
     setStays([]);
     setDraft(null);
     setQuery('');
@@ -185,12 +189,18 @@ export function useTripSetupViewModel({
           dayTitle: `Ngày ${i + 1}`,
           stops: [],
         }));
-    if (!suggested)
-      for (const place of imported) {
-        try {
-          plans = addStop(plans, 0, place);
-        } catch {}
+    if (!suggested) {
+      try {
+        for (const place of imported) plans = addStop(plans, 0, place);
+      } catch (failure) {
+        setError(
+          failure instanceof Error
+            ? failure.message
+            : 'Không nhập được danh sách. Vui lòng kiểm tra các địa điểm.',
+        );
+        return;
       }
+    }
     const trip: Trip = {
       id: '',
       title: initialTitle ?? `Khám phá ${destination.name}`,
@@ -324,6 +334,23 @@ export function useTripSetupViewModel({
     days,
     back,
     choose,
+    pendingImport,
+    importList: (list: SavedPlaceList) => {
+      if (!list.places.length) return;
+      if (
+        cities.some(
+          (city) =>
+            city.frontendKey === list.destination.key ||
+            city.code === list.destination.key.toUpperCase(),
+        )
+      )
+        return choose(list.destination, list.places);
+      setPendingImport(list.places);
+      setImporting(false);
+      setSearchOpen(true);
+      setQuery('');
+      setError('Chọn thành phố cho danh sách đã lưu. Các địa điểm sẽ được giữ lại khi lập lịch.');
+    },
     openPlanner,
     save,
   };

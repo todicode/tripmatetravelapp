@@ -113,6 +113,7 @@ export function useGroupDetails(
     setError('');
     try {
       await action();
+      if (leaving) store.forgetConversation(group.id);
       if (!mounted.current) return;
       if (leaving) onLeave();
       await store.refresh(false);
@@ -144,6 +145,7 @@ export function useGroupDetails(
     rename: (name: string) =>
       manage(() => api.update(group.id, group.version, { name: name.trim() })),
     unlink: () => manage(() => api.update(group.id, group.version, { tripId: null })),
+    link: (tripId: string | null) => manage(() => api.update(group.id, group.version, { tripId })),
     add: (userId: string) => manage(() => api.add(group.id, userId, group.version)),
     remove: (userId: string) => manage(() => api.remove(group.id, userId, group.version)),
     transfer: (userId: string) => manage(() => api.transfer(group.id, userId, group.version)),

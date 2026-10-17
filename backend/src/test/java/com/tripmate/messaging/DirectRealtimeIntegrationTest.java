@@ -68,6 +68,11 @@ class DirectRealtimeIntegrationTest {
     })
     static class TestApplication {
         @Bean
+        com.tripmate.media.api.ChatMedia chatMedia() {
+            return mock(com.tripmate.media.api.ChatMedia.class);
+        }
+
+        @Bean
         AccessTokenVerifier tokens() {
             return token -> {
                 UUID id =
@@ -506,7 +511,8 @@ class DirectRealtimeIntegrationTest {
                                 "{\"lastReadSeq\":\"1\"}")
                         .statusCode());
         assertTrue(recipient.events().poll(3, TimeUnit.SECONDS).contains("group.read.updated"));
-        assertNull(sender.events().poll(200, TimeUnit.MILLISECONDS));
+        assertTrue(sender.events().poll(3, TimeUnit.SECONDS).contains("group.read.updated"));
+        assertNull(outsider.events().poll(200, TimeUnit.MILLISECONDS));
         doAnswer(
                         call -> {
                             when(groups.members(id)).thenReturn(List.of(owner));

@@ -25,6 +25,7 @@ export const toFriend = (user: UserSummary): Friend => ({
   name: user.displayName,
   phone: '',
   avatar: user.displayName.trim().charAt(0).toUpperCase() || '?',
+  avatarMediaId: user.avatarMediaId,
 });
 export function parseFriendQr(value: string): string | null {
   const match = /^tripmate:\/\/friend\/(TM-[A-Za-z0-9]{8})$/i.exec(value.trim());

@@ -16,6 +16,38 @@ function load(name, globals = {}) {
 }
 const { SessionManager, ApiRequestError } = load('session.ts');
 const { passwordError } = load('password.ts');
+
+test('realtime URL uses the root endpoint on both native and standard URL implementations', () => {
+  const babel = require('@babel/core');
+  const nativeSource = fs.readFileSync(
+    require.resolve('react-native/Libraries/Blob/URL.js'),
+    'utf8',
+  );
+  const compiled = babel.transformSync(nativeSource, {
+    babelrc: false,
+    configFile: false,
+    plugins: [
+      '@babel/plugin-transform-flow-strip-types',
+      '@babel/plugin-transform-modules-commonjs',
+    ],
+  }).code;
+  const context = { exports: {}, require: () => ({ default: null, __esModule: true }) };
+  vm.runInNewContext(compiled, context);
+  for (const URLImplementation of [URL, context.exports.URL]) {
+    const { realtimeUrl } = load('realtimeUrl.ts', { URL: URLImplementation });
+    for (const [baseUrl, expected] of [
+      ['http://10.0.2.2:8082/api/v1', 'ws://10.0.2.2:8082/ws'],
+      ['https://api.example.com/api/v1/', 'wss://api.example.com/ws'],
+      ['http://localhost:8082/', 'ws://localhost:8082/ws'],
+      ['http://[::1]:8082/api/v1', 'ws://[::1]:8082/ws'],
+      ['https://api.example.com/api/v1?ignored=1#fragment', 'wss://api.example.com/ws'],
+    ]) {
+      assert.equal(realtimeUrl(baseUrl), expected);
+    }
+    assert.throws(() => realtimeUrl('ftp://example.com/api/v1'));
+    assert.throws(() => realtimeUrl('https://name:password@example.com/api/v1'));
+  }
+});
 const initialTime = Date.now();
 const session = (id = 1) => ({
   accessToken: `access-${id}`,

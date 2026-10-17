@@ -1,6 +1,7 @@
 package com.tripmate.messaging.application;
 
 import com.tripmate.identity.api.UserDirectory;
+import com.tripmate.media.api.ChatMedia;
 import com.tripmate.messaging.domain.*;
 import com.tripmate.messaging.infrastructure.*;
 import com.tripmate.shared.persistence.SignedCursor;
@@ -20,6 +21,7 @@ import java.util.*;
 @Service
 public class DirectMessagingService {
     private final UserDirectory users;
+    private final ChatMedia media;
     private final FriendshipAccess friendships;
     private final DirectConversationRepository conversations;
     private final DirectMessageRepository messages;
@@ -32,7 +34,9 @@ public class DirectMessagingService {
             DirectConversationRepository conversations,
             DirectMessageRepository messages,
             SignedCursor cursors,
-            ApplicationEventPublisher events) {
+            ApplicationEventPublisher events,
+            ChatMedia media) {
+        this.media = media;
         this.users = users;
         this.friendships = friendships;
         this.conversations = conversations;
@@ -89,6 +93,7 @@ public class DirectMessagingService {
         items.forEach(c -> profileIds.add(c.otherId(actor)));
         last.values().forEach(m -> profileIds.add(m.getSenderId()));
         var profiles = users.findAll(profileIds);
+        var images = media.images(last.values().stream().map(DirectMessageEntity::getId).toList());
         var currentFriends =
                 friendships.friendsOf(actor, items.stream().map(c -> c.otherId(actor)).toList());
         Map<UUID, Long> unreadCounts = new HashMap<>();
@@ -106,7 +111,7 @@ public class DirectMessagingService {
                                             peer,
                                             lastMessage == null
                                                     ? null
-                                                    : message(lastMessage, profiles),
+                                                    : message(lastMessage, profiles, images),
                                             Long.toString(unreadCounts.getOrDefault(c.getId(), 0L)),
                                             currentFriends.contains(peer.id()) && peer.active());
                                 })
@@ -116,18 +121,25 @@ public class DirectMessagingService {
 
     @Transactional
     public MessageView send(UUID conversationId, UUID clientMessageId, String body) {
+        return send(conversationId, clientMessageId, body, null);
+    }
+
+    @Transactional
+    public MessageView send(UUID conversationId, UUID clientMessageId, String body, UUID mediaId) {
         UUID actor = actorId();
         var pair = conversations.participants(conversationId).orElseThrow(this::notFound);
         if (!actor.equals(pair.getLowId()) && !actor.equals(pair.getHighId())) throw notFound();
         friendships.lockFriends(pair.getLowId(), pair.getHighId());
         DirectConversationEntity conversation =
                 conversations.findByIdForUpdate(conversationId).orElseThrow(this::notFound);
-        validateBody(clientMessageId, body);
+        validateBody(clientMessageId, body, mediaId);
         var previous =
                 messages.findByConversationIdAndSenderIdAndClientMessageId(
                         conversationId, actor, clientMessageId);
         if (previous.isPresent()) {
-            if (!previous.get().getBody().equals(body))
+            var image = media.images(List.of(previous.get().getId())).get(previous.get().getId());
+            if (!previous.get().getBody().equals(body)
+                    || !Objects.equals(mediaId, image == null ? null : image.id()))
                 throw new ApiException(
                         HttpStatus.CONFLICT,
                         "IDEMPOTENCY_CONFLICT",
@@ -148,6 +160,7 @@ public class DirectMessagingService {
                                 clientMessageId,
                                 conversation.nextSeq(),
                                 body));
+        if (mediaId != null) media.attachImage(mediaId, actor, created.getId(), false);
         var result = message(created);
         events.publishEvent(
                 DirectRealtimeEvent.message(
@@ -184,8 +197,9 @@ public class DirectMessagingService {
                                 .map(DirectMessageEntity::getSenderId)
                                 .distinct()
                                 .toList());
+        var images = media.images(selected.stream().map(DirectMessageEntity::getId).toList());
         return new MessagePage(
-                selected.stream().map(m -> message(m, profiles)).toList(),
+                selected.stream().map(m -> message(m, profiles, images)).toList(),
                 new MessagePageInfo(more, min > 1 ? Long.toString(min) : null, Long.toString(max)));
     }
 
@@ -218,6 +232,31 @@ public class DirectMessagingService {
                 Long.toString(conversation.readSeq(actor)),
                 unread(conversation, actor));
     }
+
+    @Transactional(readOnly = true)
+    public List<ReaderView> readers(UUID id) {
+        UUID actor = actorId();
+        var conversation = conversations.findById(id).orElseThrow(this::notFound);
+        participant(conversation, actor);
+        return List.of(conversation.getLowUserId(), conversation.getHighUserId()).stream()
+                .map(
+                        user ->
+                                new ReaderView(
+                                        summary(users.find(user)),
+                                        Long.toString(conversation.readSeq(user))))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public void requireMessageAccess(UUID id, UUID messageId) {
+        var conversation = conversations.findById(id).orElseThrow(this::notFound);
+        participant(conversation, actorId());
+        if (messages.findById(messageId)
+                .filter(m -> m.getConversation().getId().equals(id))
+                .isEmpty()) throw notFound();
+    }
+
+    public record ReaderView(UserSummary user, String lastReadSeq) {}
 
     private ConversationView view(DirectConversationEntity c, UUID actor) {
         var other = users.find(c.otherId(actor));
@@ -267,6 +306,13 @@ public class DirectMessagingService {
 
     private MessageView message(
             DirectMessageEntity m, Map<UUID, UserDirectory.UserSummary> profiles) {
+        return message(m, profiles, media.images(List.of(m.getId())));
+    }
+
+    private MessageView message(
+            DirectMessageEntity m,
+            Map<UUID, UserDirectory.UserSummary> profiles,
+            Map<UUID, ChatMedia.Image> images) {
         return new MessageView(
                 m.getId(),
                 m.getConversation().getId(),
@@ -274,7 +320,8 @@ public class DirectMessagingService {
                 summary(profiles.get(m.getSenderId())),
                 m.getClientMessageId(),
                 m.getBody(),
-                m.getCreatedAt());
+                m.getCreatedAt(),
+                images.get(m.getId()));
     }
 
     private UserSummary summary(UserDirectory.UserSummary u) {
@@ -285,11 +332,13 @@ public class DirectMessagingService {
         if (!c.includes(actor)) throw notFound();
     }
 
-    private void validateBody(UUID clientMessageId, String body) {
+    private void validateBody(UUID clientMessageId, String body, UUID mediaId) {
         if (clientMessageId == null
                 || body == null
-                || body.codePoints()
-                        .allMatch(c -> Character.isWhitespace(c) || Character.isSpaceChar(c))
+                || (mediaId == null
+                        && body.codePoints()
+                                .allMatch(
+                                        c -> Character.isWhitespace(c) || Character.isSpaceChar(c)))
                 || body.codePointCount(0, body.length()) > 4000)
             throw invalid(
                     "Tin nhắn cần clientMessageId và nội dung không trắng, tối đa 4.000 ký tự.");
@@ -339,7 +388,19 @@ public class DirectMessagingService {
             UserSummary sender,
             UUID clientMessageId,
             String body,
-            Instant createdAt) {}
+            Instant createdAt,
+            ChatMedia.Image image) {
+        public MessageView(
+                UUID id,
+                UUID conversationId,
+                String seq,
+                UserSummary sender,
+                UUID clientMessageId,
+                String body,
+                Instant createdAt) {
+            this(id, conversationId, seq, sender, clientMessageId, body, createdAt, null);
+        }
+    }
 
     public record ConversationView(
             UUID id,

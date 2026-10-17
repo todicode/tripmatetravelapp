@@ -17,6 +17,19 @@ class AvatarImageProcessorTest {
     private final AvatarImageProcessor processor = new AvatarImageProcessor();
 
     @Test
+    void chatImagesKeepTheirAspectRatioAndHaveBoundedPreviews() throws Exception {
+        var input = new ByteArrayOutputStream();
+        ImageIO.write(new BufferedImage(3200, 800, BufferedImage.TYPE_INT_RGB), "png", input);
+        var result = processor.processChat(input.toByteArray());
+        assertEquals(1600, result.width());
+        assertEquals(400, result.height());
+        var thumbnail = ImageIO.read(new ByteArrayInputStream(result.thumbnail()));
+        assertEquals(400, thumbnail.getWidth());
+        assertEquals(100, thumbnail.getHeight());
+        assertEquals(0xff, result.content()[0] & 255);
+    }
+
+    @Test
     void decodesWebpAndRejectsExcessivePixelDimensionsBeforeDecode() throws Exception {
         byte[] webp =
                 java.util.Base64.getDecoder()

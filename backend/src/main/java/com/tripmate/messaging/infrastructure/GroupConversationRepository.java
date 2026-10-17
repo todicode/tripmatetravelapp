@@ -244,6 +244,28 @@ public class GroupConversationRepository {
                 .findFirst();
     }
 
+    public Optional<Message> message(UUID group, UUID messageId) {
+        return jdbc
+                .query(
+                        "SELECT * FROM group_messages WHERE conversation_id=:g AND id=:id",
+                        Map.of("g", group, "id", messageId),
+                        MESSAGE)
+                .stream()
+                .findFirst();
+    }
+
+    public boolean shareActiveGroup(UUID first, UUID second) {
+        return Boolean.TRUE.equals(
+                jdbc.queryForObject(
+                        """
+                        SELECT EXISTS(SELECT 1 FROM group_members a JOIN group_members b
+                          ON a.conversation_id=b.conversation_id
+                          WHERE a.user_id=:first AND b.user_id=:second AND a.status='ACTIVE' AND b.status='ACTIVE')
+                        """,
+                        Map.of("first", first, "second", second),
+                        Boolean.class));
+    }
+
     public long unread(UUID group, UUID actor, long readSeq) {
         return jdbc.queryForObject(
                 "select count(*) from group_messages where conversation_id=:g and seq>:seq and"

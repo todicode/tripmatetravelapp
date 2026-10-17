@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AuthorizedRequest, RealtimeCredentials } from '../auth/session';
 import { Friend, FriendRequest } from './chatModel';
 import { createFriendApi, FriendCode } from './friendApi';
 import { useDirectMessaging } from './useDirectMessaging';
 import { useGroupMessaging } from './useGroupMessaging';
-import { createProfileApi } from '../profile/profileApi';
+import { AppState } from 'react-native';
+import { createChatImageApi } from './chatImageApi';
 
 type Route = { kind: 'add' | 'requests' | 'create' } | { kind: 'conversation'; id: string };
 export function useChatSession(
@@ -14,7 +15,7 @@ export function useChatSession(
   realtimeCredentials: RealtimeCredentials,
 ) {
   const api = useMemo(() => createFriendApi(request), [request]);
-  const profileApi = useMemo(() => createProfileApi(request, userId), [request, userId]);
+  const images = useMemo(() => createChatImageApi(request, '/direct-conversations'), [request]);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [routes, setRoutes] = useState<Route[]>([]);
@@ -33,6 +34,21 @@ export function useChatSession(
     realtimeCredentials,
     group.realtime,
   );
+  const knownConversations = useRef(new Set<string>());
+  useEffect(() => {
+    const available = new Set([
+      ...direct.conversations.map((item) => item.id),
+      ...group.conversations.map((item) => item.id),
+    ]);
+    available.forEach((id) => knownConversations.current.add(id));
+    setRoutes((current) => {
+      const keep = (item: Route) =>
+        item.kind !== 'conversation' ||
+        !knownConversations.current.has(item.id) ||
+        available.has(item.id);
+      return current.every(keep) ? current : current.filter(keep);
+    });
+  }, [direct.conversations, group.conversations]);
   const [socialLoading, setSocialLoading] = useState(true);
   const [socialError, setSocialError] = useState('');
   const [friendCode, setFriendCode] = useState<FriendCode | null>(null);
@@ -52,6 +68,21 @@ export function useChatSession(
   useEffect(() => {
     void refreshSocial();
   }, [refreshSocial]);
+  useEffect(() => {
+    if (!visible) return;
+    const refresh = () => {
+      if (AppState.currentState === 'active') void refreshSocial();
+    };
+    refresh();
+    const timer = setInterval(refresh, 30_000);
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refresh();
+    });
+    return () => {
+      clearInterval(timer);
+      sub.remove();
+    };
+  }, [visible, refreshSocial]);
   const loadFriendCode = useCallback(async () => {
     const code = await api.ownCode();
     setFriendCode(code);
@@ -108,7 +139,7 @@ export function useChatSession(
     refreshSocial,
     friendCode,
     loadFriendCode,
-    loadAvatar: profileApi.image,
+    loadAvatar: images.avatar,
     lookupPhone: api.lookupPhone,
     lookupCode: api.lookupCode,
     sendRequest,

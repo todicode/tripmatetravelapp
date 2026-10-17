@@ -153,7 +153,7 @@ class GroupMessagingControllerTest {
                                                 + client
                                                 + "\",\"body\":\"  hello\\n\"}"))
                 .andExpect(status().isOk());
-        verify(groups).send(id, client, "  hello\n");
+        verify(groups).send(id, client, "  hello\n", null);
         mvc.perform(
                         put(path + "/read")
                                 .contentType(MediaType.APPLICATION_JSON)

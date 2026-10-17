@@ -30,6 +30,7 @@ export function useRegistrationViewModel(
   const cooldown = useResendCooldown(challenge?.resendAvailableAt);
   const [isSubmitting, setIsSubmitting, isBusy, isActive] = useSubmissionState();
   const [apiError, setApiError] = useState<string | null>(null);
+  const [verificationUsed, setVerificationUsed] = useState(false);
 
   const pendingVerificationRef = useRef<string | null>(null);
 
@@ -42,6 +43,7 @@ export function useRegistrationViewModel(
     setOtp('');
     setApiError(null);
     setRegisterStep('form');
+    setVerificationUsed(false);
     if (pendingId) {
       void authRequest<void>('/auth/register/cancel', { verificationId: pendingId }).catch(
         () => {},
@@ -143,7 +145,17 @@ export function useRegistrationViewModel(
       if (!isActive()) return;
       await onAuthenticated(session);
     } catch (error) {
-      setApiError(getApiErrorMessage(error));
+      const used =
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === 'VERIFICATION_ALREADY_USED';
+      setVerificationUsed(!!used);
+      setApiError(
+        used
+          ? 'Mã xác minh đã được sử dụng. Nếu bạn vừa xác thực, hãy đăng nhập bằng email và mật khẩu đã đăng ký.'
+          : getApiErrorMessage(error),
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -209,6 +221,7 @@ export function useRegistrationViewModel(
     cooldown,
     isSubmitting,
     apiError,
+    verificationUsed,
     cancelPendingRegistration,
     submit,
     verifyOtp,

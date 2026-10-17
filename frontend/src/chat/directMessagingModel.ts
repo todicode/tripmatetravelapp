@@ -1,5 +1,11 @@
 import type { Conversation, Message } from './chatModel';
-import type { DirectConversation, DirectMessage, DirectMessageApi } from './directMessageApi';
+import type {
+  DirectConversation,
+  DirectMessage,
+  DirectMessageApi,
+  MessageReader,
+} from './directMessageApi';
+import type { ChatImage, ChatImageDraft } from './chatImageApi';
 import type { DirectRealtimeEvent } from './directRealtime';
 
 export type DeliveryMessage = Message & {
@@ -9,6 +15,9 @@ export type DeliveryMessage = Message & {
   senderId?: string;
   status: 'sent' | 'sending' | 'failed';
   error?: string;
+  image?: ChatImage | null;
+  imageFile?: ChatImageDraft;
+  senderAvatarId?: string | null;
 };
 export type DirectThread = {
   messages: DeliveryMessage[];
@@ -20,6 +29,10 @@ export type DirectThread = {
   error: string;
   olderError: string;
   readError: string;
+  readers: MessageReader[];
+  readerSeqs: Record<string, string>;
+  readersLoading: boolean;
+  readersError: string;
 };
 export type DirectState = {
   conversations: DirectConversation[];
@@ -39,6 +52,10 @@ const emptyThread = (): DirectThread => ({
   error: '',
   olderError: '',
   readError: '',
+  readers: [],
+  readerSeqs: {},
+  readersLoading: false,
+  readersError: '',
 });
 const errorText = (error: unknown) =>
   error instanceof Error ? error.message : 'Không thể kết nối. Vui lòng thử lại.';
@@ -55,6 +72,8 @@ export function toDeliveryMessage(message: DirectMessage, userId: string): Deliv
     seq: message.seq,
     text: message.body,
     senderId: message.sender.id,
+    senderAvatarId: message.sender.avatarMediaId,
+    image: message.image,
     isMe: message.sender.id === userId,
     senderName: message.sender.displayName,
     createdAt: message.createdAt,
@@ -104,7 +123,13 @@ export function toListConversation(item: DirectConversation, userId: string): Co
     unread: compareSeq(item.unreadCount, '99') > 0 ? 99 : Number(item.unreadCount),
     unreadLabel: unreadLabel(item.unreadCount),
     messages: [],
-    lastMessage: item.lastMessage ? toDeliveryMessage(item.lastMessage, userId) : undefined,
+    avatarMediaId: item.user.avatarMediaId,
+    lastMessage: item.lastMessage
+      ? {
+          ...toDeliveryMessage(item.lastMessage, userId),
+          text: item.lastMessage.body || (item.lastMessage.image ? 'Ảnh' : ''),
+        }
+      : undefined,
   };
 }
 
@@ -134,6 +159,7 @@ export class DirectMessagingSession {
     private userId: string,
     private uuid: () => string,
     private authoritativeList = false,
+    private releaseImage: (image: ChatImageDraft) => Promise<void> = async () => {},
   ) {}
   getSnapshot = () => this.state;
   subscribe = (listener: () => void) => {
@@ -149,12 +175,16 @@ export class DirectMessagingSession {
       threads: Object.fromEntries(
         Object.entries(this.state.threads).map(([id, thread]) => [
           id,
-          { ...thread, loading: false, olderLoading: false },
+          { ...thread, loading: false, olderLoading: false, readersLoading: false },
         ]),
       ),
     });
   }
   deactivate() {
+    for (const [id, thread] of Object.entries(this.state.threads))
+      for (const message of thread.messages)
+        if (message.imageFile && !this.sending.has(`${id}:${message.clientMessageId}`))
+          void this.releaseImage(message.imageFile);
     this.active = false;
     this.generation++;
     this.listing = false;
@@ -175,6 +205,9 @@ export class DirectMessagingSession {
     );
   }
   private forgetThread(id: string) {
+    for (const message of this.thread(id).messages)
+      if (message.imageFile && !this.sending.has(`${id}:${message.clientMessageId}`))
+        void this.releaseImage(message.imageFile);
     this.syncing.delete(id);
     this.syncAgain.delete(id);
     this.reading.delete(id);
@@ -313,7 +346,18 @@ export class DirectMessagingSession {
       if (this.thread(event.data.conversationId).initialized)
         this.merge(event.data.conversationId, [event.data]);
       void this.refresh(false);
-    } else if (event.data.userId === this.userId) void this.refresh(false);
+    } else {
+      const id = event.data.conversationId,
+        user = event.data.userId;
+      if (!this.state.conversations.some((item) => item.id === id)) return;
+      const thread = this.thread(id);
+      const previous = thread.readerSeqs[user] ?? '0';
+      if (compareSeq(event.data.lastReadSeq, previous) > 0)
+        this.updateThread(id, {
+          readerSeqs: { ...thread.readerSeqs, [user]: event.data.lastReadSeq },
+        });
+      if (user === this.userId) void this.refresh(false);
+    }
   }
   async open(recipientId: string): Promise<string | null> {
     if (!this.active || this.state.openingId) return null;
@@ -405,11 +449,11 @@ export class DirectMessagingSession {
       if (this.currentThread(generation, id)) this.updateThread(id, { olderLoading: false });
     }
   }
-  async send(id: string, text: string) {
+  async send(id: string, text: string, imageFile?: ChatImageDraft) {
     const conversation = this.state.conversations.find((item) => item.id === id);
     if (!conversation?.canSend || !this.thread(id).initialized)
       throw new Error('Chưa thể gửi tin nhắn trong cuộc trò chuyện này.');
-    if (!text.trim() || [...text].length > 4000)
+    if ((!text.trim() && !imageFile) || [...text].length > 4000)
       throw new Error('Tin nhắn cần nội dung không trắng, tối đa 4.000 ký tự.');
     const clientMessageId = this.uuid();
     const createdAt = new Date().toISOString();
@@ -417,6 +461,7 @@ export class DirectMessagingSession {
       id: `pending:${clientMessageId}`,
       clientMessageId,
       text,
+      imageFile,
       isMe: true,
       senderName: 'Tôi',
       createdAt,
@@ -444,7 +489,18 @@ export class DirectMessagingSession {
       ]),
     });
     try {
-      const message = await this.api.send(id, pending.clientMessageId, pending.text);
+      if (pending.imageFile && !pending.image) {
+        const image = await this.api.upload(pending.imageFile);
+        if (!this.currentThread(generation, id)) return;
+        pending = { ...pending, image };
+        this.updateThread(id, { messages: mergeMessages(this.thread(id).messages, [pending]) });
+      }
+      const message = await this.api.send(
+        id,
+        pending.clientMessageId,
+        pending.text,
+        pending.image?.id,
+      );
       if (!this.currentThread(generation, id)) return;
       this.merge(id, [message]);
       // A send response may skip incoming sequences. Only history advances the catch-up cursor.
@@ -461,6 +517,17 @@ export class DirectMessagingSession {
           ]),
         });
     } finally {
+      if (
+        pending.imageFile &&
+        (!this.currentThread(generation, id) ||
+          this.thread(id).messages.some(
+            (message) =>
+              message.isMe &&
+              message.clientMessageId === pending.clientMessageId &&
+              message.status === 'sent',
+          ))
+      )
+        void this.releaseImage(pending.imageFile);
       if (this.currentThread(generation, id)) this.sending.delete(key);
     }
   }
@@ -503,4 +570,36 @@ export class DirectMessagingSession {
       if (this.currentThread(generation, id)) this.reading.delete(id);
     }
   }
+
+  async loadReaders(id: string) {
+    if (!this.active || this.thread(id).readersLoading) return;
+    const generation = this.generation;
+    this.updateThread(id, { readersLoading: true, readersError: '' });
+    try {
+      const readers = await this.api.readers(id);
+      if (!this.currentThread(generation, id)) return;
+      const seqs = { ...this.thread(id).readerSeqs };
+      for (const reader of readers)
+        if (compareSeq(reader.lastReadSeq, seqs[reader.user.id] ?? '0') > 0)
+          seqs[reader.user.id] = reader.lastReadSeq;
+      this.updateThread(id, { readers, readerSeqs: seqs });
+    } catch (error) {
+      if (this.currentThread(generation, id)) {
+        this.blockIfDenied(id, error);
+        if (this.currentThread(generation, id))
+          this.updateThread(id, { readersError: errorText(error) });
+      }
+    } finally {
+      if (this.currentThread(generation, id)) this.updateThread(id, { readersLoading: false });
+    }
+  }
+}
+
+export function readersForMessage(thread: DirectThread | undefined, message: DeliveryMessage) {
+  if (!message.seq || message.status !== 'sent') return [];
+  return (thread?.readers ?? []).filter(
+    (reader) =>
+      reader.user.id !== message.senderId &&
+      compareSeq(thread?.readerSeqs?.[reader.user.id] ?? reader.lastReadSeq, message.seq!) >= 0,
+  );
 }

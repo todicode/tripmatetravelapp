@@ -25,6 +25,7 @@ export default function ChatHome({
 }) {
   const { conversations, friends, requests, routes, push, back, open } = session;
   const route = routes.at(-1);
+  const ownedTrips = trips.filter((trip) => trip.ownerId === session.group.userId);
   useEffect(() => {
     if (route?.kind === 'requests') void session.refreshSocial();
   }, [route?.kind, session.refreshSocial]);
@@ -60,9 +61,11 @@ export default function ChatHome({
     return (
       <CreateGroupScreen
         friends={friends}
+        trips={ownedTrips}
+        loadAvatar={session.loadAvatar}
         onBack={back}
-        onCreate={async (name, members) => {
-          const id = await session.group.create(name, members);
+        onCreate={async (name, members, tripId) => {
+          const id = await session.group.create(name, members, tripId);
           session.setRoutes([{ kind: 'conversation', id }]);
         }}
       />
@@ -78,7 +81,13 @@ export default function ChatHome({
           onBack={back}
           loadAvatar={session.loadAvatar}
           online={session.direct.onlineUsers[directConversation.user.id] === true}
-          onSend={(text) => session.direct.store.send(directConversation.id, text)}
+          onSend={(text, image) => session.direct.store.send(directConversation.id, text, image)}
+          loadImage={(messageId, thumbnail) =>
+            session.direct.api.image(directConversation.id, messageId, thumbnail)
+          }
+          onReaders={() => {
+            void session.direct.store.loadReaders(directConversation.id);
+          }}
           onRetry={(clientId) => {
             void session.direct.store.retry(directConversation.id, clientId);
           }}
@@ -101,6 +110,8 @@ export default function ChatHome({
           group={group}
           session={session.group}
           friends={friends}
+          trips={ownedTrips}
+          loadAvatar={session.loadAvatar}
           onBack={back}
         />
       );
@@ -109,6 +120,7 @@ export default function ChatHome({
     <ChatListScreen
       conversations={conversations}
       friends={friends}
+      loadAvatar={session.loadAvatar}
       socialLoading={session.socialLoading}
       socialError={session.socialError}
       onlineUsers={session.direct.onlineUsers}

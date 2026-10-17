@@ -1,6 +1,7 @@
 package com.tripmate.messaging.application;
 
 import com.tripmate.identity.api.UserDirectory;
+import com.tripmate.media.api.ChatMedia;
 import com.tripmate.messaging.infrastructure.GroupConversationRepository;
 import com.tripmate.messaging.infrastructure.GroupConversationRepository.*;
 import com.tripmate.shared.persistence.SignedCursor;
@@ -23,6 +24,7 @@ import java.util.*;
 public class GroupMessagingService {
     private static final int MAX_MEMBERS = 100;
     private final GroupConversationRepository groups;
+    private final ChatMedia media;
     private final UserDirectory users;
     private final FriendshipAccess friends;
     private final GroupTripSharing trips;
@@ -35,7 +37,9 @@ public class GroupMessagingService {
             FriendshipAccess friends,
             GroupTripSharing trips,
             SignedCursor cursors,
-            ApplicationEventPublisher events) {
+            ApplicationEventPublisher events,
+            ChatMedia media) {
+        this.media = media;
         this.groups = groups;
         this.users = users;
         this.friends = friends;
@@ -86,6 +90,7 @@ public class GroupMessagingService {
         var profiles =
                 users.findAll(
                         lastMessages.values().stream().map(Message::senderId).distinct().toList());
+        var images = media.images(lastMessages.values().stream().map(Message::id).toList());
         return new GroupPage(
                 selected.stream()
                         .map(
@@ -97,7 +102,7 @@ public class GroupMessagingService {
                                             g,
                                             summary.readSeq(),
                                             summary.memberCount(),
-                                            last == null ? null : message(last, profiles),
+                                            last == null ? null : message(last, profiles, images),
                                             summary.unreadCount());
                                 })
                         .toList(),
@@ -241,17 +246,25 @@ public class GroupMessagingService {
     }
 
     public MessageView send(UUID id, UUID clientMessageId, String body) {
+        return send(id, clientMessageId, body, null);
+    }
+
+    public MessageView send(UUID id, UUID clientMessageId, String body, UUID mediaId) {
         UUID actor = actor();
         Group g = access(id, actor, true);
         if (clientMessageId == null
                 || body == null
-                || body.codePoints()
-                        .allMatch(c -> Character.isWhitespace(c) || Character.isSpaceChar(c))
+                || (mediaId == null
+                        && body.codePoints()
+                                .allMatch(
+                                        c -> Character.isWhitespace(c) || Character.isSpaceChar(c)))
                 || body.codePointCount(0, body.length()) > 4000)
             throw invalid("Tin nhắn cần mã gửi và nội dung không trắng, tối đa 4.000 ký tự.");
         var previous = groups.retry(id, actor, clientMessageId);
         if (previous.isPresent()) {
-            if (!previous.get().body().equals(body))
+            var image = media.images(List.of(previous.get().id())).get(previous.get().id());
+            if (!previous.get().body().equals(body)
+                    || !Objects.equals(mediaId, image == null ? null : image.id()))
                 throw conflict("IDEMPOTENCY_CONFLICT", "Mã gửi đã dùng cho nội dung khác.");
             return message(previous.get());
         }
@@ -274,6 +287,7 @@ public class GroupMessagingService {
                         g.archivedAt(),
                         g.createdAt(),
                         now));
+        if (mediaId != null) media.attachImage(mediaId, actor, created.id(), true);
         var result = message(created);
         events.publishEvent(
                 GroupRealtimeEvent.of(id, recipientIds(id), "group.message.created", result));
@@ -295,8 +309,9 @@ public class GroupMessagingService {
         long min = selected.isEmpty() ? 0 : selected.getFirst().seq();
         long max = selected.isEmpty() ? (after == null ? 0 : after) : selected.getLast().seq();
         var profiles = users.findAll(selected.stream().map(Message::senderId).distinct().toList());
+        var images = media.images(selected.stream().map(Message::id).toList());
         return new MessagePage(
-                selected.stream().map(m -> message(m, profiles)).toList(),
+                selected.stream().map(m -> message(m, profiles, images)).toList(),
                 new MessagePageInfo(more, min > 1 ? Long.toString(min) : null, Long.toString(max)));
     }
 
@@ -312,10 +327,16 @@ public class GroupMessagingService {
             events.publishEvent(
                     GroupRealtimeEvent.of(
                             id,
-                            List.of(actor),
+                            recipientIds(id),
                             "group.read.updated",
                             new DirectRealtimeEvent.ReadChanged(id, actor, Long.toString(next))));
         return new ReadView(id, Long.toString(next), Long.toString(groups.unread(id, actor, next)));
+    }
+
+    @Transactional(readOnly = true)
+    public void requireMessageAccess(UUID id, UUID messageId) {
+        access(id, actor(), false);
+        if (groups.message(id, messageId).isEmpty()) throw notFound();
     }
 
     private Group access(UUID id, UUID actor, boolean lock) {
@@ -391,6 +412,13 @@ public class GroupMessagingService {
     }
 
     private MessageView message(Message m, Map<UUID, UserDirectory.UserSummary> profiles) {
+        return message(m, profiles, media.images(List.of(m.id())));
+    }
+
+    private MessageView message(
+            Message m,
+            Map<UUID, UserDirectory.UserSummary> profiles,
+            Map<UUID, ChatMedia.Image> images) {
         return new MessageView(
                 m.id(),
                 m.conversationId(),
@@ -398,7 +426,8 @@ public class GroupMessagingService {
                 summary(profiles.get(m.senderId())),
                 m.clientMessageId(),
                 m.body(),
-                m.createdAt());
+                m.createdAt(),
+                images.get(m.id()));
     }
 
     private UserSummary summary(UserDirectory.UserSummary u) {
@@ -529,7 +558,19 @@ public class GroupMessagingService {
             UserSummary sender,
             UUID clientMessageId,
             String body,
-            Instant createdAt) {}
+            Instant createdAt,
+            ChatMedia.Image image) {
+        public MessageView(
+                UUID id,
+                UUID conversationId,
+                String seq,
+                UserSummary sender,
+                UUID clientMessageId,
+                String body,
+                Instant createdAt) {
+            this(id, conversationId, seq, sender, clientMessageId, body, createdAt, null);
+        }
+    }
 
     public record PageInfo(String nextCursor, boolean hasMore) {}
 

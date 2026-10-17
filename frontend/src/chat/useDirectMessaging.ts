@@ -5,6 +5,7 @@ import type { AuthorizedRequest, RealtimeCredentials } from '../auth/session';
 import { createDirectMessageApi } from './directMessageApi';
 import { DirectMessagingSession, toListConversation } from './directMessagingModel';
 import { DirectRealtimeConnection, type RealtimeCompanion } from './directRealtime';
+import { releaseChatImage } from './chatImagePicker';
 
 export function useDirectMessaging(
   request: AuthorizedRequest,
@@ -15,7 +16,14 @@ export function useDirectMessaging(
   companion?: RealtimeCompanion,
 ) {
   const store = useMemo(
-    () => new DirectMessagingSession(createDirectMessageApi(request), userId, Crypto.randomUUID),
+    () =>
+      new DirectMessagingSession(
+        createDirectMessageApi(request),
+        userId,
+        Crypto.randomUUID,
+        false,
+        releaseChatImage,
+      ),
     [request, userId],
   );
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
@@ -73,6 +81,7 @@ export function useDirectMessaging(
         if (id) {
           await store.load(id);
           await store.sync(id);
+          await store.loadReaders(id);
         }
         await companion?.ready();
       },
@@ -107,7 +116,10 @@ export function useDirectMessaging(
       if (foreground()) void store.refresh(false);
     };
     const sync = () => {
-      if (foreground() && selectedId) void store.sync(selectedId);
+      if (foreground() && selectedId) {
+        void store.sync(selectedId);
+        void store.loadReaders(selectedId);
+      }
     };
     const resume = () => {
       if (!foreground()) return;
@@ -128,6 +140,7 @@ export function useDirectMessaging(
   }, [store, visible, selectedId, realtimeConnected]);
   return {
     ...state,
+    api: createDirectMessageApi(request),
     store,
     realtimeConnected,
     onlineUsers,

@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "TripMate API Contract",
-    "version": "1.7.0",
+    "version": "1.8.0",
     "description": "Contract-first TripMate API for the Spring backend and mobile React Native client. Version 1.5.1 adds authenticated group realtime events on the same private STOMP queue as personal chat. Independent group REST operations, membership and owner-verified read-only trip sharing are unchanged. This JSON is the canonical wire format; examples use fixture data. Rules: docs/api/TEAM_RULES.md. Realtime: x-realtime. Bigint values are sent as strings."
   },
   "servers": [
@@ -9073,6 +9073,29 @@
                       },
                       "requestId": "00000000-0000-4000-8000-000000000090"
                     }
+                  },
+                  "image": {
+                    "value": {
+                      "data": {
+                        "id": "00000000-0000-4000-8000-000000000181",
+                        "conversationId": "00000000-0000-4000-8000-000000000180",
+                        "seq": "1",
+                        "sender": {
+                          "id": "00000000-0000-4000-8000-000000000002",
+                          "displayName": "Member",
+                          "avatarMediaId": null
+                        },
+                        "clientMessageId": "00000000-0000-4000-8000-000000000182",
+                        "body": "",
+                        "createdAt": "2026-10-05T00:00:00Z",
+                        "image": {
+                          "id": "00000000-0000-4000-8000-000000000040",
+                          "width": 800,
+                          "height": 400
+                        }
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
                   }
                 }
               }
@@ -9124,6 +9147,13 @@
                   "value": {
                     "clientMessageId": "00000000-0000-4000-8000-000000000182",
                     "body": "Hello group!"
+                  }
+                },
+                "image": {
+                  "value": {
+                    "clientMessageId": "00000000-0000-4000-8000-000000000060",
+                    "body": "",
+                    "mediaId": "00000000-0000-4000-8000-000000000040"
                   }
                 }
               }
@@ -9723,6 +9753,29 @@
                       },
                       "requestId": "00000000-0000-4000-8000-000000000090"
                     }
+                  },
+                  "image": {
+                    "value": {
+                      "data": {
+                        "id": "00000000-0000-4000-8000-000000000081",
+                        "conversationId": "00000000-0000-4000-8000-000000000080",
+                        "seq": "1",
+                        "sender": {
+                          "id": "00000000-0000-4000-8000-000000000002",
+                          "displayName": "Recipient",
+                          "avatarMediaId": null
+                        },
+                        "clientMessageId": "00000000-0000-4000-8000-000000000082",
+                        "body": "",
+                        "createdAt": "2026-10-03T03:00:00Z",
+                        "image": {
+                          "id": "00000000-0000-4000-8000-000000000040",
+                          "width": 800,
+                          "height": 400
+                        }
+                      },
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
                   }
                 }
               }
@@ -9902,6 +9955,13 @@
                   "value": {
                     "clientMessageId": "00000000-0000-4000-8000-000000000082",
                     "body": "Hello!"
+                  }
+                },
+                "image": {
+                  "value": {
+                    "clientMessageId": "00000000-0000-4000-8000-000000000060",
+                    "body": "",
+                    "mediaId": "00000000-0000-4000-8000-000000000040"
                   }
                 }
               }
@@ -10201,6 +10261,364 @@
             }
           }
         }
+      }
+    },
+    "/chat/avatars/{mediaId}": {
+      "get": {
+        "tags": [
+          "Media"
+        ],
+        "operationId": "downloadChatAvatar",
+        "summary": "Ảnh chat riêng tư",
+        "description": "Avatar hiện tại: chủ sở hữu/bạn bè/thành viên đang cùng nhóm. Ảnh tin: kiểm tra quyền cuộc trò chuyện và messageId thuộc đúng cuộc trò chuyện mỗi lần; bucket không public. JPEG chuẩn hóa, private no-store.",
+        "x-permission": "CURRENT_AVATAR_AUDIENCE",
+        "responses": {
+          "200": {
+            "description": "Stream thumbnail có kiểm tra quyền",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              },
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string",
+                  "example": "inline; filename=\"image.jpg\""
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error410"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          }
+        },
+        "parameters": [
+          {
+            "name": "mediaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000040"
+            }
+          }
+        ]
+      }
+    },
+    "/direct-conversations/{id}/messages/{messageId}/image": {
+      "get": {
+        "tags": [
+          "Media"
+        ],
+        "operationId": "downloadDirectChatImage",
+        "summary": "Ảnh chat riêng tư",
+        "description": "Avatar hiện tại: chủ sở hữu/bạn bè/thành viên đang cùng nhóm. Ảnh tin: kiểm tra quyền cuộc trò chuyện và messageId thuộc đúng cuộc trò chuyện mỗi lần; bucket không public. JPEG chuẩn hóa, private no-store.",
+        "x-permission": "DIRECT_PARTICIPANT",
+        "responses": {
+          "200": {
+            "description": "Stream thumbnail có kiểm tra quyền",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              },
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string",
+                  "example": "inline; filename=\"image.jpg\""
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error410"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000170"
+            }
+          },
+          {
+            "name": "messageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000060"
+            }
+          },
+          {
+            "name": "thumbnail",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        ]
+      }
+    },
+    "/group-conversations/{id}/messages/{messageId}/image": {
+      "get": {
+        "tags": [
+          "Media"
+        ],
+        "operationId": "downloadGroupChatImage",
+        "summary": "Ảnh chat riêng tư",
+        "description": "Avatar hiện tại: chủ sở hữu/bạn bè/thành viên đang cùng nhóm. Ảnh tin: kiểm tra quyền cuộc trò chuyện và messageId thuộc đúng cuộc trò chuyện mỗi lần; bucket không public. JPEG chuẩn hóa, private no-store.",
+        "x-permission": "GROUP_ACTIVE_MEMBER",
+        "responses": {
+          "200": {
+            "description": "Stream thumbnail có kiểm tra quyền",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "example": "00000000-0000-4000-8000-000000000090",
+                  "format": "uuid"
+                }
+              },
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string",
+                  "example": "inline; filename=\"image.jpg\""
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error410"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000180"
+            }
+          },
+          {
+            "name": "messageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000060"
+            }
+          },
+          {
+            "name": "thumbnail",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        ]
+      }
+    },
+    "/direct-conversations/{id}/readers": {
+      "get": {
+        "tags": [
+          "Group messaging"
+        ],
+        "operationId": "listDirectMessageReaders",
+        "summary": "Mốc đã đọc của hai người tham gia",
+        "description": "Chỉ participant; lastReadSeq đơn điệu, không phải thời điểm xem từng tin.",
+        "x-permission": "DIRECT_PARTICIPANT",
+        "responses": {
+          "200": {
+            "description": "List active group members",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "00000000-0000-4000-8000-000000000090"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageReaderListResponse"
+                },
+                "examples": {
+                  "empty": {
+                    "value": {
+                      "data": [],
+                      "requestId": "00000000-0000-4000-8000-000000000090"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "00000000-0000-4000-8000-000000000180"
+            }
+          }
+        ]
       }
     }
   },
@@ -12868,7 +13286,8 @@
             "example": "CHAT",
             "enum": [
               "CHAT",
-              "AVATAR"
+              "AVATAR",
+              "CHAT_IMAGE"
             ]
           },
           "status": {
@@ -12960,7 +13379,8 @@
             "example": "AVATAR",
             "enum": [
               "AVATAR",
-              "CHAT"
+              "CHAT",
+              "CHAT_IMAGE"
             ]
           },
           "tripId": {
@@ -12978,7 +13398,7 @@
           "file"
         ],
         "additionalProperties": false,
-        "description": "multipart/form-data, đúng một file. CHAT bắt buộc tripId; AVATAR bỏ tripId. 1..10000000 byte. MIME và magic bytes được backend xác minh; AVATAR chỉ nhận ảnh."
+        "description": "multipart/form-data, đúng một file. CHAT bắt buộc tripId; AVATAR bỏ tripId. 1..10000000 byte. MIME và magic bytes được backend xác minh; AVATAR chỉ nhận ảnh. Direct/group chat hiện dùng CHAT_IMAGE, bỏ tripId, chỉ JPEG/PNG/WebP; ảnh chuẩn hóa giữ tỉ lệ, TTL orphan 24 giờ. CHAT theo chuyến là baseline riêng chưa triển khai."
       },
       "SendMessage": {
         "oneOf": [
@@ -15315,16 +15735,36 @@
           },
           "body": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 4000,
-            "pattern": "\\S"
+            "maxLength": 4000
+          },
+          "mediaId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Ảnh READY purpose=CHAT_IMAGE do người gửi upload; một ảnh cho mỗi tin."
           }
         },
         "required": [
           "clientMessageId",
           "body"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "mediaId"
+            ]
+          },
+          {
+            "properties": {
+              "body": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "[^\\s\\u00a0]"
+              }
+            }
+          }
+        ],
+        "description": "body bắt buộc (có thể rỗng khi có mediaId). Retry cùng clientMessageId phải khớp cả body và mediaId."
       },
       "ReadDirectConversation": {
         "type": "object",
@@ -15369,12 +15809,35 @@
           },
           "body": {
             "type": "string",
-            "minLength": 1,
             "maxLength": 4000
           },
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "image": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "width": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "height": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "id",
+              "width",
+              "height"
+            ],
+            "additionalProperties": false,
+            "nullable": true
           }
         },
         "required": [
@@ -15425,12 +15888,35 @@
               },
               "body": {
                 "type": "string",
-                "minLength": 1,
                 "maxLength": 4000
               },
               "createdAt": {
                 "type": "string",
                 "format": "date-time"
+              },
+              "image": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "width": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "height": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "id",
+                  "width",
+                  "height"
+                ],
+                "additionalProperties": false,
+                "nullable": true
               }
             },
             "required": [
@@ -15723,12 +16209,35 @@
               },
               "body": {
                 "type": "string",
-                "minLength": 1,
                 "maxLength": 4000
               },
               "createdAt": {
                 "type": "string",
                 "format": "date-time"
+              },
+              "image": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "width": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "height": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "id",
+                  "width",
+                  "height"
+                ],
+                "additionalProperties": false,
+                "nullable": true
               }
             },
             "required": [
@@ -15927,16 +16436,36 @@
           },
           "body": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 4000,
-            "pattern": "[^\\s\\u00a0]"
+            "maxLength": 4000
+          },
+          "mediaId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Ảnh READY purpose=CHAT_IMAGE do người gửi upload; một ảnh cho mỗi tin."
           }
         },
         "required": [
           "clientMessageId",
           "body"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "mediaId"
+            ]
+          },
+          {
+            "properties": {
+              "body": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "[^\\s\\u00a0]"
+              }
+            }
+          }
+        ],
+        "description": "body bắt buộc (có thể rỗng khi có mediaId). Retry cùng clientMessageId phải khớp cả body và mediaId."
       },
       "ReadGroupMessages": {
         "type": "object",
@@ -16466,7 +16995,8 @@
           "occurredAt",
           "data"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Published to every currently active group member after commit, including reader devices, so sender receipts update live."
       },
       "EventGroupChanged": {
         "type": "object",
@@ -16675,6 +17205,65 @@
             "example": "PENDING"
           }
         }
+      },
+      "ChatImage": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "id",
+          "width",
+          "height"
+        ],
+        "additionalProperties": false
+      },
+      "MessageReader": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/UserSummary"
+          },
+          "lastReadSeq": {
+            "$ref": "#/components/schemas/UInt64String"
+          }
+        },
+        "required": [
+          "user",
+          "lastReadSeq"
+        ],
+        "additionalProperties": false
+      },
+      "MessageReaderListResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MessageReader"
+            }
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ],
+        "additionalProperties": false
       }
     },
     "responses": {

@@ -1,5 +1,6 @@
 import { ApiRequestError, AuthorizedRequest } from '../auth/session';
 import { AvatarDraft, Interest, Profile } from './profileModel';
+import { jpegDataUri } from '../media/imageContent';
 
 function parseProfile(value: unknown, userId: string): Profile {
   if (!value || typeof value !== 'object') throw invalidProfile();
@@ -82,12 +83,7 @@ export function createProfileApi(request: AuthorizedRequest, userId: string) {
         { responseType: 'arrayBuffer' },
       );
       // Thumbnails are normalized JPEGs. Avoid the native Blob store and FileReader round trip.
-      const bytes = new Uint8Array(buffer);
-      let binary = '';
-      for (let offset = 0; offset < bytes.length; offset += 8192) {
-        binary += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
-      }
-      return `data:image/jpeg;base64,${btoa(binary)}`;
+      return jpegDataUri(buffer);
     },
   };
 }

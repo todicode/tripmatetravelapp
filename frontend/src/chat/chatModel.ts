@@ -1,12 +1,19 @@
 import { makeId, normalizeName } from '../trips/tripModel';
 
-export type Friend = { id: string; name: string; phone: string; avatar: string };
+export type Friend = {
+  id: string;
+  name: string;
+  phone: string;
+  avatar: string;
+  avatarMediaId?: string | null;
+};
 export type Message = { id: string; text: string; isMe: boolean; senderName: string; time: string };
 export type Conversation = {
   id: string;
   type: 'friend' | 'group';
   name: string;
   avatar: string;
+  avatarMediaId?: string | null;
   members: string[];
   tripId?: string;
   tripLabel?: string;

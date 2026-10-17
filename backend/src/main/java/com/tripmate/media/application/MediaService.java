@@ -1,6 +1,7 @@
 package com.tripmate.media.application;
 
 import com.tripmate.media.api.AvatarMedia;
+import com.tripmate.media.api.ChatMedia;
 import com.tripmate.media.domain.ObjectStorage;
 import com.tripmate.shared.web.ApiException;
 
@@ -22,9 +23,10 @@ import java.util.Objects;
 import java.util.UUID;
 
 @Service
-public class MediaService implements AvatarMedia {
+public class MediaService implements AvatarMedia, ChatMedia {
     private static final Logger log = LoggerFactory.getLogger(MediaService.class);
     private final JdbcTemplate jdbc;
+    private final org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate named;
     private final TransactionTemplate transactions;
     private final ObjectStorage storage;
     private final AvatarImageProcessor processor;
@@ -35,6 +37,7 @@ public class MediaService implements AvatarMedia {
             ObjectStorage storage,
             AvatarImageProcessor processor) {
         this.jdbc = jdbc;
+        this.named = new org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate(jdbc);
         this.transactions = new TransactionTemplate(manager);
         this.storage = storage;
         this.processor = processor;
@@ -66,7 +69,19 @@ public class MediaService implements AvatarMedia {
             long reservedBytes) {}
 
     public MediaView upload(UUID userId, byte[] bytes, String filename) {
-        var image = processor.process(bytes);
+        return upload(userId, bytes, filename, "AVATAR");
+    }
+
+    public MediaView upload(UUID userId, byte[] bytes, String filename, String purpose) {
+        if (!java.util.Set.of("AVATAR", "CHAT_IMAGE").contains(purpose))
+            throw error(
+                    HttpStatus.UNPROCESSABLE_ENTITY,
+                    "VALIDATION_ERROR",
+                    "Loại ảnh không được hỗ trợ.");
+        var image =
+                "CHAT_IMAGE".equals(purpose)
+                        ? processor.processChat(bytes)
+                        : processor.process(bytes);
         String safeName = filename == null ? "avatar.jpg" : filename.replace('\\', '/');
         safeName = safeName.substring(safeName.lastIndexOf('/') + 1).replaceAll("[\\p{Cntrl}]", "");
         final String originalFilename =
@@ -80,7 +95,8 @@ public class MediaService implements AvatarMedia {
                                                 255,
                                                 safeName.codePointCount(0, safeName.length()))));
         UUID id = UUID.randomUUID();
-        String key = "avatars/" + id + ".jpg", thumbnail = "avatars/" + id + "-thumb.jpg";
+        String prefix = "AVATAR".equals(purpose) ? "avatars/" : "chat/";
+        String key = prefix + id + ".jpg", thumbnail = prefix + id + "-thumb.jpg";
         long reserved = (long) image.content().length + image.thumbnail().length;
         transactions.executeWithoutResult(
                 status -> {
@@ -103,10 +119,11 @@ public class MediaService implements AvatarMedia {
                             """
                             INSERT INTO media_assets(id,uploader_id,purpose,status,object_key,thumbnail_key,original_filename,
                               mime_type,size_bytes,thumbnail_size_bytes,reserved_bytes,width,height,orphan_expires_at)
-                            VALUES (?,?,'AVATAR','PENDING',?,?,?,'image/jpeg',?,?,?,?,?,now()+interval '24 hours')
+                            VALUES (?,?,?,'PENDING',?,?,?,'image/jpeg',?,?,?,?,?,now()+interval '24 hours')
                             """,
                             id,
                             userId,
+                            purpose,
                             key,
                             thumbnail,
                             originalFilename,
@@ -160,7 +177,8 @@ public class MediaService implements AvatarMedia {
         if (Objects.equals(previousId, nextId)) return;
         if (nextId != null) {
             Asset next = own(nextId, userId, true);
-            if (!"READY".equals(next.view.status())
+            if (!"AVATAR".equals(next.view.purpose())
+                    || !"READY".equals(next.view.status())
                     || !next.view.orphanExpiresAt().isAfter(Instant.now())) {
                 throw error(
                         HttpStatus.CONFLICT,
@@ -261,6 +279,80 @@ public class MediaService implements AvatarMedia {
                 });
     }
 
+    @Override
+    @Transactional
+    public void attachImage(UUID mediaId, UUID actor, UUID messageId, boolean group) {
+        Asset asset = own(mediaId, actor, true);
+        if (!"CHAT_IMAGE".equals(asset.view.purpose())
+                || !"READY".equals(asset.view.status())
+                || !asset.view.orphanExpiresAt().isAfter(Instant.now()))
+            throw error(
+                    HttpStatus.CONFLICT,
+                    "MEDIA_NOT_READY",
+                    "Ảnh không còn sẵn sàng. Hãy chọn lại ảnh.");
+        jdbc.update(
+                "INSERT INTO chat_message_images(media_id,direct_message_id,group_message_id)"
+                        + " VALUES (?,?,?)",
+                mediaId,
+                group ? null : messageId,
+                group ? messageId : null);
+        jdbc.update(
+                "UPDATE media_assets SET status='ATTACHED',attached_at=now(),updated_at=now() WHERE"
+                        + " id=?",
+                mediaId);
+    }
+
+    @Override
+    public java.util.Map<UUID, ChatMedia.Image> images(java.util.Collection<UUID> messageIds) {
+        if (messageIds.isEmpty()) return java.util.Map.of();
+        var result = new java.util.HashMap<UUID, ChatMedia.Image>();
+        named.query(
+                """
+                SELECT COALESCE(i.direct_message_id,i.group_message_id) message_id,m.id,m.width,m.height
+                FROM chat_message_images i JOIN media_assets m ON m.id=i.media_id
+                WHERE COALESCE(i.direct_message_id,i.group_message_id) IN (:ids) AND m.status='ATTACHED'
+                """,
+                java.util.Map.of("ids", messageIds),
+                row -> {
+                    result.put(
+                            row.getObject("message_id", UUID.class),
+                            new ChatMedia.Image(
+                                    row.getObject("id", UUID.class),
+                                    row.getInt("width"),
+                                    row.getInt("height")));
+                });
+        return result;
+    }
+
+    @Override
+    public ChatMedia.Content messageImage(UUID messageId, boolean thumbnail) {
+        var image = images(java.util.List.of(messageId)).get(messageId);
+        if (image == null) throw notFound();
+        Asset asset = find(image.id(), false);
+        if (asset == null
+                || !"CHAT_IMAGE".equals(asset.view.purpose())
+                || !"ATTACHED".equals(asset.view.status())) throw notFound();
+        return new ChatMedia.Content(
+                storage.open(thumbnail ? asset.thumbnailKey : asset.objectKey),
+                thumbnail ? asset.thumbnailBytes : Long.parseLong(asset.view.sizeBytes()));
+    }
+
+    @Override
+    public UUID avatarOwner(UUID mediaId) {
+        Asset asset = find(mediaId, false);
+        if (asset == null
+                || !"AVATAR".equals(asset.view.purpose())
+                || !"ATTACHED".equals(asset.view.status())) throw notFound();
+        return asset.view.uploaderId();
+    }
+
+    @Override
+    public ChatMedia.Content avatarThumbnail(UUID mediaId) {
+        avatarOwner(mediaId);
+        Asset asset = find(mediaId, false);
+        return new ChatMedia.Content(storage.open(asset.thumbnailKey), asset.thumbnailBytes);
+    }
+
     private Asset own(UUID id, UUID userId, boolean lock) {
         Asset asset = find(id, lock);
         if (asset == null || !asset.view.uploaderId().equals(userId)) throw notFound();
@@ -284,7 +376,7 @@ public class MediaService implements AvatarMedia {
                         row.getObject("id", UUID.class),
                         row.getObject("uploader_id", UUID.class),
                         null,
-                        "AVATAR",
+                        row.getString("purpose"),
                         state,
                         row.getString("original_filename"),
                         row.getString("mime_type"),

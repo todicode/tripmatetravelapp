@@ -2,6 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { apiRequest } from './api';
+import { realtimeUrl } from './realtimeUrl';
 import {
   ApiRequestError,
   HttpMethod,
@@ -145,9 +146,7 @@ export function useSessionViewModel(baseUrl: string) {
 
   const realtimeCredentials = useCallback<RealtimeCredentials>(
     async (refresh = false) => {
-      const url = new URL('/ws', baseUrl);
-      url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-      return { url: url.toString(), accessToken: await manager.accessToken(refresh) };
+      return { url: realtimeUrl(baseUrl), accessToken: await manager.accessToken(refresh) };
     },
     [manager, baseUrl],
   );

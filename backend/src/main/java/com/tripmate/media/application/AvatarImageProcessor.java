@@ -23,6 +23,14 @@ public class AvatarImageProcessor {
     public record AvatarImage(byte[] content, byte[] thumbnail, int width, int height) {}
 
     public AvatarImage process(byte[] bytes) {
+        return process(bytes, false);
+    }
+
+    public AvatarImage processChat(byte[] bytes) {
+        return process(bytes, true);
+    }
+
+    private AvatarImage process(byte[] bytes, boolean preserveRatio) {
         if (bytes.length == 0) throw invalid("Ảnh không được rỗng.");
         if (bytes.length > 10_000_000)
             throw new ApiException(
@@ -43,6 +51,21 @@ public class AvatarImageProcessor {
                 int sample = Math.max(1, Math.max(width, height) / 2048);
                 parameters.setSourceSubsampling(sample, sample, 0, 0);
                 BufferedImage decoded = reader.read(0, parameters);
+                if (preserveRatio) {
+                    double scale =
+                            Math.min(1, 1600.0 / Math.max(decoded.getWidth(), decoded.getHeight()));
+                    int w = Math.max(1, (int) Math.round(decoded.getWidth() * scale));
+                    int h = Math.max(1, (int) Math.round(decoded.getHeight() * scale));
+                    double thumbScale = Math.min(1, 400.0 / Math.max(w, h));
+                    return new AvatarImage(
+                            rectangle(decoded, w, h),
+                            rectangle(
+                                    decoded,
+                                    Math.max(1, (int) Math.round(w * thumbScale)),
+                                    Math.max(1, (int) Math.round(h * thumbScale))),
+                            w,
+                            h);
+                }
                 int size = Math.min(1024, Math.min(decoded.getWidth(), decoded.getHeight()));
                 return new AvatarImage(
                         square(decoded, size), square(decoded, Math.min(256, size)), size, size);
@@ -72,6 +95,24 @@ public class AvatarImageProcessor {
         if (!ImageIO.write(target, "jpeg", output))
             throw new IOException("JPEG encoder unavailable");
         return output.toByteArray(); // Re-encoding strips source metadata and non-image payloads.
+    }
+
+    private byte[] rectangle(BufferedImage source, int width, int height) throws IOException {
+        var target = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        var graphics = target.createGraphics();
+        try {
+            graphics.setColor(Color.WHITE);
+            graphics.fillRect(0, 0, width, height);
+            graphics.setRenderingHint(
+                    RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+            graphics.drawImage(source, 0, 0, width, height, null);
+        } finally {
+            graphics.dispose();
+        }
+        var output = new ByteArrayOutputStream();
+        if (!ImageIO.write(target, "jpeg", output))
+            throw new IOException("JPEG encoder unavailable");
+        return output.toByteArray();
     }
 
     private ApiException unsupported() {

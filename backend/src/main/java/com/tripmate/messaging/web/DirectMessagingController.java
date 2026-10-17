@@ -55,13 +55,21 @@ public class DirectMessagingController {
         return response(messaging.history(id, beforeSeq, afterSeq, limit), request);
     }
 
+    @GetMapping("/{id}/readers")
+    public ResponseEntity<ApiResponse<java.util.List<ReaderView>>> readers(
+            @PathVariable UUID id, HttpServletRequest request) {
+        return response(messaging.readers(id), request);
+    }
+
     @PostMapping(value = "/{id}/messages", consumes = "application/json")
     public ResponseEntity<ApiResponse<MessageView>> send(
             @PathVariable UUID id,
             @Valid @RequestBody SendRequest body,
             HttpServletRequest request) {
         return response(
-                messaging.send(id, body.clientMessageId(), string(body.body(), "body")), request);
+                messaging.send(
+                        id, body.clientMessageId(), string(body.body(), "body"), body.mediaId()),
+                request);
     }
 
     @PutMapping(value = "/{id}/read", consumes = "application/json")
@@ -90,7 +98,7 @@ public class DirectMessagingController {
 
     public record OpenRequest(@NotNull UUID recipientId) {}
 
-    public record SendRequest(@NotNull UUID clientMessageId, @NotNull Object body) {}
+    public record SendRequest(@NotNull UUID clientMessageId, @NotNull Object body, UUID mediaId) {}
 
     public record ReadRequest(@NotNull Object lastReadSeq) {}
 }

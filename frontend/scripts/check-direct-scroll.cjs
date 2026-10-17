@@ -5,7 +5,7 @@ const vm = require('node:vm');
 const ts = require('typescript');
 const { test } = require('node:test');
 
-function screen() {
+function screen(os = 'android') {
   const refs = [],
     states = [],
     frames = new Map(),
@@ -35,7 +35,7 @@ function screen() {
     },
   };
   const native = new Proxy(
-    { AppState: { addEventListener: () => ({ remove() {} }) }, Platform: { OS: 'android' } },
+    { AppState: { addEventListener: () => ({ remove() {} }) }, Platform: { OS: os } },
     { get: (target, key) => target[key] || key },
   );
   const source = fs.readFileSync(
@@ -52,7 +52,31 @@ function screen() {
     require: (name) => {
       if (name === 'react') return react;
       if (name === 'react-native') return native;
-      if (name === './directMessagingModel') return { compareSeq: (a, b) => Number(a) - Number(b) };
+      if (name === 'react-native-safe-area-context')
+        return { useSafeAreaInsets: () => ({ top: 48 }) };
+      if (name === './directMessagingModel')
+        return { compareSeq: (a, b) => Number(a) - Number(b), readersForMessage: () => [] };
+      if (name === './useChatImage') return { useChatImage: () => ({ uri: undefined }) };
+      if (name === './useMeasuredRead')
+        return { useMeasuredRead: () => ({ viewport: { current: null }, row: { current: null } }) };
+      if (name === './ChatAvatar') return { __esModule: true, default: 'Avatar' };
+      if (name === './useMessageComposer') {
+        const composer = {
+          exports: {},
+          require: (dep) =>
+            dep === 'react'
+              ? react
+              : { pickChatImage: async () => null, releaseChatImage: async () => {} },
+        };
+        vm.runInNewContext(
+          ts.transpileModule(
+            fs.readFileSync(path.resolve(__dirname, '../src/chat/useMessageComposer.ts'), 'utf8'),
+            { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } },
+          ).outputText,
+          composer,
+        );
+        return composer.exports;
+      }
       return {
         Avatar: 'Avatar',
         IconButton: 'IconButton',
@@ -98,6 +122,19 @@ function screen() {
     },
   };
 }
+
+test('chat keeps the composer above the keyboard on Android and iOS', () => {
+  for (const [os, behavior] of [
+    ['android', 'height'],
+    ['ios', 'padding'],
+  ]) {
+    const h = screen(os);
+    const keyboard = h.find(h.render(), 'KeyboardAvoidingView');
+    assert.notEqual(keyboard.props.enabled, false);
+    assert.equal(keyboard.props.behavior, behavior);
+    assert.equal(keyboard.props.keyboardVerticalOffset, 48);
+  }
+});
 
 test('sending scrolls after content layout even if preserving the old position reports an offset', () => {
   const h = screen();

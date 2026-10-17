@@ -33,7 +33,14 @@ class DirectMessagingServiceTest {
     private final org.springframework.context.ApplicationEventPublisher events =
             mock(org.springframework.context.ApplicationEventPublisher.class);
     private final DirectMessagingService service =
-            new DirectMessagingService(users, friends, conversations, messages, cursors, events);
+            new DirectMessagingService(
+                    users,
+                    friends,
+                    conversations,
+                    messages,
+                    cursors,
+                    events,
+                    mock(com.tripmate.media.api.ChatMedia.class));
     private final UserEntity low = user("00000000-0000-4000-8000-000000000001");
     private final UserEntity high = user("ffffffff-ffff-4fff-8fff-ffffffffffff");
     private final DirectConversationEntity conversation =

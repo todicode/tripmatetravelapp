@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import ChatAvatar from './ChatAvatar';
 import { Conversation, Friend } from './chatModel';
 import { normalizeName } from '../trips/tripModel';
 import { Avatar, useChatUi, Icon, IconButton, Tabs } from './chatUi';
@@ -29,8 +30,10 @@ export default function ChatListScreen({
   onAddFriend,
   onCreateGroup,
   onlineUsers = {},
+  loadAvatar,
 }: {
   onlineUsers?: Record<string, boolean>;
+  loadAvatar?: (id: string) => Promise<string>;
   conversations: Conversation[];
   friends: Friend[];
   socialLoading: boolean;
@@ -164,7 +167,7 @@ export default function ChatListScreen({
                   pressed && { opacity: 0.6 },
                 ]}
               >
-                <Avatar text={item.avatar} />
+                <ChatAvatar text={item.avatar} mediaId={item.avatarMediaId} load={loadAvatar} />
                 <View style={s.grow}>
                   <Text numberOfLines={1} style={s.title}>
                     {item.name}
@@ -235,8 +238,10 @@ export default function ChatListScreen({
                 onPress={() => onOpen(item.id)}
                 style={({ pressed }) => [u.listRow, pressed && { backgroundColor: c.pale }]}
               >
-                <Avatar
+                <ChatAvatar
                   text={item.avatar}
+                  mediaId={item.avatarMediaId}
+                  load={loadAvatar}
                   group={item.type === 'group'}
                   online={item.type === 'friend' && onlineUsers[item.members[0]] === true}
                 />

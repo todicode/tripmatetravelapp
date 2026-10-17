@@ -9,7 +9,20 @@ function load(name) {
   const output = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
-  const context = { exports: {}, Error, Date, BigInt };
+  const context = {
+    exports: {},
+    Error,
+    Date,
+    BigInt,
+    btoa,
+    require: (relative) =>
+      load(
+        path.relative(
+          path.resolve(__dirname, '../src/chat'),
+          path.resolve(__dirname, '../src/chat', path.dirname(name), relative + '.ts'),
+        ),
+      ),
+  };
   vm.runInNewContext(output, context);
   return context.exports;
 }
@@ -419,4 +432,97 @@ test('failed history can be retried, and stale account responses cannot revive p
   const fresh = fixture();
   await fresh.store.refresh();
   assert.equal(fresh.store.getSnapshot().conversations.length, 1);
+});
+
+test('photo retry reuses the upload and client key after an uncertain message response', async () => {
+  let uploads = 0,
+    sends = 0;
+  const keys = [];
+  const photo = { id: 'photo', width: 80, height: 40 };
+  const f = fixture({
+    upload: async () => {
+      uploads++;
+      return photo;
+    },
+    send: async (_id, key, body, mediaId) => {
+      keys.push([key, mediaId]);
+      if (++sends === 1) throw Error('response lost');
+      return { ...message('1', 'me', key), body, image: photo };
+    },
+  });
+  await ready(f);
+  await f.store.send('conversation', '', {
+    uri: 'file://qa.jpg',
+    name: 'qa.jpg',
+    type: 'image/jpeg',
+  });
+  let row = f.store.getSnapshot().threads.conversation.messages[0];
+  assert.equal(row.status, 'failed');
+  assert.equal(row.image.id, 'photo');
+  await f.store.retry('conversation', row.clientMessageId);
+  assert.equal(uploads, 1);
+  assert.deepEqual(keys, [
+    ['generated-1', 'photo'],
+    ['generated-1', 'photo'],
+  ]);
+  assert.equal(f.store.getSnapshot().threads.conversation.messages.length, 1);
+  assert.equal(f.store.getSnapshot().threads.conversation.messages[0].status, 'sent');
+});
+
+test('late photo uploads cannot send after account teardown', async () => {
+  const pending = deferred();
+  let sends = 0;
+  const f = fixture({
+    upload: () => pending.promise,
+    send: async () => {
+      sends++;
+    },
+  });
+  await ready(f);
+  const sending = f.store.send('conversation', '', {
+    uri: 'file://qa.jpg',
+    name: 'qa.jpg',
+    type: 'image/jpeg',
+  });
+  f.store.deactivate();
+  pending.resolve({ id: 'late', width: 1, height: 1 });
+  await sending;
+  assert.equal(sends, 0);
+});
+
+test('read receipts merge monotonic realtime markers with a delayed reader snapshot', async () => {
+  const pending = deferred();
+  const f = fixture({ readers: () => pending.promise });
+  await ready(f);
+  const loading = f.store.loadReaders('conversation');
+  f.store.receive({
+    type: 'direct.read.updated',
+    eventId: 'read-new',
+    data: { conversationId: 'conversation', userId: 'peer', lastReadSeq: '9007199254740993' },
+  });
+  pending.resolve([{ user, lastReadSeq: '1' }]);
+  await loading;
+  f.store.receive({
+    type: 'direct.read.updated',
+    eventId: 'read-old',
+    data: { conversationId: 'conversation', userId: 'peer', lastReadSeq: '2' },
+  });
+  assert.equal(f.store.getSnapshot().threads.conversation.readerSeqs.peer, '9007199254740993');
+  const { readersForMessage } = load('directMessagingModel.ts');
+  assert.equal(
+    readersForMessage(f.store.getSnapshot().threads.conversation, {
+      seq: '9007199254740993',
+      senderId: 'me',
+      status: 'sent',
+    }).length,
+    1,
+  );
+  assert.equal(
+    readersForMessage(f.store.getSnapshot().threads.conversation, {
+      seq: '9007199254740994',
+      senderId: 'me',
+      status: 'sent',
+    }).length,
+    0,
+  );
 });

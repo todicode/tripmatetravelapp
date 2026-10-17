@@ -7,21 +7,30 @@ import { useGroupDetails } from './useGroupDetails';
 import DirectConversationScreen from './DirectConversationScreen';
 import { Avatar, IconButton, Sheet, useChatUi } from './chatUi';
 import { Button } from '../trips/tripUi';
+import TripLinkPicker from './TripLinkPicker';
+import ChatAvatar from './ChatAvatar';
+import type { Trip } from '../trips/tripModel';
 
 export default function GroupConversationScreen({
   group,
   session,
   friends,
+  trips,
+  loadAvatar,
   onBack,
 }: {
   group: GroupConversation;
   session: ReturnType<typeof useGroupMessaging>;
   friends: Friend[];
+  trips: Trip[];
+  loadAvatar?: (id: string) => Promise<string>;
   onBack: () => void;
 }) {
   const { c, s } = useChatUi();
   const [settings, setSettings] = useState(false);
   const [name, setName] = useState(group.name);
+  const [selectedTripId, setSelectedTripId] = useState(group.tripId);
+  useEffect(() => setSelectedTripId(group.tripId), [group.tripId]);
   const [tripOpen, setTripOpen] = useState(false);
   const owner = group.ownerId === session.userId;
   const { store } = session;
@@ -53,7 +62,13 @@ export default function GroupConversationScreen({
         conversation={view}
         thread={thread}
         onBack={onBack}
-        onSend={(text) => store.send(group.id, text)}
+        onSend={(text, image) => store.send(group.id, text, image)}
+        loadAvatar={loadAvatar}
+        loadImage={(messageId, thumbnail) => session.api.image(group.id, messageId, thumbnail)}
+        onReaders={() => {
+          void store.loadReaders(group.id);
+        }}
+        readPaused={settings || tripOpen}
         onRetry={(id) => {
           void store.retry(group.id, id);
         }}
@@ -132,6 +147,19 @@ export default function GroupConversationScreen({
                 void details.rename(name);
               }}
             />
+            <TripLinkPicker
+              trips={trips}
+              value={selectedTripId}
+              disabled={busy}
+              onChange={setSelectedTripId}
+            />
+            <Button
+              label="Lưu liên kết chuyến đi"
+              disabled={busy || selectedTripId === group.tripId}
+              onPress={() => {
+                void details.link(selectedTripId);
+              }}
+            />
             {!!group.tripId && (
               <Button
                 label="Gỡ liên kết chuyến đi"
@@ -155,7 +183,11 @@ export default function GroupConversationScreen({
             style={{ gap: 8, paddingVertical: 8, borderBottomWidth: 1, borderColor: c.border }}
           >
             <View style={s.row}>
-              <Avatar text={member.user.displayName.trim().charAt(0).toUpperCase()} />
+              <ChatAvatar
+                text={member.user.displayName.trim().charAt(0).toUpperCase()}
+                mediaId={member.user.avatarMediaId}
+                load={loadAvatar}
+              />
               <View style={s.grow}>
                 <Text style={s.title}>{member.user.displayName}</Text>
                 <Text style={s.small}>

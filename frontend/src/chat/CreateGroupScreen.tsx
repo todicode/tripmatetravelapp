@@ -12,19 +12,27 @@ import { Button, Header } from '../trips/tripUi';
 import { Friend, matchesFriend } from './chatModel';
 import { useCreateGroup } from './useCreateGroup';
 import { Avatar, useChatUi, Icon } from './chatUi';
+import TripLinkPicker from './TripLinkPicker';
+import ChatAvatar from './ChatAvatar';
+import type { Trip } from '../trips/tripModel';
 
 export default function CreateGroupScreen({
   friends,
+  trips,
+  loadAvatar,
   onBack,
   onCreate,
 }: {
   friends: Friend[];
+  trips: Trip[];
+  loadAvatar?: (id: string) => Promise<string>;
   onBack: () => void;
-  onCreate: (name: string, members: string[]) => Promise<void>;
+  onCreate: (name: string, members: string[], tripId: string | null) => Promise<void>;
 }) {
   const { c, s, u } = useChatUi();
   const [query, setQuery] = useState('');
-  const { name, setName, selected, toggle, error, busy, create } = useCreateGroup(onCreate);
+  const { name, setName, selected, toggle, error, busy, create, tripId, setTripId } =
+    useCreateGroup(onCreate);
   return (
     <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <Header
@@ -53,11 +61,7 @@ export default function CreateGroupScreen({
           />
         </View>
         <View style={s.card}>
-          <Text style={s.title}>Nhóm độc lập</Text>
-          <Text style={s.text}>
-            Bạn có thể trò chuyện mà không cần gắn chuyến đi. Chuyến đi đang lưu trên máy chưa hỗ
-            trợ liên kết với nhóm.
-          </Text>
+          <TripLinkPicker trips={trips} value={tripId} disabled={busy} onChange={setTripId} />
         </View>
         <View style={s.card}>
           <View style={s.between}>
@@ -96,7 +100,11 @@ export default function CreateGroupScreen({
                   onPress={() => toggle(friend.id)}
                   style={({ pressed }) => [s.row, { minHeight: 64 }, pressed && { opacity: 0.6 }]}
                 >
-                  <Avatar text={friend.avatar} />
+                  <ChatAvatar
+                    text={friend.avatar}
+                    mediaId={friend.avatarMediaId}
+                    load={loadAvatar}
+                  />
                   <Text style={[s.title, s.grow]}>{friend.name}</Text>
                   <Icon
                     name={checked ? 'checkbox-marked-circle' : 'checkbox-blank-circle-outline'}

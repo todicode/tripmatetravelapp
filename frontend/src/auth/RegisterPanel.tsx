@@ -43,6 +43,7 @@ export default function RegisterPanel({
     cooldown,
     isSubmitting,
     apiError,
+    verificationUsed,
     cancelPendingRegistration,
     submit,
     verifyOtp,
@@ -84,6 +85,18 @@ export default function RegisterPanel({
           maxLength={6}
         />
         <InlineError message={apiError} />
+        {verificationUsed && (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              cancelPendingRegistration();
+              onLogin();
+            }}
+            style={{ minHeight: 44, justifyContent: 'center' }}
+          >
+            <Text style={styles.link}>Chuyển sang đăng nhập</Text>
+          </Pressable>
+        )}
         <PrimaryButton label="Xác thực OTP" loading={isSubmitting} onPress={verifyOtp} />
         <View style={styles.otpActions}>
           <Pressable

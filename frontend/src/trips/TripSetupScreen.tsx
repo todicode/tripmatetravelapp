@@ -330,7 +330,7 @@ export default function TripSetupScreen({
                   <Pressable
                     key={list.id}
                     disabled={!list.places.length}
-                    onPress={() => vm.choose(list.destination, list.places)}
+                    onPress={() => vm.importList(list)}
                     style={[
                       styles.resultRow,
                       { borderColor: c.border, opacity: list.places.length ? 1 : 0.4 },

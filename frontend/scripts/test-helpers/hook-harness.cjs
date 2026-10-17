@@ -45,6 +45,7 @@ function hookHarness(modulePath, dependencies = {}, environment = {}) {
       return props.value;
     },
   };
+  react.useCallback = (fn, deps) => react.useMemo(() => fn, deps);
   react.default = react;
   const cache = new Map();
   const native = { BackHandler: { addEventListener: () => ({ remove() {} }) } };

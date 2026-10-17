@@ -46,6 +46,7 @@ import javax.sql.DataSource;
 class QueryEfficiencyTest {
     private static final ThreadLocal<Integer> QUERIES = new ThreadLocal<>();
     @Autowired UserRepository users;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     @Autowired SocialService social;
     @Autowired DirectMessagingService direct;
     @Autowired GroupMessagingService groups;
@@ -123,36 +124,42 @@ class QueryEfficiencyTest {
             auth(peer);
             social.accept(request);
             UUID conversation = direct.open(owner).id();
-            direct.send(conversation, UUID.randomUUID(), "Peer message");
+            var directMessage = direct.send(conversation, UUID.randomUUID(), "Peer message");
+            attachImageFixture(peer, directMessage.id(), false);
             auth(owner);
             UUID group = groups.create("Group " + index, List.of(peer), null).id();
             trips.create(body(1));
             auth(peer);
-            groups.send(group, UUID.randomUUID(), "Group peer message");
+            var groupMessage = groups.send(group, UUID.randomUUID(), "Group peer message");
+            attachImageFixture(peer, groupMessage.id(), true);
         }
         auth(owner);
         for (int limit : List.of(2, 8)) {
             assertEquals(limit, withQueries(3, () -> social.friends(null, limit)).items().size());
-            var privateChats = withQueries(5, () -> direct.list(null, limit));
+            var privateChats = withQueries(6, () -> direct.list(null, limit));
             assertEquals(limit, privateChats.items().size());
             assertTrue(
                     privateChats.items().stream()
                             .allMatch(
                                     c ->
                                             c.unreadCount().equals("1")
+                                                    && c.lastMessage().image() != null
+                                                    && c.lastMessage().image().width() == 80
                                                     && c.canSend()
                                                     && c.lastMessage().body().equals("Peer message")
                                                     && !c.lastMessage()
                                                             .sender()
                                                             .id()
                                                             .equals(owner)));
-            var groupChats = withQueries(4, () -> groups.list(null, limit));
+            var groupChats = withQueries(5, () -> groups.list(null, limit));
             assertEquals(limit, groupChats.items().size());
             assertTrue(
                     groupChats.items().stream()
                             .allMatch(
                                     c ->
                                             c.unreadCount().equals("1")
+                                                    && c.lastMessage().image() != null
+                                                    && c.lastMessage().image().width() == 80
                                                     && c.memberCount() == 2
                                                     && c.lastMessage()
                                                             .body()
@@ -200,6 +207,28 @@ class QueryEfficiencyTest {
                 null,
                 null,
                 days);
+    }
+
+    private void attachImageFixture(UUID uploader, UUID message, boolean group) {
+        // Query-count acceptance uses persisted metadata without calling an external bucket.
+        UUID image = UUID.randomUUID();
+        jdbc.update(
+                """
+                INSERT INTO media_assets(id,uploader_id,purpose,status,object_key,thumbnail_key,original_filename,
+                  mime_type,size_bytes,thumbnail_size_bytes,reserved_bytes,width,height,attached_at,orphan_expires_at)
+                VALUES (?,?,'CHAT_IMAGE','ATTACHED',?,?,'fixture.jpg','image/jpeg',1,1,2,80,40,now(),now()+interval '24 hours')
+                """,
+                image,
+                uploader,
+                "qa/" + image,
+                "qa/" + image + "-thumb");
+        jdbc.update(
+                "INSERT INTO chat_message_images(media_id,direct_message_id,group_message_id)"
+                        + " VALUES (?,?,?)",
+                image,
+                group ? null : message,
+                group ? message : null);
+        jdbc.update("UPDATE media_storage_quota SET reserved_bytes=reserved_bytes+2 WHERE id=1");
     }
 
     private UUID user() {

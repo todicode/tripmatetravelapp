@@ -6,7 +6,20 @@ const ts = require('typescript');
 const { test } = require('node:test');
 function load(name) {
   const source = fs.readFileSync(path.resolve(__dirname, '../src/chat', name), 'utf8');
-  const context = { exports: {}, Error, Date, BigInt };
+  const context = {
+    exports: {},
+    Error,
+    Date,
+    BigInt,
+    btoa,
+    require: (relative) =>
+      load(
+        path.relative(
+          path.resolve(__dirname, '../src/chat'),
+          path.resolve(__dirname, '../src/chat', path.dirname(name), relative + '.ts'),
+        ),
+      ),
+  };
   vm.runInNewContext(
     ts.transpileModule(source, {
       compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
@@ -271,7 +284,15 @@ function hookHarness(file, modules) {
     useEffect: () => {},
     useSyncExternalStore: (subscribe, getSnapshot) => getSnapshot(),
   };
-  const context = { exports: {}, require: (name) => (name === 'react' ? react : modules[name]) };
+  const context = {
+    exports: {},
+    require: (name) =>
+      name === 'react'
+        ? react
+        : name === './chatImagePicker'
+          ? { releaseChatImage: async () => {} }
+          : modules[name],
+  };
   const source = fs.readFileSync(path.resolve(__dirname, '../src/chat', file), 'utf8');
   vm.runInNewContext(
     ts.transpileModule(source, {

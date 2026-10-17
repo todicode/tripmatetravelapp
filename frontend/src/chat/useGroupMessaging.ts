@@ -7,6 +7,7 @@ import { DirectMessagingSession, toDeliveryMessage, unreadLabel } from './direct
 import type { DirectConversation } from './directMessageApi';
 import type { Conversation } from './chatModel';
 import type { RealtimeCompanion } from './directRealtime';
+import { releaseChatImage } from './chatImagePicker';
 
 export function useGroupMessaging(
   request: AuthorizedRequest,
@@ -38,6 +39,7 @@ export function useGroupMessaging(
       userId,
       Crypto.randomUUID,
       true,
+      releaseChatImage,
     );
     return { store, metadata };
   }, [api, userId]);
@@ -71,6 +73,7 @@ export function useGroupMessaging(
         if (id) {
           await store.load(id);
           await store.sync(id);
+          await store.loadReaders(id);
         }
       },
       receive: (event) => {
@@ -84,7 +87,10 @@ export function useGroupMessaging(
           store.receive({ ...event, type: 'direct.message.created', data: event.data });
         else if (event.type === 'group.read.updated')
           store.receive({ ...event, type: 'direct.read.updated', data: event.data });
-        else void store.refresh(false);
+        else {
+          void store.refresh(false);
+          if (id === activeThread.current) void store.loadReaders(id);
+        }
         if (id === activeThread.current) void store.load(id).then(() => store.sync(id));
       },
     }),
@@ -103,6 +109,7 @@ export function useGroupMessaging(
     const sync = () => {
       if (AppState.currentState === 'active' && selectedId)
         void store.load(selectedId).then(() => store.sync(selectedId));
+      if (AppState.currentState === 'active' && selectedId) void store.loadReaders(selectedId);
     };
     refresh();
     sync();
@@ -130,7 +137,12 @@ export function useGroupMessaging(
     unread: Number(BigInt(group.unreadCount) > 99n ? 99n : BigInt(group.unreadCount)),
     unreadLabel: unreadLabel(group.unreadCount),
     messages: [],
-    lastMessage: group.lastMessage ? toDeliveryMessage(group.lastMessage, userId) : undefined,
+    lastMessage: group.lastMessage
+      ? {
+          ...toDeliveryMessage(group.lastMessage, userId),
+          text: group.lastMessage.body || (group.lastMessage.image ? 'Ảnh' : ''),
+        }
+      : undefined,
   }));
   return {
     ...state,
@@ -141,8 +153,8 @@ export function useGroupMessaging(
     userId,
     realtime,
     realtimeConnected,
-    create: async (name: string, members: string[]) => {
-      const group = await api.create(name, members);
+    create: async (name: string, members: string[], tripId: string | null = null) => {
+      const group = await api.create(name, members, tripId);
       await store.refresh();
       return group.id;
     },

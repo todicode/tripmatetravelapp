@@ -258,7 +258,7 @@ CREATE TABLE media_assets (
  id uuid PRIMARY KEY,
  uploader_id uuid NOT NULL REFERENCES app_users(id),
  trip_id uuid REFERENCES trips(id),
- purpose varchar(16) NOT NULL CHECK (purpose IN ('AVATAR','CHAT')),
+ purpose varchar(16) NOT NULL CHECK (purpose IN ('AVATAR','CHAT','CHAT_IMAGE')),
  status varchar(16) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','READY','ATTACHED','FAILED','DELETED')),
  object_key text NOT NULL UNIQUE,
  thumbnail_key text UNIQUE,
@@ -280,7 +280,7 @@ CREATE TABLE media_assets (
  UNIQUE (id,uploader_id),
  UNIQUE (id,trip_id,uploader_id),
  FOREIGN KEY (trip_id,uploader_id) REFERENCES trip_members(trip_id,user_id),
- CHECK ((purpose = 'AVATAR' AND trip_id IS NULL AND mime_type <> 'application/pdf') OR (purpose = 'CHAT' AND trip_id IS NOT NULL)),
+ CHECK ((purpose IN ('AVATAR','CHAT_IMAGE') AND trip_id IS NULL AND mime_type <> 'application/pdf') OR (purpose = 'CHAT' AND trip_id IS NOT NULL)),
  CHECK ((status = 'DELETED') = (deleted_at IS NOT NULL)),
  CHECK (status <> 'ATTACHED' OR attached_at IS NOT NULL),
  CHECK (purged_at IS NULL OR status IN ('DELETED','FAILED')),
@@ -437,3 +437,11 @@ INSERT INTO cities(code,name,latitude,longitude,frontend_key) VALUES ('SAIGON','
 INSERT INTO cities(code,name,latitude,longitude,frontend_key) VALUES ('HAGIANG','Hà Giang',22.8233,104.9839,'hagiang') ON CONFLICT(code) DO UPDATE SET latitude=EXCLUDED.latitude,longitude=EXCLUDED.longitude,frontend_key=EXCLUDED.frontend_key;
 
 COMMIT;
+
+-- Independent direct/group image attachments (runtime source: Flyway V7, V9 and V11).
+-- File bytes and thumbnails live in private R2 objects, never in message bodies.
+-- V11 adds chat_message_images(media_id PK -> media_assets,
+--   direct_message_id UNIQUE -> direct_messages,
+--   group_message_id UNIQUE -> group_messages), with exactly one message target.
+-- Its deferred message-content triggers allow empty captions only with an image at commit.
+-- This ERD reference retains the separate planned trip-chat tables above; apply Flyway for the running backend.

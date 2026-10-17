@@ -145,7 +145,10 @@ public class GroupMessagingController {
             @PathVariable UUID id,
             @Valid @RequestBody SendRequest body,
             HttpServletRequest request) {
-        return ok(groups.send(id, body.clientMessageId(), string(body.body(), "body")), request);
+        return ok(
+                groups.send(
+                        id, body.clientMessageId(), string(body.body(), "body"), body.mediaId()),
+                request);
     }
 
     @PutMapping(value = "/{id}/read", consumes = "application/json")
@@ -194,7 +197,7 @@ public class GroupMessagingController {
 
     public record MemberRequest(@NotNull UUID userId, @NotNull Object expectedVersion) {}
 
-    public record SendRequest(@NotNull UUID clientMessageId, @NotNull Object body) {}
+    public record SendRequest(@NotNull UUID clientMessageId, @NotNull Object body, UUID mediaId) {}
 
     public record ReadRequest(@NotNull Object lastReadSeq) {}
 }

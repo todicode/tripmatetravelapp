@@ -57,7 +57,7 @@ class DirectMessagingControllerTest {
         when(service.open(recipient)).thenReturn(view);
         when(service.list(null, 20))
                 .thenReturn(new ConversationPage(List.of(view), new PageInfo(null, false)));
-        when(service.send(conversation, clientId, " hello ")).thenReturn(message);
+        when(service.send(conversation, clientId, " hello ", null)).thenReturn(message);
         when(service.history(conversation, null, null, 50))
                 .thenReturn(
                         new MessagePage(
@@ -141,7 +141,7 @@ class DirectMessagingControllerTest {
                                 .param("limit", "2"))
                 .andExpect(status().isOk());
         verify(service).history(conversation, "10", null, 2);
-        when(service.send(eq(conversation), any(), any()))
+        when(service.send(eq(conversation), any(), any(), isNull()))
                 .thenThrow(new ApiException(HttpStatus.FORBIDDEN, "NOT_FRIENDS", "Not friends"));
         mvc.perform(
                         post("/api/v1/direct-conversations/{id}/messages", conversation)

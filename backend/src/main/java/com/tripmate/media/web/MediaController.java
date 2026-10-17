@@ -31,7 +31,8 @@ public class MediaController {
     public ResponseEntity<ApiResponse<MediaService.MediaView>> upload(
             MultipartHttpServletRequest request, Authentication authentication) throws IOException {
         UUID actor = actor(authentication);
-        if (!"AVATAR".equals(request.getParameter("purpose"))
+        String purpose = request.getParameter("purpose");
+        if (!("AVATAR".equals(purpose) || "CHAT_IMAGE".equals(purpose))
                 || request.getParameterValues("purpose").length != 1
                 || request.getParameterMap().keySet().stream()
                         .anyMatch(key -> !key.equals("purpose"))
@@ -40,7 +41,7 @@ public class MediaController {
             throw new ApiException(
                     HttpStatus.UNPROCESSABLE_ENTITY,
                     "VALIDATION_ERROR",
-                    "Cần đúng một file và purpose=AVATAR.",
+                    "Cần đúng một file và purpose=AVATAR hoặc CHAT_IMAGE.",
                     java.util.List.of(
                             new com.tripmate.shared.web.ErrorDetailResponse(
                                     "file",
@@ -56,7 +57,11 @@ public class MediaController {
                 .header("Cache-Control", "private, no-store")
                 .body(
                         new ApiResponse<>(
-                                service.upload(actor, file.getBytes(), file.getOriginalFilename()),
+                                service.upload(
+                                        actor,
+                                        file.getBytes(),
+                                        file.getOriginalFilename(),
+                                        purpose),
                                 requestId(request)));
     }
 

@@ -1,5 +1,8 @@
 import type { AuthorizedRequest } from '../auth/session';
 import type { UserSummary } from './friendApi';
+import { createChatImageApi, type ChatImage } from './chatImageApi';
+
+export type MessageReader = { user: UserSummary; lastReadSeq: string };
 
 export type DirectMessage = {
   id: string;
@@ -9,6 +12,7 @@ export type DirectMessage = {
   clientMessageId: string;
   body: string;
   createdAt: string;
+  image?: ChatImage | null;
 };
 export type DirectConversation = {
   id: string;
@@ -34,6 +38,8 @@ type ConversationPage = {
 export function createDirectMessageApi(request: AuthorizedRequest) {
   const path = (id: string) => `/direct-conversations/${encodeURIComponent(id)}`;
   return {
+    ...createChatImageApi(request, '/direct-conversations'),
+    readers: (id: string) => request<MessageReader[]>(`${path(id)}/readers`),
     presence: () =>
       request<{ userId: string; online: boolean }[]>('/direct-conversations/presence'),
     conversations: async () => {
@@ -65,8 +71,12 @@ export function createDirectMessageApi(request: AuthorizedRequest) {
             : '';
       return request<DirectMessagePage>(`${path(id)}/messages?limit=50${bound}`);
     },
-    send: (id: string, clientMessageId: string, body: string) =>
-      request<DirectMessage>(`${path(id)}/messages`, { clientMessageId, body }, 'POST'),
+    send: (id: string, clientMessageId: string, body: string, mediaId?: string) =>
+      request<DirectMessage>(
+        `${path(id)}/messages`,
+        { clientMessageId, body, ...(mediaId ? { mediaId } : {}) },
+        'POST',
+      ),
     read: (id: string, lastReadSeq: string) =>
       request<DirectRead>(`${path(id)}/read`, { lastReadSeq }, 'PUT'),
   };
