@@ -1,5 +1,12 @@
 # Contract changelog
 
+## 1.8.0 - 2026-10-15
+
+- Added one-image direct/group messages with optional caption: purpose CHAT_IMAGE, private R2 bytes, PostgreSQL metadata/atomic message attachments, idempotency across body and mediaId, V11 additive migration. Existing text requests remain valid.
+- Added authenticated chat avatar thumbnails for current friends/shared active group peers, and conversation-scoped image downloads. Original media ownership endpoints remain restricted.
+- Added direct reader snapshots; group read updates now reach all active members after commit. UI displays receipts without inventing per-message read timestamps.
+- Connected server trip selection in group creation/settings and city selection when importing saved places; fixed leave/revocation navigation and consumed registration OTP recovery. Native acceptance and remaining limits are recorded in CHAT_COMPLETION_PLAN.md.
+
 ## 1.7.0 - 2026-10-11
 
 - Implemented persisted manual trips and itineraries: specific/flexible dates, 1–30 days, atomic creation with clientRequestId, optimistic versions, progress, cancel/restore and soft deletion.

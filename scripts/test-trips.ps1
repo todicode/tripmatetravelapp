@@ -1,4 +1,4 @@
-param([string]$JavaHome = $env:JAVA_HOME)
+param([string]$JavaHome = $env:JAVA_HOME, [string]$Tests)
 
 $ErrorActionPreference = 'Stop'
 if (-not $JavaHome) { $JavaHome = 'C:\Program Files\Java\jdk-26.0.2.1' }
@@ -12,7 +12,7 @@ $profileName = "tripmate-profile-tests-$suffix"
 $password = [Guid]::NewGuid().ToString('N')
 $variables = @('JAVA_HOME', 'JAVA_TOOL_OPTIONS', 'GROUP_TEST_DATABASE_URL', 'GROUP_TEST_DATABASE_PASSWORD',
     'SOCIAL_TEST_DATABASE_URL', 'SOCIAL_TEST_DATABASE_PASSWORD', 'MESSAGING_TEST_DATABASE_URL',
-    'MESSAGING_TEST_DATABASE_PASSWORD', 'PROFILE_TEST_DATABASE_URL')
+    'MESSAGING_TEST_DATABASE_PASSWORD', 'PROFILE_TEST_DATABASE_URL', 'PROFILE_TEST_DATABASE_PASSWORD')
 $previous = @{}
 foreach ($name in $variables) { $previous[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }
 $created = @()
@@ -31,9 +31,7 @@ try {
     $containerId = docker run --detach --rm --name $mainName -e POSTGRES_USER=tripmate -e "POSTGRES_PASSWORD=$password" -e POSTGRES_DB=tripmate_group_test -p '127.0.0.1::5432' postgres:17
     if ($LASTEXITCODE -ne 0) { throw 'Cannot create test PostgreSQL.' }
     $created += $containerId.Trim()
-    # Existing profile tests require the postgres user with an empty password.
-    # Trust is confined to this disposable container published on loopback only.
-    $containerId = docker run --detach --rm --name $profileName -e POSTGRES_HOST_AUTH_METHOD=trust -e POSTGRES_DB=tripmate_profile_test -p '127.0.0.1::5432' postgres:17
+    $containerId = docker run --detach --rm --name $profileName -e "POSTGRES_PASSWORD=$password" -e POSTGRES_DB=tripmate_profile_test -p '127.0.0.1::5432' postgres:17
     if ($LASTEXITCODE -ne 0) { throw 'Cannot create profile regression PostgreSQL.' }
     $created += $containerId.Trim()
     Wait-Database $mainName 'tripmate'
@@ -53,9 +51,12 @@ try {
     $env:GROUP_TEST_DATABASE_PASSWORD = $password
     $env:SOCIAL_TEST_DATABASE_PASSWORD = $password
     $env:MESSAGING_TEST_DATABASE_PASSWORD = $password
+    $env:PROFILE_TEST_DATABASE_PASSWORD = $password
     # Windows PowerShell 5 wraps native stderr (including JVM notices) as error records.
     $ErrorActionPreference = 'Continue'
-    & .\mvnw.cmd clean test
+    $mavenArguments = @('clean', 'test')
+    if ($Tests) { $mavenArguments += "-Dtest=$Tests" }
+    & .\mvnw.cmd @mavenArguments
     $mavenExit = $LASTEXITCODE
     $ErrorActionPreference = 'Stop'
     if ($mavenExit -ne 0) { throw 'Backend regression tests failed. See backend/target/surefire-reports.' }

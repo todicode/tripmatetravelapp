@@ -1,11 +1,16 @@
-package com.tripmate.identity.application;
+package com.tripmate.social.application;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+import com.tripmate.identity.application.UserDirectoryService;
 import com.tripmate.identity.domain.UserEntity;
 import com.tripmate.identity.domain.UserStatus;
 import com.tripmate.identity.infrastructure.UserRepository;
 import com.tripmate.identity.security.AuthenticatedUser;
 import com.tripmate.shared.web.ApiException;
 import com.tripmate.social.api.RelationshipLookup;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -16,17 +21,19 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
-
 class UserLookupServiceTest {
     private final UserRepository users = mock(UserRepository.class);
     private final RelationshipLookup relationships = mock(RelationshipLookup.class);
-    private final UserLookupService lookup = new UserLookupService(users, relationships);
+    private final UserLookupService lookup =
+            new UserLookupService(new UserDirectoryService(users), relationships);
 
-    @AfterEach void clearSecurity() { SecurityContextHolder.clearContext(); }
+    @AfterEach
+    void clearSecurity() {
+        SecurityContextHolder.clearContext();
+    }
 
-    @Test void looksUpByNormalizedPhoneAndCodeWithoutExposingPrivateFields() {
+    @Test
+    void looksUpByNormalizedPhoneAndCodeWithoutExposingPrivateFields() {
         authenticate(UUID.randomUUID());
         UserEntity target = user(UUID.randomUUID());
         when(users.findByPhoneLookup("0901234567")).thenReturn(Optional.of(target));
@@ -43,7 +50,8 @@ class UserLookupServiceTest {
         assertEquals(3, byPhone.user().getClass().getRecordComponents().length);
     }
 
-    @Test void marksSelfAndRejectsMissingOrDisabledUsers() {
+    @Test
+    void marksSelfAndRejectsMissingOrDisabledUsers() {
         UserEntity target = user(UUID.randomUUID());
         authenticate(target.getId());
         when(users.findByFriendCode("TM-ABC12345")).thenReturn(Optional.of(target));
@@ -51,29 +59,45 @@ class UserLookupServiceTest {
                 .thenReturn(new RelationshipLookup.Relationship("SELF", null));
         assertEquals("SELF", lookup.byFriendCode("TM-ABC12345").relationship());
         target.setStatus(UserStatus.DISABLED);
-        assertEquals("USER_NOT_FOUND", assertThrows(ApiException.class,
-                () -> lookup.byFriendCode("TM-ABC12345")).getCode());
-        assertEquals("USER_NOT_FOUND", assertThrows(ApiException.class,
-                () -> lookup.byPhone("0907654321")).getCode());
+        assertEquals(
+                "USER_NOT_FOUND",
+                assertThrows(ApiException.class, () -> lookup.byFriendCode("TM-ABC12345"))
+                        .getCode());
+        assertEquals(
+                "USER_NOT_FOUND",
+                assertThrows(ApiException.class, () -> lookup.byPhone("0907654321")).getCode());
     }
 
-    @Test void returnsOwnCodeForQrAndRequiresAuthentication() {
+    @Test
+    void returnsOwnCodeForQrAndRequiresAuthentication() {
         UserEntity owner = user(UUID.randomUUID());
         authenticate(owner.getId());
         when(users.findById(owner.getId())).thenReturn(Optional.of(owner));
         assertEquals("tripmate://friend/TM-ABC12345", lookup.ownFriendCode().qrPayload());
         SecurityContextHolder.clearContext();
-        assertEquals("UNAUTHORIZED", assertThrows(ApiException.class,
-                () -> lookup.byFriendCode("TM-ABC12345")).getCode());
+        assertEquals(
+                "UNAUTHORIZED",
+                assertThrows(ApiException.class, () -> lookup.byFriendCode("TM-ABC12345"))
+                        .getCode());
     }
 
     private UserEntity user(UUID id) {
-        return new UserEntity(id, "private@example.test", "hash", "Bạn An", "+84901234567",
-                "TM-ABC12345", Instant.now());
+        return new UserEntity(
+                id,
+                "private@example.test",
+                "hash",
+                "Bạn An",
+                "+84901234567",
+                "TM-ABC12345",
+                Instant.now());
     }
 
     private void authenticate(UUID id) {
-        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
-                new AuthenticatedUser(id, UUID.randomUUID(), 1), null, AuthorityUtils.NO_AUTHORITIES));
+        SecurityContextHolder.getContext()
+                .setAuthentication(
+                        new UsernamePasswordAuthenticationToken(
+                                new AuthenticatedUser(id, UUID.randomUUID(), 1),
+                                null,
+                                AuthorityUtils.NO_AUTHORITIES));
     }
 }

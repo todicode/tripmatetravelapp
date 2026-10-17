@@ -1,5 +1,9 @@
 package com.tripmate.identity.application;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
 import com.tripmate.identity.domain.DeviceEntity;
 import com.tripmate.identity.domain.RefreshTokenEntity;
 import com.tripmate.identity.domain.UserEntity;
@@ -8,6 +12,7 @@ import com.tripmate.identity.security.AuthenticatedUser;
 import com.tripmate.identity.security.JwtTokenService;
 import com.tripmate.identity.web.AuthRequests.ChangePasswordRequest;
 import com.tripmate.shared.web.ApiException;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,10 +31,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-
 @ExtendWith(MockitoExtension.class)
 class PasswordChangeServiceTest {
     @Mock UserRepository users;
@@ -47,20 +48,46 @@ class PasswordChangeServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new IdentityService(users, devices, tokens, registrations, identities, encoder,
-                jwt, google, events, Duration.ofMinutes(3), Duration.ofSeconds(60), Duration.ofDays(30), 5);
-        user = new UserEntity(UUID.randomUUID(), "test@example.test", "old-hash", "Test", null, "TM-TEST", Instant.now());
+        service =
+                new IdentityService(
+                        users,
+                        devices,
+                        tokens,
+                        registrations,
+                        identities,
+                        encoder,
+                        jwt,
+                        events,
+                        Duration.ofMinutes(3),
+                        Duration.ofSeconds(60),
+                        Duration.ofDays(30),
+                        5);
+        user =
+                new UserEntity(
+                        UUID.randomUUID(),
+                        "test@example.test",
+                        "old-hash",
+                        "Test",
+                        null,
+                        "TM-TEST",
+                        Instant.now());
         device = new DeviceEntity(UUID.randomUUID(), UUID.randomUUID());
         device.bind(user);
     }
 
     @AfterEach
-    void clearAuthentication() { SecurityContextHolder.clearContext(); }
+    void clearAuthentication() {
+        SecurityContextHolder.clearContext();
+    }
 
     private void authenticate() {
-        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
-                new AuthenticatedUser(user.getId(), device.getId(), device.getBindingVersion()),
-                null, AuthorityUtils.NO_AUTHORITIES));
+        SecurityContextHolder.getContext()
+                .setAuthentication(
+                        new UsernamePasswordAuthenticationToken(
+                                new AuthenticatedUser(
+                                        user.getId(), device.getId(), device.getBindingVersion()),
+                                null,
+                                AuthorityUtils.NO_AUTHORITIES));
     }
 
     private void arrangeSession() {
@@ -71,8 +98,12 @@ class PasswordChangeServiceTest {
 
     @Test
     void requiresAuthentication() {
-        ApiException error = assertThrows(ApiException.class,
-                () -> service.changePassword(new ChangePasswordRequest("old-password", "new-password")));
+        ApiException error =
+                assertThrows(
+                        ApiException.class,
+                        () ->
+                                service.changePassword(
+                                        new ChangePasswordRequest("old-password", "new-password")));
         assertEquals("UNAUTHORIZED", error.getCode());
         verifyNoInteractions(users, encoder, devices, tokens);
     }
@@ -80,8 +111,13 @@ class PasswordChangeServiceTest {
     @Test
     void wrongPasswordDoesNotChangeHashOrRevokeSessions() {
         arrangeSession();
-        ApiException error = assertThrows(ApiException.class,
-                () -> service.changePassword(new ChangePasswordRequest("wrong-password", "new-password")));
+        ApiException error =
+                assertThrows(
+                        ApiException.class,
+                        () ->
+                                service.changePassword(
+                                        new ChangePasswordRequest(
+                                                "wrong-password", "new-password")));
         assertEquals("CURRENT_PASSWORD_INCORRECT", error.getCode());
         assertEquals("old-hash", user.getPasswordHash());
         assertSame(user, device.getUser());
@@ -96,8 +132,12 @@ class PasswordChangeServiceTest {
         device.unbind();
         when(users.findByIdForUpdate(user.getId())).thenReturn(Optional.of(user));
         when(devices.findByUserIdForUpdate(user.getId())).thenReturn(List.of());
-        ApiException error = assertThrows(ApiException.class,
-                () -> service.changePassword(new ChangePasswordRequest("old-password", "new-password")));
+        ApiException error =
+                assertThrows(
+                        ApiException.class,
+                        () ->
+                                service.changePassword(
+                                        new ChangePasswordRequest("old-password", "new-password")));
         assertEquals("UNAUTHORIZED", error.getCode());
         verifyNoInteractions(encoder, tokens);
     }
@@ -106,8 +146,12 @@ class PasswordChangeServiceTest {
     void rejectsSamePassword() {
         arrangeSession();
         when(encoder.matches("old-password", "old-hash")).thenReturn(true);
-        ApiException error = assertThrows(ApiException.class,
-                () -> service.changePassword(new ChangePasswordRequest("old-password", "old-password")));
+        ApiException error =
+                assertThrows(
+                        ApiException.class,
+                        () ->
+                                service.changePassword(
+                                        new ChangePasswordRequest("old-password", "old-password")));
         assertEquals("PASSWORD_UNCHANGED", error.getCode());
         verify(users, never()).save(any());
         verifyNoInteractions(tokens);
@@ -117,8 +161,13 @@ class PasswordChangeServiceTest {
     void googleAccountWithoutKnownLocalPasswordGetsActionableError() {
         arrangeSession();
         when(identities.existsByUserIdAndProvider(user.getId(), "GOOGLE")).thenReturn(true);
-        ApiException error = assertThrows(ApiException.class,
-                () -> service.changePassword(new ChangePasswordRequest("unknown-password", "new-password")));
+        ApiException error =
+                assertThrows(
+                        ApiException.class,
+                        () ->
+                                service.changePassword(
+                                        new ChangePasswordRequest(
+                                                "unknown-password", "new-password")));
         assertEquals("PASSWORD_CHANGE_UNAVAILABLE", error.getCode());
         verify(users, never()).save(any());
     }
@@ -126,8 +175,13 @@ class PasswordChangeServiceTest {
     @Test
     void rejectsPasswordsExceedingBcryptUtf8ByteLimit() {
         authenticate();
-        ApiException error = assertThrows(ApiException.class,
-                () -> service.changePassword(new ChangePasswordRequest("old-password", "\u1ea1".repeat(25))));
+        ApiException error =
+                assertThrows(
+                        ApiException.class,
+                        () ->
+                                service.changePassword(
+                                        new ChangePasswordRequest(
+                                                "old-password", "\u1ea1".repeat(25))));
         assertEquals("PASSWORD_TOO_LONG", error.getCode());
         verifyNoInteractions(users, encoder, devices, tokens);
     }
@@ -139,8 +193,15 @@ class PasswordChangeServiceTest {
         other.bind(user);
         long binding = device.getBindingVersion();
         long otherBinding = other.getBindingVersion();
-        RefreshTokenEntity token = new RefreshTokenEntity(UUID.randomUUID(), user, device, UUID.randomUUID(), null,
-                "token-hash", Instant.now().plusSeconds(3600));
+        RefreshTokenEntity token =
+                new RefreshTokenEntity(
+                        UUID.randomUUID(),
+                        user,
+                        device,
+                        UUID.randomUUID(),
+                        null,
+                        "token-hash",
+                        Instant.now().plusSeconds(3600));
         when(users.findByIdForUpdate(user.getId())).thenReturn(Optional.of(user));
         when(devices.findByUserIdForUpdate(user.getId())).thenReturn(List.of(device, other));
         when(encoder.matches("old-password", "old-hash")).thenReturn(true);

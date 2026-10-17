@@ -3,10 +3,7 @@
     "name": "Đà Lạt",
     "province": "Lâm Đồng",
     "fullName": "Đà Lạt, Lâm Đồng",
-    "coords": [
-      11.9404,
-      108.4583
-    ],
+    "coords": [11.9404, 108.4583],
     "weather": {
       "temp": "19°C",
       "condition": "Se lạnh, có sương mù nhẹ",
@@ -301,10 +298,7 @@
     "name": "Ninh Bình",
     "province": "Ninh Bình",
     "fullName": "Ninh Bình, Việt Nam",
-    "coords": [
-      20.2506,
-      105.9745
-    ],
+    "coords": [20.2506, 105.9745],
     "weather": {
       "temp": "25°C",
       "condition": "Trời quang đãng, non nước hữu tình",
@@ -490,10 +484,7 @@
     "name": "Đà Nẵng",
     "province": "Đà Nẵng",
     "fullName": "Đà Nẵng, Việt Nam",
-    "coords": [
-      16.0544,
-      108.2022
-    ],
+    "coords": [16.0544, 108.2022],
     "weather": {
       "temp": "28°C",
       "condition": "Nắng gió mát, biển êm",
@@ -670,10 +661,7 @@
     "name": "Phú Quốc",
     "province": "Kiên Giang",
     "fullName": "Phú Quốc, Kiên Giang",
-    "coords": [
-      10.2289,
-      103.9572
-    ],
+    "coords": [10.2289, 103.9572],
     "weather": {
       "temp": "29°C",
       "condition": "Nắng đẹp, gió biển dịu",
@@ -794,10 +782,7 @@
     "name": "Sa Pa",
     "province": "Lào Cai",
     "fullName": "Sa Pa, Lào Cai",
-    "coords": [
-      22.3364,
-      103.8438
-    ],
+    "coords": [22.3364, 103.8438],
     "weather": {
       "temp": "16°C",
       "condition": "Lạnh nhiều mây, sương mù",
@@ -918,10 +903,7 @@
     "name": "Hội An",
     "province": "Quảng Nam",
     "fullName": "Hội An, Quảng Nam",
-    "coords": [
-      15.8801,
-      108.338
-    ],
+    "coords": [15.8801, 108.338],
     "weather": {
       "temp": "27°C",
       "condition": "Khô ráo, chiều lộng gió",
@@ -1042,10 +1024,7 @@
     "name": "Nha Trang",
     "province": "Khánh Hòa",
     "fullName": "Nha Trang, Khánh Hòa",
-    "coords": [
-      12.2388,
-      109.1967
-    ],
+    "coords": [12.2388, 109.1967],
     "weather": {
       "temp": "30°C",
       "condition": "Trời nắng trong veo, sóng êm",
@@ -1157,10 +1136,7 @@
     "name": "Huế",
     "province": "Thừa Thiên Huế",
     "fullName": "Huế, Thừa Thiên Huế",
-    "coords": [
-      16.4637,
-      107.5909
-    ],
+    "coords": [16.4637, 107.5909],
     "weather": {
       "temp": "26°C",
       "condition": "Dịu mát, gió sông Hương lãng đãng",
@@ -1272,10 +1248,7 @@
     "name": "Hà Nội",
     "province": "Hà Nội",
     "fullName": "Hà Nội, Việt Nam",
-    "coords": [
-      21.0285,
-      105.8542
-    ],
+    "coords": [21.0285, 105.8542],
     "weather": {
       "temp": "27°C",
       "condition": "Tiết trời thu mát mẻ, nắng nhẹ",
@@ -1396,10 +1369,7 @@
     "name": "TP. Hồ Chí Minh",
     "province": "TP. Hồ Chí Minh",
     "fullName": "TP. Hồ Chí Minh, Việt Nam",
-    "coords": [
-      10.8231,
-      106.6297
-    ],
+    "coords": [10.8231, 106.6297],
     "weather": {
       "temp": "31°C",
       "condition": "Nắng ấm, chiều có gió sông",
@@ -1520,10 +1490,7 @@
     "name": "Hà Giang",
     "province": "Hà Giang",
     "fullName": "Hà Giang, Việt Nam",
-    "coords": [
-      22.8233,
-      104.9839
-    ],
+    "coords": [22.8233, 104.9839],
     "dayPlans": [],
     "hotSpots": []
   }

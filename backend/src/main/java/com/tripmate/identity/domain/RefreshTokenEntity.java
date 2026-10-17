@@ -16,8 +16,7 @@ import java.util.UUID;
 @Table(name = "refresh_tokens")
 public class RefreshTokenEntity {
 
-    @Id
-    private UUID id;
+    @Id private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
@@ -49,11 +48,16 @@ public class RefreshTokenEntity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    protected RefreshTokenEntity() {
-    }
+    protected RefreshTokenEntity() {}
 
-    public RefreshTokenEntity(UUID id, UserEntity user, DeviceEntity device, UUID familyId,
-                              RefreshTokenEntity parentToken, String tokenHash, Instant expiresAt) {
+    public RefreshTokenEntity(
+            UUID id,
+            UserEntity user,
+            DeviceEntity device,
+            UUID familyId,
+            RefreshTokenEntity parentToken,
+            String tokenHash,
+            Instant expiresAt) {
         this.id = id;
         this.user = user;
         this.device = device;

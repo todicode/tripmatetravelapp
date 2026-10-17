@@ -2,6 +2,7 @@ package com.tripmate.identity.infrastructure;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -19,8 +20,10 @@ public class SmtpEmailSender implements EmailSender {
     private final String from;
     private final Duration verificationTtl;
 
-    public SmtpEmailSender(JavaMailSender mailSender, @Value("${tripmate.email.from}") String from,
-                           @Value("${tripmate.email.verification-ttl}") Duration verificationTtl) {
+    public SmtpEmailSender(
+            JavaMailSender mailSender,
+            @Value("${tripmate.email.from}") String from,
+            @Value("${tripmate.email.verification-ttl}") Duration verificationTtl) {
         this.mailSender = mailSender;
         this.from = from;
         this.verificationTtl = verificationTtl;
@@ -29,15 +32,18 @@ public class SmtpEmailSender implements EmailSender {
     @Override
     public void sendVerificationCode(String recipient, String otp, Instant expiresAt) {
         long minutes = verificationTtl.toMinutes();
-        String plainText = """
+        String plainText =
+                """
                 TRIPMATE | XÁC MINH EMAIL
 
                 Mã xác minh của bạn: %s
 
                 Mã có hiệu lực trong %d phút. Không chia sẻ mã này với bất kỳ ai.
                 Nếu bạn không yêu cầu đăng ký TripMate, hãy bỏ qua email này.
-                """.formatted(otp, minutes);
-        String html = """
+                """
+                        .formatted(otp, minutes);
+        String html =
+                """
                 <!doctype html>
                 <html lang="vi">
                 <body style="margin:0;padding:24px;background:#f5f5f7;font-family:Arial,sans-serif;color:#1d1d1f;">
@@ -53,7 +59,9 @@ public class SmtpEmailSender implements EmailSender {
                   </div>
                 </body>
                 </html>
-                """.replace("{OTP}", otp).replace("{MINUTES}", Long.toString(minutes));
+                """
+                        .replace("{OTP}", otp)
+                        .replace("{MINUTES}", Long.toString(minutes));
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -70,15 +78,18 @@ public class SmtpEmailSender implements EmailSender {
     @Override
     public void sendPasswordResetCode(String recipient, String otp, Instant expiresAt) {
         long minutes = verificationTtl.toMinutes();
-        String plainText = """
+        String plainText =
+                """
                 TRIPMATE | ĐẶT LẠI MẬT KHẨU
 
                 Mã đặt lại mật khẩu của bạn: %s
 
                 Mã có hiệu lực trong %d phút. Không chia sẻ mã này với bất kỳ ai.
                 Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này.
-                """.formatted(otp, minutes);
-        String html = """
+                """
+                        .formatted(otp, minutes);
+        String html =
+                """
                 <!doctype html>
                 <html lang="vi">
                 <body style="margin:0;padding:24px;background:#f5f5f7;font-family:Arial,sans-serif;color:#1d1d1f;">
@@ -94,7 +105,9 @@ public class SmtpEmailSender implements EmailSender {
                   </div>
                 </body>
                 </html>
-                """.replace("{OTP}", otp).replace("{MINUTES}", Long.toString(minutes));
+                """
+                        .replace("{OTP}", otp)
+                        .replace("{MINUTES}", Long.toString(minutes));
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");

@@ -1,20 +1,22 @@
 package com.tripmate.identity.web;
 
-import com.tripmate.identity.web.AuthRequests.RegisterRequest;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.tripmate.identity.web.AuthRequests.ChangePasswordRequest;
-import com.tripmate.identity.web.AuthRequests.VerifyRegistrationRequest;
 import com.tripmate.identity.web.AuthRequests.ConfirmPasswordResetRequest;
+import com.tripmate.identity.web.AuthRequests.RegisterRequest;
 import com.tripmate.identity.web.AuthRequests.RequestPasswordResetRequest;
+import com.tripmate.identity.web.AuthRequests.VerifyRegistrationRequest;
+
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AuthRequestValidationTest {
 
@@ -32,8 +34,13 @@ class AuthRequestValidationTest {
 
     @Test
     void manualRegistrationRequiresEmailPasswordNamePhoneAndInstallation() {
-        RegisterRequest valid = new RegisterRequest("an@example.test", "secret-password",
-                UUID.randomUUID(), "Nguyen An", "+84901234567");
+        RegisterRequest valid =
+                new RegisterRequest(
+                        "an@example.test",
+                        "secret-password",
+                        UUID.randomUUID(),
+                        "Nguyen An",
+                        "+84901234567");
         RegisterRequest invalid = new RegisterRequest("bad", "short", null, " ", "abc");
 
         assertTrue(validator.validate(valid).isEmpty());
@@ -42,8 +49,10 @@ class AuthRequestValidationTest {
 
     @Test
     void otpMustContainExactlySixDigits() {
-        VerifyRegistrationRequest valid = new VerifyRegistrationRequest(UUID.randomUUID(), "123456");
-        VerifyRegistrationRequest invalid = new VerifyRegistrationRequest(UUID.randomUUID(), "12ab");
+        VerifyRegistrationRequest valid =
+                new VerifyRegistrationRequest(UUID.randomUUID(), "123456");
+        VerifyRegistrationRequest invalid =
+                new VerifyRegistrationRequest(UUID.randomUUID(), "12ab");
 
         assertTrue(validator.validate(valid).isEmpty());
         assertFalse(validator.validate(invalid).isEmpty());
@@ -51,17 +60,31 @@ class AuthRequestValidationTest {
 
     @Test
     void passwordResetRequiresValidEmailOtpAndNewPassword() {
-        assertTrue(validator.validate(new RequestPasswordResetRequest("an@example.test")).isEmpty());
+        assertTrue(
+                validator.validate(new RequestPasswordResetRequest("an@example.test")).isEmpty());
         assertFalse(validator.validate(new RequestPasswordResetRequest("not-an-email")).isEmpty());
-        assertTrue(validator.validate(new ConfirmPasswordResetRequest(UUID.randomUUID(), "123456",
-                "new-password")).isEmpty());
-        assertFalse(validator.validate(new ConfirmPasswordResetRequest(null, "12ab", "short")).isEmpty());
+        assertTrue(
+                validator
+                        .validate(
+                                new ConfirmPasswordResetRequest(
+                                        UUID.randomUUID(), "123456", "new-password"))
+                        .isEmpty());
+        assertFalse(
+                validator
+                        .validate(new ConfirmPasswordResetRequest(null, "12ab", "short"))
+                        .isEmpty());
     }
 
     @Test
     void passwordChangeRequiresCurrentPasswordAndValidNewPassword() {
-        assertTrue(validator.validate(new ChangePasswordRequest("old-password", "new-password")).isEmpty());
+        assertTrue(
+                validator
+                        .validate(new ChangePasswordRequest("old-password", "new-password"))
+                        .isEmpty());
         assertFalse(validator.validate(new ChangePasswordRequest(" ", "short")).isEmpty());
-        assertFalse(validator.validate(new ChangePasswordRequest("old-password", "x".repeat(129))).isEmpty());
+        assertFalse(
+                validator
+                        .validate(new ChangePasswordRequest("old-password", "x".repeat(129)))
+                        .isEmpty());
     }
 }

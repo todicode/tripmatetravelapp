@@ -1,9 +1,11 @@
 package com.tripmate.identity.application;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.tripmate.shared.web.ApiException;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import static org.junit.jupiter.api.Assertions.*;
 
 class PasswordPolicyTest {
     @Test
@@ -17,9 +19,11 @@ class PasswordPolicyTest {
 
     @Test
     void rejectsPasswordsExceedingUtf8ByteLimit() {
-        for (String password : new String[]{"a".repeat(73), "ệ".repeat(25)}) {
-            assertEquals("PASSWORD_TOO_LONG", assertThrows(ApiException.class,
-                    () -> PasswordPolicy.validate(password)).getCode());
+        for (String password : new String[] {"a".repeat(73), "ệ".repeat(25)}) {
+            assertEquals(
+                    "PASSWORD_TOO_LONG",
+                    assertThrows(ApiException.class, () -> PasswordPolicy.validate(password))
+                            .getCode());
         }
     }
 }

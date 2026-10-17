@@ -3,11 +3,13 @@ package com.tripmate.identity.infrastructure;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 
 @Component
+@Profile("!prod")
 @ConditionalOnProperty(name = "tripmate.email.mode", havingValue = "log", matchIfMissing = true)
 public class LoggingEmailSender implements EmailSender {
 
@@ -15,11 +17,19 @@ public class LoggingEmailSender implements EmailSender {
 
     @Override
     public void sendVerificationCode(String recipient, String otp, Instant expiresAt) {
-        log.info("Development email verification recipient={} otp={} expiresAt={}", recipient, otp, expiresAt);
+        log.info(
+                "Development email verification recipient={} otp={} expiresAt={}",
+                recipient,
+                otp,
+                expiresAt);
     }
 
     @Override
     public void sendPasswordResetCode(String recipient, String otp, Instant expiresAt) {
-        log.info("Development password reset recipient={} otp={} expiresAt={}", recipient, otp, expiresAt);
+        log.info(
+                "Development password reset recipient={} otp={} expiresAt={}",
+                recipient,
+                otp,
+                expiresAt);
     }
 }

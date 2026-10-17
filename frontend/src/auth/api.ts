@@ -1,5 +1,5 @@
-import { ApiRequestError, HttpMethod, RequestOptions } from './session';
 import { File } from 'expo-file-system';
+import { ApiRequestError, HttpMethod, RequestOptions } from './session';
 
 export async function apiRequest<T>(
   baseUrl: string,
@@ -25,35 +25,61 @@ export async function apiRequest<T>(
     const response = await fetch(`${baseUrl}${path}`, {
       body: requestBody,
       signal: controller.signal,
-      headers: { ...(options?.file ? {} : { 'Content-Type': 'application/json' }), ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
+      headers: {
+        ...(options?.file ? {} : { 'Content-Type': 'application/json' }),
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
       method: method ?? (body === undefined ? 'GET' : 'POST'),
     });
     if (response.status === 204) return undefined as T;
     if (response.ok && options?.responseType === 'arrayBuffer') {
-      if (!response.headers.get('Content-Type')?.startsWith('image/')) throw new ApiRequestError('INVALID_RESPONSE', 'Phản hồi ảnh không hợp lệ.', 0);
-      return await response.arrayBuffer() as T;
+      if (!response.headers.get('Content-Type')?.startsWith('image/'))
+        throw new ApiRequestError('INVALID_RESPONSE', 'Phản hồi ảnh không hợp lệ.', 0);
+      return (await response.arrayBuffer()) as T;
     }
-    const payload = await response.json().catch(() => null) as {
+    const payload = (await response.json().catch(() => null)) as {
       data?: T;
       error?: { code?: string; message?: string; context?: { retryAfterSeconds?: number } };
     } | null;
 
     if (!response.ok || payload?.error) {
+      const code = payload?.error?.code;
+      const message = payload?.error?.message;
+      const retryAfter = payload?.error?.context?.retryAfterSeconds;
+      const headerDelay = Number(response.headers.get('Retry-After') ?? 0);
+      const delay = typeof retryAfter === 'number' ? retryAfter : headerDelay;
       throw new ApiRequestError(
-        payload?.error?.code ?? 'REQUEST_FAILED',
-        payload?.error?.message ?? `${serviceName} trả về HTTP ${response.status}.`,
+        typeof code === 'string' && code ? code : 'REQUEST_FAILED',
+        typeof message === 'string' && message
+          ? message
+          : `${serviceName} trả về HTTP ${response.status}.`,
         response.status,
-        payload?.error?.context?.retryAfterSeconds ?? Number(response.headers.get('Retry-After') ?? 0),
+        Number.isFinite(delay) && delay > 0 ? Math.ceil(delay) : 0,
       );
     }
 
-    if (controller.signal.aborted) throw new ApiRequestError('REQUEST_TIMEOUT', 'Yêu cầu quá thời gian chờ. Vui lòng thử lại.', 0);
-    if (!payload || typeof payload !== 'object' || !('data' in payload)) throw new ApiRequestError('INVALID_RESPONSE', 'Phản hồi máy chủ không hợp lệ. Vui lòng thử lại.', response.status);
+    if (controller.signal.aborted)
+      throw new ApiRequestError(
+        'REQUEST_TIMEOUT',
+        'Yêu cầu quá thời gian chờ. Vui lòng thử lại.',
+        0,
+      );
+    if (!payload || typeof payload !== 'object' || !('data' in payload))
+      throw new ApiRequestError(
+        'INVALID_RESPONSE',
+        'Phản hồi máy chủ không hợp lệ. Vui lòng thử lại.',
+        response.status,
+      );
     return payload.data as T;
   } catch (error) {
     if (error instanceof ApiRequestError) throw error;
-    throw new ApiRequestError(controller.signal.aborted ? 'REQUEST_TIMEOUT' : 'NETWORK_ERROR',
-      controller.signal.aborted ? 'Yêu cầu quá thời gian chờ. Vui lòng thử lại.' : `Không thể kết nối ${serviceName}. Vui lòng kiểm tra kết nối.`, 0);
+    throw new ApiRequestError(
+      controller.signal.aborted ? 'REQUEST_TIMEOUT' : 'NETWORK_ERROR',
+      controller.signal.aborted
+        ? 'Yêu cầu quá thời gian chờ. Vui lòng thử lại.'
+        : `Không thể kết nối ${serviceName}. Vui lòng kiểm tra kết nối.`,
+      0,
+    );
   } finally {
     clearTimeout(timeout);
   }

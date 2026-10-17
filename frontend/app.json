@@ -14,9 +14,27 @@
     "plugins": [
       "expo-asset",
       "expo-secure-store",
-      ["expo-camera", { "cameraPermission": "Cho phép TripMate dùng camera để quét mã QR kết bạn.", "recordAudioAndroid": false }],
-      ["expo-image-picker", { "photosPermission": "Cho phép TripMate chọn ảnh từ thư viện.", "cameraPermission": "Cho phép TripMate dùng camera để quét mã QR kết bạn.", "microphonePermission": false }],
-      ["expo-location", { "locationWhenInUsePermission": "Cho phép TripMate dùng vị trí để hiển thị địa điểm gần bạn." }]
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Cho phép TripMate dùng camera để quét mã QR kết bạn.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Cho phép TripMate chọn ảnh từ thư viện.",
+          "cameraPermission": "Cho phép TripMate dùng camera để quét mã QR kết bạn.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Cho phép TripMate dùng vị trí để hiển thị địa điểm gần bạn."
+        }
+      ]
     ]
   }
 }

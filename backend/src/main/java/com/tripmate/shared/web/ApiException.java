@@ -16,8 +16,12 @@ public class ApiException extends RuntimeException {
         this(status, code, message, List.of(), Map.of());
     }
 
-    public ApiException(HttpStatus status, String code, String message,
-                        List<ErrorDetailResponse> details, Map<String, Object> context) {
+    public ApiException(
+            HttpStatus status,
+            String code,
+            String message,
+            List<ErrorDetailResponse> details,
+            Map<String, Object> context) {
         super(message);
         this.status = status;
         this.code = code;

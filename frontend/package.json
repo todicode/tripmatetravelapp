@@ -9,13 +9,17 @@
     "android:all": "node scripts/run-android.cjs --all-emulators",
     "test:android": "node --test scripts/check-all-emulators.cjs",
     "typecheck": "tsc --noEmit",
-    "test:auth": "node --test scripts/check-auth.cjs",
+    "test:auth": "node --test scripts/check-auth.cjs scripts/check-auth-view-models.cjs",
     "test:profile": "node --test scripts/check-profile.cjs",
     "test:friends": "node --test scripts/check-friends.cjs",
     "test:messages": "node --test scripts/check-direct-messages.cjs scripts/check-direct-realtime.cjs scripts/check-direct-scroll.cjs",
     "test:groups": "node --test scripts/check-group-messages.cjs",
     "ios": "expo run:ios",
-    "test:trips": "node scripts/check-trips.cjs && node --test scripts/check-trip-api.cjs scripts/check-trip-view-models.cjs"
+    "test:trips": "node scripts/check-trips.cjs && node --test scripts/check-trip-api.cjs scripts/check-trip-view-models.cjs",
+    "test": "node --test scripts/check-*.cjs",
+    "format": "prettier --write App.tsx src scripts *.json *.md",
+    "format:check": "prettier --check App.tsx src scripts *.json *.md",
+    "test:backend": "node --test scripts/test-backend-integration.cjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
@@ -42,6 +46,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.4",
+    "prettier": "3.9.10",
     "typescript": "~6.0.3"
   }
 }

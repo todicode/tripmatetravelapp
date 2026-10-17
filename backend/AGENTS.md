@@ -15,3 +15,9 @@ Run database integration tests against dedicated PostgreSQL test databases and
 report skipped tests explicitly. Use `README.md` and the affected feature's
 documentation for test commands. Do not infer test success merely from a zero
 Maven exit code.
+
+Format Java with `python ../scripts/format-backend.py` (from backend) or
+`python scripts/format-backend.py` (from the repository root); use `--check`
+before handoff. Comments should explain invariants, locking, compatibility or
+external boundaries. Avoid decorative banners/icons and comments that repeat
+what the code already says.

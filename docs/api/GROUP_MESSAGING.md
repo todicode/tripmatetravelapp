@@ -1,15 +1,15 @@
 # Independent group messaging API
 
-Implemented REST endpoints below use `/api/v1`, Bearer authentication and `{data, requestId}` responses with `Cache-Control: private, no-store`. Full request/response examples are in [openapi.json](openapi.json), contract 1.5.1.
+Implemented REST endpoints below use `/api/v1`, Bearer authentication and `{data, requestId}` responses with `Cache-Control: private, no-store`. Full request/response examples are in [openapi.json](openapi.json), contract 1.8.0.
 
-Groups exist independently of trips. The creator is OWNER; membership is separate from friendship and trip membership. The frontend uses the server APIs and group WebSocket events. Group avatars, attachments, invitations and push are not implemented.
+Groups exist independently of trips. The creator is OWNER; membership is separate from friendship and trip membership. The frontend uses the server APIs and group WebSocket events. One image with an optional caption is supported per message; see [chat completion and acceptance](../CHAT_EMULATOR_ACCEPTANCE_2026-10-15.md). Custom group avatars, other attachments, invitations and push are not implemented.
 
 ## Group realtime
 
 The authenticated STOMP connection at `/ws` subscribes to `/user/queue/events`, shared with direct chat. Writes remain REST. Payloads use `{eventId, type, schemaVersion: 1, occurredAt, data}`:
 
 - `group.message.created`: the REST message shape, delivered to active members including the sender after a new message commits; idempotent retries do not broadcast again.
-- `group.read.updated`: `{conversationId, userId, lastReadSeq}`, sent only to the reader's own devices when the marker advances.
+- `group.read.updated`: `{conversationId, userId, lastReadSeq}`, sent to all active members when the marker advances, including the reader's own devices (contract 1.8.0).
 - `group.changed`: `{conversationId}`, invalidates group details/list after creation, rename, trip link changes, membership changes, ownership transfer or archive.
 - `group.access.revoked`: `{conversationId}`, sent only to the departed/removed account; clears cached history and linked-trip access without disclosing message content.
 
@@ -31,7 +31,7 @@ Recipients are captured while the group is locked and checked again after commit
 | PUT | `/group-conversations/{id}/owner` | Owner transfers to active enabled member |
 | GET | `/group-conversations/{id}/trip` | Active member, read-only owned trip |
 | GET | `/group-conversations/{id}/messages` | Active member; paginated history |
-| POST | `/group-conversations/{id}/messages` | Active member; text only |
+| POST | `/group-conversations/{id}/messages` | Active member; text and/or one owned CHAT_IMAGE mediaId |
 | PUT | `/group-conversations/{id}/read` | Own monotonic read marker |
 
 Deletion of a membership returns 204 without a body. Creating a group returns 201; other non-204 successful operations return 200. Create is a new group per POST; names are not unique and creation is not deduplicated.

@@ -1,27 +1,31 @@
-package com.tripmate.identity.web;
-
-import com.tripmate.identity.application.UserLookupService;
-import com.tripmate.identity.application.UserLookupService.LookupResult;
-import com.tripmate.identity.application.UserLookupService.UserSummary;
-import com.tripmate.shared.web.GlobalExceptionHandler;
-import org.junit.jupiter.api.Test;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-
-import java.util.UUID;
+package com.tripmate.social.web;
 
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.tripmate.shared.web.GlobalExceptionHandler;
+import com.tripmate.social.application.UserLookupService;
+import com.tripmate.social.application.UserLookupService.LookupResult;
+import com.tripmate.social.application.UserLookupService.UserSummary;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+import java.util.UUID;
+
 class UserLookupControllerTest {
-    @Test void returnsLimitedProfileAndRequiresLookupParameter() throws Exception {
+    @Test
+    void returnsLimitedProfileAndRequiresLookupParameter() throws Exception {
         UserLookupService lookup = mock(UserLookupService.class);
         UUID userId = UUID.randomUUID();
-        when(lookup.byPhone("0901234567")).thenReturn(new LookupResult(
-                new UserSummary(userId, "An", null), "NONE", null));
-        var mvc = MockMvcBuilders.standaloneSetup(new UserLookupController(lookup))
-                .setControllerAdvice(new GlobalExceptionHandler()).build();
+        when(lookup.byPhone("0901234567"))
+                .thenReturn(new LookupResult(new UserSummary(userId, "An", null), "NONE", null));
+        var mvc =
+                MockMvcBuilders.standaloneSetup(new UserLookupController(lookup))
+                        .setControllerAdvice(new GlobalExceptionHandler())
+                        .build();
 
         mvc.perform(get("/api/v1/users/lookup-by-phone").param("phone", "0901234567"))
                 .andExpect(status().isOk())

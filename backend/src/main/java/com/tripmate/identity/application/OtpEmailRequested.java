@@ -1,7 +1,7 @@
 package com.tripmate.identity.application;
 
-import java.util.UUID;
 import java.time.Instant;
+import java.util.UUID;
 
-public record OtpEmailRequested(UUID verificationId, String recipient, String otp, Instant expiresAt) {
-}
+public record OtpEmailRequested(
+        UUID verificationId, String recipient, String otp, Instant expiresAt) {}

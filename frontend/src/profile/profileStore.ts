@@ -15,17 +15,29 @@ export class ProfileStore {
   private state: ProfileState;
   private sequence = 0;
   private listeners = new Set<() => void>();
-  constructor(private api: ProfileApi, user: ProfileUser) {
-    this.state = { user, profile: null, isLoading: false, isSaving: false, errorMessage: null, avatarUri: null };
+  constructor(
+    private api: ProfileApi,
+    user: ProfileUser,
+  ) {
+    this.state = {
+      user,
+      profile: null,
+      isLoading: false,
+      isSaving: false,
+      errorMessage: null,
+      avatarUri: null,
+    };
   }
   getSnapshot = () => this.state;
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
-    return () => { this.listeners.delete(listener); };
+    return () => {
+      this.listeners.delete(listener);
+    };
   };
   private publish(update: Partial<ProfileState>) {
     this.state = { ...this.state, ...update };
-    this.listeners.forEach(listener => listener());
+    this.listeners.forEach((listener) => listener());
   }
   private async showAvatar(profile: Profile, sequence: number) {
     this.publish({ avatarUri: null });
@@ -33,7 +45,9 @@ export class ProfileStore {
     try {
       const uri = await this.api.image(profile.avatarMediaId);
       if (sequence === this.sequence) this.publish({ avatarUri: uri });
-    } catch { /* Avatar fallback remains visible; re-entering the profile retries the read. */ }
+    } catch {
+      /* Avatar fallback remains visible; re-entering the profile retries the read. */
+    }
   }
   load = async () => {
     if (this.state.isSaving) return;
@@ -46,7 +60,8 @@ export class ProfileStore {
         void this.showAvatar(profile, sequence);
       }
     } catch {
-      if (sequence === this.sequence) this.publish({ errorMessage: 'Chưa thể tải hồ sơ. Vui lòng thử lại.' });
+      if (sequence === this.sequence)
+        this.publish({ errorMessage: 'Chưa thể tải hồ sơ. Vui lòng thử lại.' });
     } finally {
       if (sequence === this.sequence) this.publish({ isLoading: false });
     }
@@ -54,13 +69,28 @@ export class ProfileStore {
   uploadAvatar = (file: AvatarDraft) => this.api.upload(file);
   loadInterestOptions = async () => {
     const [items, profile] = await Promise.all([this.api.interests(), this.api.get()]);
-    return { items, codes: profile.interestCodes };
+    return {
+      items,
+      codes: profile.interestCodes,
+      displayName: profile.displayName,
+      hasAvatar: !!profile.avatarMediaId,
+    };
   };
-  save = async (value: string, avatarMediaId?: string | null, interestCodes?: string[]): Promise<boolean> => {
+  save = async (
+    value: string,
+    avatarMediaId?: string | null,
+    interestCodes?: string[],
+  ): Promise<boolean> => {
     const name = value.trim();
     const error = displayNameError(name);
     if (error) throw new Error(error);
-    if (this.state.isSaving || (name === this.state.user.displayName && avatarMediaId === undefined && interestCodes === undefined)) return false;
+    if (
+      this.state.isSaving ||
+      (name === this.state.user.displayName &&
+        avatarMediaId === undefined &&
+        interestCodes === undefined)
+    )
+      return false;
     ++this.sequence; // Invalidate every GET begun before this write, even if the write fails.
     this.publish({ isSaving: true, isLoading: false, errorMessage: null });
     try {
@@ -68,6 +98,8 @@ export class ProfileStore {
       this.publish({ profile, user: profile });
       void this.showAvatar(profile, this.sequence);
       return true;
-    } finally { this.publish({ isSaving: false }); }
+    } finally {
+      this.publish({ isSaving: false });
+    }
   };
 }

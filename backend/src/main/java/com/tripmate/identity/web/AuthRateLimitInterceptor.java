@@ -2,9 +2,12 @@ package com.tripmate.identity.web;
 
 import com.tripmate.shared.security.AuthenticatedActor;
 import com.tripmate.shared.web.RateLimitExceededException;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -34,53 +37,82 @@ public class AuthRateLimitInterceptor implements HandlerInterceptor {
     }
 
     @Override
-    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+    public boolean preHandle(
+            HttpServletRequest request, HttpServletResponse response, Object handler) {
         String category = category(request.getMethod(), request.getRequestURI());
         if (category == null) {
             return true;
         }
         int limit = "otp".equals(category) ? otpLimit : generalLimit;
-        Object principal = SecurityContextHolder.getContext().getAuthentication() == null ? null
-                : SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        String subject = ("lookup".equals(category) || "friend-request".equals(category))
-                && principal instanceof AuthenticatedActor actor
-                ? actor.userId().toString() : request.getRemoteAddr();
+        Object principal =
+                SecurityContextHolder.getContext().getAuthentication() == null
+                        ? null
+                        : SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        String subject =
+                ("lookup".equals(category) || "friend-request".equals(category))
+                                && principal instanceof AuthenticatedActor actor
+                        ? actor.userId().toString()
+                        : request.getRemoteAddr();
         String key = category + '|' + subject;
-        Bucket bucket = buckets.computeIfAbsent(key, ignored -> new Bucket());
         long now = System.nanoTime();
-        synchronized (bucket) {
-            if (bucket.windowStartedNanos == 0 || now - bucket.windowStartedNanos >= window.toNanos()) {
-                bucket.windowStartedNanos = now;
-                bucket.count = 0;
-            }
-            if (bucket.count >= limit) {
-                long elapsed = now - bucket.windowStartedNanos;
-                long remainingNanos = Math.max(1, window.toNanos() - elapsed);
-                long retryAfter = Math.max(1, (remainingNanos + 999_999_999L) / 1_000_000_000L);
-                throw new RateLimitExceededException(retryAfter);
-            }
-            bucket.count++;
-        }
+        buckets.compute(
+                key,
+                (ignored, existing) -> {
+                    Bucket bucket = existing == null ? new Bucket() : existing;
+                    if (bucket.windowStartedNanos == 0
+                            || now - bucket.windowStartedNanos >= window.toNanos()) {
+                        bucket.windowStartedNanos = now;
+                        bucket.count = 0;
+                    }
+                    if (bucket.count >= limit) {
+                        long elapsed = now - bucket.windowStartedNanos;
+                        long remainingNanos = Math.max(1, window.toNanos() - elapsed);
+                        long retryAfter =
+                                Math.max(1, (remainingNanos + 999_999_999L) / 1_000_000_000L);
+                        throw new RateLimitExceededException(retryAfter);
+                    }
+                    bucket.count++;
+                    return bucket;
+                });
         return true;
+    }
+
+    @Scheduled(fixedDelay = 60000)
+    public void cleanupExpiredBuckets() {
+        long now = System.nanoTime();
+        buckets.forEach(
+                (key, ignored) ->
+                        buckets.computeIfPresent(
+                                key,
+                                (id, bucket) ->
+                                        now - bucket.windowStartedNanos >= window.toNanos()
+                                                ? null
+                                                : bucket));
     }
 
     private String category(String method, String uri) {
         if ("GET".equalsIgnoreCase(method)
-                && (uri.equals("/api/v1/users/lookup") || uri.equals("/api/v1/users/lookup-by-phone"))) {
+                && (uri.equals("/api/v1/users/lookup")
+                        || uri.equals("/api/v1/users/lookup-by-phone"))) {
             return "lookup";
         }
-        if ("POST".equalsIgnoreCase(method) && uri.equals("/api/v1/friend-requests")) return "friend-request";
+        if ("POST".equalsIgnoreCase(method) && uri.equals("/api/v1/friend-requests"))
+            return "friend-request";
         if (!"POST".equalsIgnoreCase(method)) return null;
         if (!uri.startsWith("/api/v1/auth/")) {
             return null;
         }
-        if (uri.endsWith("/register/verify") || uri.endsWith("/register/resend")
+        if (uri.endsWith("/register/verify")
+                || uri.endsWith("/register/resend")
                 || uri.endsWith("/password-reset/confirm")) {
             return "otp";
         }
-        if (uri.endsWith("/register") || uri.endsWith("/login")
-                || uri.endsWith("/password-reset/request") || uri.endsWith("/change-password")
-                || uri.endsWith("/google") || uri.endsWith("/refresh")) {
+        if (uri.endsWith("/register")
+                || uri.endsWith("/login")
+                || uri.endsWith("/password-reset/request")
+                || uri.endsWith("/change-password")
+                || uri.endsWith("/google")
+                || uri.endsWith("/refresh")) {
             return "general";
         }
         return null;

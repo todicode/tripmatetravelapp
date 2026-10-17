@@ -13,7 +13,6 @@ import com.tripmate.identity.infrastructure.RefreshTokenRepository;
 import com.tripmate.identity.infrastructure.UserRepository;
 import com.tripmate.identity.security.AuthenticatedUser;
 import com.tripmate.identity.security.JwtTokenService;
-import com.tripmate.identity.web.AuthRequests.GoogleAuthRequest;
 import com.tripmate.identity.web.AuthRequests.ChangePasswordRequest;
 import com.tripmate.identity.web.AuthRequests.LoginRequest;
 import com.tripmate.identity.web.AuthRequests.RefreshRequest;
@@ -24,7 +23,7 @@ import com.tripmate.identity.web.AuthResponses.ProfileResponse;
 import com.tripmate.identity.web.AuthResponses.RegistrationChallengeResponse;
 import com.tripmate.identity.web.AuthResponses.SessionResponse;
 import com.tripmate.shared.web.ApiException;
-import com.tripmate.shared.web.ErrorDetailResponse;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
@@ -57,24 +56,25 @@ public class IdentityService {
     private final AuthIdentityRepository authIdentityRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
-    private final GoogleIdentityVerifier googleIdentityVerifier;
     private final ApplicationEventPublisher eventPublisher;
     private final Duration verificationTtl;
     private final Duration resendCooldown;
     private final Duration refreshTokenTtl;
     private final int maxOtpAttempts;
 
-    public IdentityService(UserRepository userRepository, DeviceRepository deviceRepository,
-                           RefreshTokenRepository refreshTokenRepository,
-                           PendingRegistrationRepository pendingRegistrationRepository,
-                           AuthIdentityRepository authIdentityRepository,
-                           PasswordEncoder passwordEncoder, JwtTokenService jwtTokenService,
-                           GoogleIdentityVerifier googleIdentityVerifier,
-                           ApplicationEventPublisher eventPublisher,
-                           @Value("${tripmate.email.verification-ttl}") Duration verificationTtl,
-                           @Value("${tripmate.email.resend-cooldown}") Duration resendCooldown,
-                           @Value("${tripmate.security.refresh-token-ttl}") Duration refreshTokenTtl,
-                           @Value("${tripmate.email.max-attempts}") int maxOtpAttempts) {
+    public IdentityService(
+            UserRepository userRepository,
+            DeviceRepository deviceRepository,
+            RefreshTokenRepository refreshTokenRepository,
+            PendingRegistrationRepository pendingRegistrationRepository,
+            AuthIdentityRepository authIdentityRepository,
+            PasswordEncoder passwordEncoder,
+            JwtTokenService jwtTokenService,
+            ApplicationEventPublisher eventPublisher,
+            @Value("${tripmate.email.verification-ttl}") Duration verificationTtl,
+            @Value("${tripmate.email.resend-cooldown}") Duration resendCooldown,
+            @Value("${tripmate.security.refresh-token-ttl}") Duration refreshTokenTtl,
+            @Value("${tripmate.email.max-attempts}") int maxOtpAttempts) {
         this.userRepository = userRepository;
         this.deviceRepository = deviceRepository;
         this.refreshTokenRepository = refreshTokenRepository;
@@ -82,7 +82,6 @@ public class IdentityService {
         this.authIdentityRepository = authIdentityRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenService = jwtTokenService;
-        this.googleIdentityVerifier = googleIdentityVerifier;
         this.eventPublisher = eventPublisher;
         this.verificationTtl = verificationTtl;
         this.resendCooldown = resendCooldown;
@@ -96,16 +95,16 @@ public class IdentityService {
         String email = normalizeEmail(request.email());
         String phoneKey = PhoneNumber.key(request.phone());
         if (userRepository.existsByEmail(email)) {
-            throw new ApiException(HttpStatus.CONFLICT, "EMAIL_ALREADY_REGISTERED",
-                    "Email này đã được đăng ký.");
+            throw new ApiException(
+                    HttpStatus.CONFLICT, "EMAIL_ALREADY_REGISTERED", "Email này đã được đăng ký.");
         }
         if (userRepository.existsByPhoneLookup(phoneKey)) {
             throw phoneAlreadyRegistered();
         }
 
         Instant now = Instant.now();
-        PendingRegistrationEntity existing = pendingRegistrationRepository
-                .findByEmailAndUsedAtIsNull(email).orElse(null);
+        PendingRegistrationEntity existing =
+                pendingRegistrationRepository.findByEmailAndUsedAtIsNull(email).orElse(null);
         if (existing != null) {
             pendingRegistrationRepository.delete(existing);
             pendingRegistrationRepository.flush();
@@ -113,50 +112,77 @@ public class IdentityService {
 
         String otp = generateOtp();
         Instant expiresAt = now.plus(verificationTtl);
-        PendingRegistrationEntity pending = new PendingRegistrationEntity(
-                UUID.randomUUID(), email, passwordEncoder.encode(request.password()),
-                request.displayName().trim(), request.phone().trim(), request.installationId(),
-                hash(otp), expiresAt, now.plus(resendCooldown));
+        PendingRegistrationEntity pending =
+                new PendingRegistrationEntity(
+                        UUID.randomUUID(),
+                        email,
+                        passwordEncoder.encode(request.password()),
+                        request.displayName().trim(),
+                        request.phone().trim(),
+                        request.installationId(),
+                        hash(otp),
+                        expiresAt,
+                        now.plus(resendCooldown));
         pendingRegistrationRepository.save(pending);
         eventPublisher.publishEvent(new OtpEmailRequested(pending.getId(), email, otp, expiresAt));
-        return new RegistrationChallengeResponse(pending.getId(), expiresAt, pending.getResendAvailableAt());
+        return new RegistrationChallengeResponse(
+                pending.getId(), expiresAt, pending.getResendAvailableAt());
     }
 
     @Transactional(noRollbackFor = ApiException.class)
     public SessionResponse verifyRegistration(VerifyRegistrationRequest request) {
-        PendingRegistrationEntity pending = pendingRegistrationRepository.findByIdForUpdate(request.verificationId())
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "VERIFICATION_NOT_FOUND",
-                        "Không tìm thấy yêu cầu xác minh."));
+        PendingRegistrationEntity pending =
+                pendingRegistrationRepository
+                        .findByIdForUpdate(request.verificationId())
+                        .orElseThrow(
+                                () ->
+                                        new ApiException(
+                                                HttpStatus.NOT_FOUND,
+                                                "VERIFICATION_NOT_FOUND",
+                                                "Không tìm thấy yêu cầu xác minh."));
         Instant now = Instant.now();
         if (pending.getUsedAt() != null) {
-            throw new ApiException(HttpStatus.GONE, "VERIFICATION_ALREADY_USED",
+            throw new ApiException(
+                    HttpStatus.GONE,
+                    "VERIFICATION_ALREADY_USED",
                     "Mã xác minh này đã được sử dụng.");
         }
         if (pending.getOtpExpiresAt().isBefore(now)) {
             throw new ApiException(HttpStatus.GONE, "OTP_EXPIRED", "Mã OTP đã hết hạn.");
         }
         if (pending.getAttempts() >= maxOtpAttempts) {
-            throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "OTP_ATTEMPTS_EXCEEDED",
+            throw new ApiException(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "OTP_ATTEMPTS_EXCEEDED",
                     "Bạn đã nhập sai OTP quá số lần cho phép.");
         }
-        if (!MessageDigest.isEqual(hash(request.otp()).getBytes(StandardCharsets.UTF_8),
+        if (!MessageDigest.isEqual(
+                hash(request.otp()).getBytes(StandardCharsets.UTF_8),
                 pending.getOtpHash().getBytes(StandardCharsets.UTF_8))) {
             pending.incrementAttempts();
             pendingRegistrationRepository.save(pending);
-            throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "OTP_INVALID", "Mã OTP không đúng.");
+            throw new ApiException(
+                    HttpStatus.UNPROCESSABLE_ENTITY, "OTP_INVALID", "Mã OTP không đúng.");
         }
         if (userRepository.existsByEmail(pending.getEmail())) {
             pending.markUsed();
             pendingRegistrationRepository.save(pending);
-            throw new ApiException(HttpStatus.CONFLICT, "EMAIL_ALREADY_REGISTERED",
-                    "Email này đã được đăng ký.");
+            throw new ApiException(
+                    HttpStatus.CONFLICT, "EMAIL_ALREADY_REGISTERED", "Email này đã được đăng ký.");
         }
         if (userRepository.existsByPhoneLookup(PhoneNumber.key(pending.getPhone()))) {
             throw phoneAlreadyRegistered();
         }
 
-        UserEntity user = new UserEntity(UUID.randomUUID(), pending.getEmail(), pending.getPasswordHash(),
-                pending.getDisplayName(), pending.getPhone(), generateFriendCode(), now);
+        UserEntity user =
+                new UserEntity(
+                        UUID.randomUUID(),
+                        pending.getEmail(),
+                        pending.getPasswordHash(),
+                        pending.getDisplayName(),
+                        pending.getPhone(),
+                        generateFriendCode(),
+                        now);
         user = userRepository.save(user);
         pending.markUsed();
         pendingRegistrationRepository.save(pending);
@@ -166,41 +192,58 @@ public class IdentityService {
 
     @Transactional
     public RegistrationChallengeResponse resendOtp(ResendOtpRequest request) {
-        PendingRegistrationEntity pending = pendingRegistrationRepository.findByIdForUpdate(request.verificationId())
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "VERIFICATION_NOT_FOUND",
-                        "Không tìm thấy yêu cầu xác minh."));
+        PendingRegistrationEntity pending =
+                pendingRegistrationRepository
+                        .findByIdForUpdate(request.verificationId())
+                        .orElseThrow(
+                                () ->
+                                        new ApiException(
+                                                HttpStatus.NOT_FOUND,
+                                                "VERIFICATION_NOT_FOUND",
+                                                "Không tìm thấy yêu cầu xác minh."));
         if (pending.getUsedAt() != null) {
-            throw new ApiException(HttpStatus.GONE, "VERIFICATION_ALREADY_USED",
+            throw new ApiException(
+                    HttpStatus.GONE,
+                    "VERIFICATION_ALREADY_USED",
                     "Mã xác minh này đã được sử dụng.");
         }
         Instant now = Instant.now();
         if (pending.getResendAvailableAt().isAfter(now)) {
-            long retryAfter = Math.max(1, Duration.between(now, pending.getResendAvailableAt()).toSeconds());
-            throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "OTP_RESEND_TOO_SOON",
-                    "Bạn cần chờ trước khi gửi lại mã.", List.of(), Map.of("retryAfterSeconds", retryAfter));
+            long retryAfter =
+                    Math.max(1, Duration.between(now, pending.getResendAvailableAt()).toSeconds());
+            throw new ApiException(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "OTP_RESEND_TOO_SOON",
+                    "Bạn cần chờ trước khi gửi lại mã.",
+                    List.of(),
+                    Map.of("retryAfterSeconds", retryAfter));
         }
         String otp = generateOtp();
         Instant expiresAt = now.plus(verificationTtl);
         pending.rotateOtp(hash(otp), expiresAt, now.plus(resendCooldown));
         pendingRegistrationRepository.save(pending);
-        eventPublisher.publishEvent(new OtpEmailRequested(pending.getId(), pending.getEmail(), otp, expiresAt));
-        return new RegistrationChallengeResponse(pending.getId(), expiresAt, pending.getResendAvailableAt());
+        eventPublisher.publishEvent(
+                new OtpEmailRequested(pending.getId(), pending.getEmail(), otp, expiresAt));
+        return new RegistrationChallengeResponse(
+                pending.getId(), expiresAt, pending.getResendAvailableAt());
     }
 
     @Transactional
     public void cancelRegistration(UUID verificationId) {
-        pendingRegistrationRepository.findByIdForUpdate(verificationId)
+        pendingRegistrationRepository
+                .findByIdForUpdate(verificationId)
                 .filter(pending -> pending.getUsedAt() == null)
                 .ifPresent(pendingRegistrationRepository::delete);
     }
 
     @Transactional
     public SessionResponse login(LoginRequest request) {
-        if (request.password().getBytes(StandardCharsets.UTF_8).length > 72) throw invalidCredentials();
+        if (request.password().getBytes(StandardCharsets.UTF_8).length > 72)
+            throw invalidCredentials();
         String email = normalizeEmail(request.email());
-        UserEntity user = userRepository.findByEmail(email)
-                .orElseThrow(() -> invalidCredentials());
-        if (user.getStatus() != UserStatus.ACTIVE || user.getEmailVerifiedAt() == null
+        UserEntity user = userRepository.findByEmail(email).orElseThrow(() -> invalidCredentials());
+        if (user.getStatus() != UserStatus.ACTIVE
+                || user.getEmailVerifiedAt() == null
                 || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw invalidCredentials();
         }
@@ -209,57 +252,83 @@ public class IdentityService {
     }
 
     @Transactional
-    public SessionResponse authenticateWithGoogle(GoogleAuthRequest request) {
-        GoogleIdentityVerifier.GoogleProfile profile = googleIdentityVerifier.verify(request.idToken());
+    public SessionResponse completeGoogleLogin(
+            UUID installationId, GoogleIdentityVerifier.GoogleProfile profile) {
         String email = normalizeEmail(profile.email());
-        AuthIdentityEntity identity = authIdentityRepository
-                .findByProviderAndProviderSubject(GOOGLE_PROVIDER, profile.subject()).orElse(null);
+        AuthIdentityEntity identity =
+                authIdentityRepository
+                        .findByProviderAndProviderSubject(GOOGLE_PROVIDER, profile.subject())
+                        .orElse(null);
         UserEntity user;
         if (identity != null) {
             user = identity.getUser();
             if (user.getStatus() != UserStatus.ACTIVE) {
-                throw new ApiException(HttpStatus.FORBIDDEN, "ACCOUNT_DISABLED", "Tài khoản đã bị khóa.");
+                throw new ApiException(
+                        HttpStatus.FORBIDDEN, "ACCOUNT_DISABLED", "Tài khoản đã bị khóa.");
             }
         } else {
             user = userRepository.findByEmailForUpdate(email).orElse(null);
             if (user != null) {
                 if (user.getStatus() != UserStatus.ACTIVE) {
-                    throw new ApiException(HttpStatus.FORBIDDEN, "ACCOUNT_DISABLED", "Tài khoản đã bị khóa.");
+                    throw new ApiException(
+                            HttpStatus.FORBIDDEN, "ACCOUNT_DISABLED", "Tài khoản đã bị khóa.");
                 }
-                if (authIdentityRepository.existsByUserIdAndProvider(user.getId(), GOOGLE_PROVIDER)) {
-                    throw new ApiException(HttpStatus.CONFLICT, "GOOGLE_IDENTITY_CONFLICT",
+                if (authIdentityRepository.existsByUserIdAndProvider(
+                        user.getId(), GOOGLE_PROVIDER)) {
+                    throw new ApiException(
+                            HttpStatus.CONFLICT,
+                            "GOOGLE_IDENTITY_CONFLICT",
                             "Tài khoản này đã liên kết với một tài khoản Google khác.");
                 }
             } else {
                 String unusablePassword = passwordEncoder.encode(randomSecret());
-                user = new UserEntity(UUID.randomUUID(), email, unusablePassword, profile.displayName(),
-                        null, generateFriendCode(), Instant.now());
+                user =
+                        new UserEntity(
+                                UUID.randomUUID(),
+                                email,
+                                unusablePassword,
+                                profile.displayName(),
+                                null,
+                                generateFriendCode(),
+                                Instant.now());
                 user = userRepository.save(user);
             }
-            authIdentityRepository.save(new AuthIdentityEntity(UUID.randomUUID(), user, GOOGLE_PROVIDER,
-                    profile.subject(), email));
+            authIdentityRepository.save(
+                    new AuthIdentityEntity(
+                            UUID.randomUUID(), user, GOOGLE_PROVIDER, profile.subject(), email));
         }
-        DeviceEntity device = bindDevice(request.installationId(), user);
+        DeviceEntity device = bindDevice(installationId, user);
         return issueSession(user, device, null, null);
     }
 
     @Transactional(noRollbackFor = ApiException.class)
     public SessionResponse refresh(RefreshRequest request) {
         String tokenHash = hash(request.refreshToken());
-        RefreshTokenEntity current = refreshTokenRepository.findByTokenHashForUpdate(tokenHash)
-                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN",
-                        "Refresh token không hợp lệ."));
+        RefreshTokenEntity current =
+                refreshTokenRepository
+                        .findByTokenHashForUpdate(tokenHash)
+                        .orElseThrow(
+                                () ->
+                                        new ApiException(
+                                                HttpStatus.UNAUTHORIZED,
+                                                "INVALID_REFRESH_TOKEN",
+                                                "Refresh token không hợp lệ."));
         Instant now = Instant.now();
         if (current.getConsumedAt() != null) {
             revokeFamily(current.getFamilyId());
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "REFRESH_TOKEN_REUSE",
+            throw new ApiException(
+                    HttpStatus.UNAUTHORIZED,
+                    "REFRESH_TOKEN_REUSE",
                     "Refresh token đã được sử dụng lại; phiên đã bị thu hồi.");
         }
-        if (current.getRevokedAt() != null || current.getExpiresAt().isBefore(now)
+        if (current.getRevokedAt() != null
+                || current.getExpiresAt().isBefore(now)
                 || current.getDevice().getUser() == null
                 || !current.getDevice().getUser().getId().equals(current.getUser().getId())
                 || current.getUser().getStatus() != UserStatus.ACTIVE) {
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN",
+            throw new ApiException(
+                    HttpStatus.UNAUTHORIZED,
+                    "INVALID_REFRESH_TOKEN",
                     "Refresh token không còn hợp lệ.");
         }
         current.consume();
@@ -270,12 +339,22 @@ public class IdentityService {
     @Transactional
     public void logout() {
         AuthenticatedUser authenticatedUser = authenticatedUser();
-        DeviceEntity device = deviceRepository.findByIdForUpdate(authenticatedUser.deviceId())
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "DEVICE_NOT_FOUND", "Không tìm thấy thiết bị."));
-        if (device.getUser() == null || !device.getUser().getId().equals(authenticatedUser.userId())) {
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Phiên đăng nhập không hợp lệ.");
+        DeviceEntity device =
+                deviceRepository
+                        .findByIdForUpdate(authenticatedUser.deviceId())
+                        .orElseThrow(
+                                () ->
+                                        new ApiException(
+                                                HttpStatus.NOT_FOUND,
+                                                "DEVICE_NOT_FOUND",
+                                                "Không tìm thấy thiết bị."));
+        if (device.getUser() == null
+                || !device.getUser().getId().equals(authenticatedUser.userId())) {
+            throw new ApiException(
+                    HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Phiên đăng nhập không hợp lệ.");
         }
-        refreshTokenRepository.findActiveByUserAndDevice(authenticatedUser.userId(), authenticatedUser.deviceId())
+        refreshTokenRepository
+                .findActiveByUserAndDevice(authenticatedUser.userId(), authenticatedUser.deviceId())
                 .forEach(RefreshTokenEntity::revoke);
         device.unbind();
         deviceRepository.save(device);
@@ -284,8 +363,15 @@ public class IdentityService {
     @Transactional(readOnly = true)
     public ProfileResponse getCurrentProfile() {
         AuthenticatedUser authenticatedUser = authenticatedUser();
-        UserEntity user = userRepository.findById(authenticatedUser.userId())
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "Không tìm thấy tài khoản."));
+        UserEntity user =
+                userRepository
+                        .findById(authenticatedUser.userId())
+                        .orElseThrow(
+                                () ->
+                                        new ApiException(
+                                                HttpStatus.NOT_FOUND,
+                                                "USER_NOT_FOUND",
+                                                "Không tìm thấy tài khoản."));
         return toProfile(user);
     }
 
@@ -293,27 +379,50 @@ public class IdentityService {
     public void changePassword(ChangePasswordRequest request) {
         AuthenticatedUser principal = authenticatedUser();
         PasswordPolicy.validate(request.newPassword());
-        UserEntity user = userRepository.findByIdForUpdate(principal.userId())
-                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Cần đăng nhập lại."));
+        UserEntity user =
+                userRepository
+                        .findByIdForUpdate(principal.userId())
+                        .orElseThrow(
+                                () ->
+                                        new ApiException(
+                                                HttpStatus.UNAUTHORIZED,
+                                                "UNAUTHORIZED",
+                                                "Cần đăng nhập lại."));
         if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "ACCOUNT_DISABLED", "Tài khoản đã bị khóa.");
+            throw new ApiException(
+                    HttpStatus.FORBIDDEN, "ACCOUNT_DISABLED", "Tài khoản đã bị khóa.");
         }
         List<DeviceEntity> devices = deviceRepository.findByUserIdForUpdate(user.getId());
-        boolean validSession = devices.stream().anyMatch(device -> device.getId().equals(principal.deviceId())
-                && device.getBindingVersion() == principal.bindingVersion());
+        boolean validSession =
+                devices.stream()
+                        .anyMatch(
+                                device ->
+                                        device.getId().equals(principal.deviceId())
+                                                && device.getBindingVersion()
+                                                        == principal.bindingVersion());
         if (!validSession) {
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Phiên đăng nhập không còn hợp lệ.");
+            throw new ApiException(
+                    HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Phiên đăng nhập không còn hợp lệ.");
         }
         if (request.currentPassword().getBytes(StandardCharsets.UTF_8).length > 72
                 || !passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
             if (authIdentityRepository.existsByUserIdAndProvider(user.getId(), GOOGLE_PROVIDER)) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "PASSWORD_CHANGE_UNAVAILABLE",
-                        "Nếu chỉ đăng nhập bằng Google, hãy đổi mật khẩu trong tài khoản Google. Nếu đã đặt mật khẩu TripMate, hãy nhập đúng mật khẩu hiện tại.");
+                throw new ApiException(
+                        HttpStatus.BAD_REQUEST,
+                        "PASSWORD_CHANGE_UNAVAILABLE",
+                        "Nếu chỉ đăng nhập bằng Google, hãy đổi mật khẩu trong tài khoản Google."
+                            + " Nếu đã đặt mật khẩu TripMate, hãy nhập đúng mật khẩu hiện tại.");
             }
-            throw new ApiException(HttpStatus.BAD_REQUEST, "CURRENT_PASSWORD_INCORRECT", "Mật khẩu hiện tại không đúng.");
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "CURRENT_PASSWORD_INCORRECT",
+                    "Mật khẩu hiện tại không đúng.");
         }
         if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "PASSWORD_UNCHANGED", "Mật khẩu mới phải khác mật khẩu hiện tại.");
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "PASSWORD_UNCHANGED",
+                    "Mật khẩu mới phải khác mật khẩu hiện tại.");
         }
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user);
@@ -321,7 +430,8 @@ public class IdentityService {
             device.unbind();
             deviceRepository.save(device);
         }
-        for (RefreshTokenEntity token : refreshTokenRepository.findUnrevokedByUserIdForUpdate(user.getId())) {
+        for (RefreshTokenEntity token :
+                refreshTokenRepository.findUnrevokedByUserIdForUpdate(user.getId())) {
             token.revoke();
             refreshTokenRepository.save(token);
         }
@@ -332,21 +442,35 @@ public class IdentityService {
         pendingRegistrationRepository.deleteByOtpExpiresAtBefore(Instant.now());
     }
 
-    private SessionResponse issueSession(UserEntity user, DeviceEntity device, UUID familyId,
-                                         RefreshTokenEntity parentToken) {
+    private SessionResponse issueSession(
+            UserEntity user, DeviceEntity device, UUID familyId, RefreshTokenEntity parentToken) {
         String rawRefreshToken = randomSecret();
         UUID actualFamilyId = familyId == null ? UUID.randomUUID() : familyId;
-        RefreshTokenEntity refreshToken = new RefreshTokenEntity(UUID.randomUUID(), user, device,
-                actualFamilyId, parentToken, hash(rawRefreshToken), Instant.now().plus(refreshTokenTtl));
+        RefreshTokenEntity refreshToken =
+                new RefreshTokenEntity(
+                        UUID.randomUUID(),
+                        user,
+                        device,
+                        actualFamilyId,
+                        parentToken,
+                        hash(rawRefreshToken),
+                        Instant.now().plus(refreshTokenTtl));
         refreshTokenRepository.save(refreshToken);
-        return new SessionResponse(jwtTokenService.issue(user, device), "Bearer",
-                jwtTokenService.accessTokenTtlSeconds(), rawRefreshToken, refreshToken.getExpiresAt(),
-                device.getId(), toProfile(user));
+        return new SessionResponse(
+                jwtTokenService.issue(user, device),
+                "Bearer",
+                jwtTokenService.accessTokenTtlSeconds(),
+                rawRefreshToken,
+                refreshToken.getExpiresAt(),
+                device.getId(),
+                toProfile(user));
     }
 
     private DeviceEntity bindDevice(UUID installationId, UserEntity user) {
-        DeviceEntity device = deviceRepository.findByInstallationId(installationId)
-                .orElseGet(() -> new DeviceEntity(UUID.randomUUID(), installationId));
+        DeviceEntity device =
+                deviceRepository
+                        .findByInstallationId(installationId)
+                        .orElseGet(() -> new DeviceEntity(UUID.randomUUID(), installationId));
         device.bind(user);
         return deviceRepository.save(device);
     }
@@ -356,13 +480,14 @@ public class IdentityService {
     }
 
     private ProfileResponse toProfile(UserEntity user) {
-        return new ProfileResponse(user.getId(), user.getDisplayName(), user.getAvatarMediaId(),
-                user.getEmail(), user.getPhone(), user.getInterestCodes(), user.getCreatedAt(), user.getUpdatedAt());
+        return ProfileMapper.toProfile(user);
     }
 
     private AuthenticatedUser authenticatedUser() {
-        Object principal = SecurityContextHolder.getContext().getAuthentication() == null
-                ? null : SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Object principal =
+                SecurityContextHolder.getContext().getAuthentication() == null
+                        ? null
+                        : SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         if (!(principal instanceof AuthenticatedUser user)) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Cần đăng nhập.");
         }
@@ -370,12 +495,14 @@ public class IdentityService {
     }
 
     private ApiException invalidCredentials() {
-        return new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS",
-                "Email hoặc mật khẩu không đúng.");
+        return new ApiException(
+                HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", "Email hoặc mật khẩu không đúng.");
     }
 
     private ApiException phoneAlreadyRegistered() {
-        return new ApiException(HttpStatus.CONFLICT, "PHONE_ALREADY_REGISTERED",
+        return new ApiException(
+                HttpStatus.CONFLICT,
+                "PHONE_ALREADY_REGISTERED",
                 "Số điện thoại này đã được sử dụng bởi tài khoản khác.");
     }
 
@@ -398,7 +525,9 @@ public class IdentityService {
                 return code.toString();
             }
         }
-        throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "FRIEND_CODE_UNAVAILABLE",
+        throw new ApiException(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "FRIEND_CODE_UNAVAILABLE",
                 "Không thể tạo mã người dùng lúc này.");
     }
 
@@ -410,8 +539,9 @@ public class IdentityService {
 
     private String hash(String value) {
         try {
-            byte[] digest = MessageDigest.getInstance("SHA-256")
-                    .digest(value.getBytes(StandardCharsets.UTF_8));
+            byte[] digest =
+                    MessageDigest.getInstance("SHA-256")
+                            .digest(value.getBytes(StandardCharsets.UTF_8));
             StringBuilder result = new StringBuilder(64);
             for (byte item : digest) {
                 result.append(String.format("%02x", item));

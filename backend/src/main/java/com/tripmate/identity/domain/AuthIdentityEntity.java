@@ -16,8 +16,7 @@ import java.util.UUID;
 @Table(name = "auth_identities")
 public class AuthIdentityEntity {
 
-    @Id
-    private UUID id;
+    @Id private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
@@ -35,11 +34,14 @@ public class AuthIdentityEntity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    protected AuthIdentityEntity() {
-    }
+    protected AuthIdentityEntity() {}
 
-    public AuthIdentityEntity(UUID id, UserEntity user, String provider, String providerSubject,
-                              String providerEmail) {
+    public AuthIdentityEntity(
+            UUID id,
+            UserEntity user,
+            String provider,
+            String providerSubject,
+            String providerEmail) {
         this.id = id;
         this.user = user;
         this.provider = provider;

@@ -1,13 +1,13 @@
 package com.tripmate.identity.domain;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 
 class DeviceEntityTest {
 
@@ -40,6 +40,7 @@ class DeviceEntityTest {
     }
 
     private static UserEntity user(String email) {
-        return new UserEntity(UUID.randomUUID(), email, "hash", "Name", "+84901234567", "TM-TEST", Instant.now());
+        return new UserEntity(
+                UUID.randomUUID(), email, "hash", "Name", "+84901234567", "TM-TEST", Instant.now());
     }
 }

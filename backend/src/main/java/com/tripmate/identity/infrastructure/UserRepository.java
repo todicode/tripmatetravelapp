@@ -1,7 +1,9 @@
 package com.tripmate.identity.infrastructure;
 
 import com.tripmate.identity.domain.UserEntity;
+
 import jakarta.persistence.LockModeType;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -11,6 +13,20 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface UserRepository extends JpaRepository<UserEntity, UUID> {
+    @Query(
+            "select u.id as id, u.displayName as displayName, u.avatarMediaId as avatarMediaId,"
+                    + " u.status as status from UserEntity u where u.id in :ids")
+    java.util.List<PublicProfile> findSummaries(@Param("ids") java.util.Collection<UUID> ids);
+
+    interface PublicProfile {
+        UUID getId();
+
+        String getDisplayName();
+
+        UUID getAvatarMediaId();
+
+        com.tripmate.identity.domain.UserStatus getStatus();
+    }
 
     Optional<UserEntity> findByEmail(String email);
 

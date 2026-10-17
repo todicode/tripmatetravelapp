@@ -1,9 +1,9 @@
 package com.tripmate.identity.application;
 
 import com.tripmate.identity.infrastructure.EmailSender;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -24,7 +24,10 @@ public class OtpEmailListener {
         try {
             emailSender.sendVerificationCode(event.recipient(), event.otp(), event.expiresAt());
         } catch (RuntimeException exception) {
-            log.error("Could not send verification email for challenge {}", event.verificationId(), exception);
+            log.error(
+                    "Could not send verification email for challenge {}",
+                    event.verificationId(),
+                    exception);
         }
     }
 
@@ -33,7 +36,10 @@ public class OtpEmailListener {
         try {
             emailSender.sendPasswordResetCode(event.recipient(), event.otp(), event.expiresAt());
         } catch (RuntimeException exception) {
-            log.error("Could not send password reset email for challenge {}", event.resetId(), exception);
+            log.error(
+                    "Could not send password reset email for challenge {}",
+                    event.resetId(),
+                    exception);
         }
     }
 }

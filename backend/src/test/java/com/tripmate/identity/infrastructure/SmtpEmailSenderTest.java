@@ -1,20 +1,21 @@
 package com.tripmate.identity.infrastructure;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import jakarta.mail.Multipart;
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.mail.javamail.JavaMailSender;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Properties;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 class SmtpEmailSenderTest {
 
@@ -25,7 +26,8 @@ class SmtpEmailSenderTest {
         when(mailSender.createMimeMessage()).thenReturn(message);
 
         new SmtpEmailSender(mailSender, "tripmate.opt@gmail.com", Duration.ofMinutes(3))
-                .sendVerificationCode("recipient@example.test", "123456", Instant.now().plusSeconds(180));
+                .sendVerificationCode(
+                        "recipient@example.test", "123456", Instant.now().plusSeconds(180));
 
         verify(mailSender).send(message);
         assertEquals("TripMate | Mã xác minh đăng ký", message.getSubject());
@@ -44,7 +46,8 @@ class SmtpEmailSenderTest {
         when(mailSender.createMimeMessage()).thenReturn(message);
 
         new SmtpEmailSender(mailSender, "tripmate.opt@gmail.com", Duration.ofMinutes(3))
-                .sendPasswordResetCode("recipient@example.test", "654321", Instant.now().plusSeconds(180));
+                .sendPasswordResetCode(
+                        "recipient@example.test", "654321", Instant.now().plusSeconds(180));
 
         verify(mailSender).send(message);
         assertEquals("TripMate | Mã đặt lại mật khẩu", message.getSubject());

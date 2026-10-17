@@ -14,8 +14,7 @@ import java.util.UUID;
 @Table(name = "pending_registrations")
 public class PendingRegistrationEntity {
 
-    @Id
-    private UUID id;
+    @Id private UUID id;
 
     @Column(nullable = false, length = 254)
     private String email;
@@ -53,12 +52,18 @@ public class PendingRegistrationEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    protected PendingRegistrationEntity() {
-    }
+    protected PendingRegistrationEntity() {}
 
-    public PendingRegistrationEntity(UUID id, String email, String passwordHash, String displayName,
-                                     String phone, UUID installationId, String otpHash,
-                                     Instant otpExpiresAt, Instant resendAvailableAt) {
+    public PendingRegistrationEntity(
+            UUID id,
+            String email,
+            String passwordHash,
+            String displayName,
+            String phone,
+            UUID installationId,
+            String otpHash,
+            Instant otpExpiresAt,
+            Instant resendAvailableAt) {
         this.id = id;
         this.email = email;
         this.passwordHash = passwordHash;

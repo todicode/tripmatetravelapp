@@ -2,6 +2,7 @@ package com.tripmate.identity.security;
 
 import com.tripmate.identity.api.AccessTokenVerifier;
 import com.tripmate.shared.web.RequestIdFilter;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -22,29 +23,47 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    BearerTokenFilter bearerTokenFilter(AccessTokenVerifier tokens, SecurityErrorHandler errorHandler) {
+    BearerTokenFilter bearerTokenFilter(
+            AccessTokenVerifier tokens, SecurityErrorHandler errorHandler) {
         return new BearerTokenFilter(tokens, errorHandler);
     }
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, BearerTokenFilter bearerTokenFilter,
-                                            SecurityErrorHandler errorHandler) throws Exception {
-        http
-                .csrf(csrf -> csrf.disable())
+    SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            BearerTokenFilter bearerTokenFilter,
+            SecurityErrorHandler errorHandler)
+            throws Exception {
+        http.csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.disable())
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/register", "/api/v1/auth/register/verify",
-                                "/api/v1/auth/register/resend", "/api/v1/auth/register/cancel",
-                                "/api/v1/auth/login", "/api/v1/auth/google",
-                                "/api/v1/auth/password-reset/request", "/api/v1/auth/password-reset/confirm",
-                                "/api/v1/auth/refresh", "/api/v1/health", "/actuator/health").permitAll()
-                        .requestMatchers("/ws").permitAll()
-                        .requestMatchers("/api/v1/auth/logout").authenticated()
-                        .anyRequest().authenticated())
-                .exceptionHandling(exceptions -> exceptions
-                        .authenticationEntryPoint(errorHandler)
-                        .accessDeniedHandler(errorHandler))
+                .sessionManagement(
+                        session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(
+                        auth ->
+                                auth.requestMatchers(
+                                                "/api/v1/auth/register",
+                                                "/api/v1/auth/register/verify",
+                                                "/api/v1/auth/register/resend",
+                                                "/api/v1/auth/register/cancel",
+                                                "/api/v1/auth/login",
+                                                "/api/v1/auth/google",
+                                                "/api/v1/auth/password-reset/request",
+                                                "/api/v1/auth/password-reset/confirm",
+                                                "/api/v1/auth/refresh",
+                                                "/api/v1/health",
+                                                "/actuator/health")
+                                        .permitAll()
+                                        .requestMatchers("/ws")
+                                        .permitAll()
+                                        .requestMatchers("/api/v1/auth/logout")
+                                        .authenticated()
+                                        .anyRequest()
+                                        .authenticated())
+                .exceptionHandling(
+                        exceptions ->
+                                exceptions
+                                        .authenticationEntryPoint(errorHandler)
+                                        .accessDeniedHandler(errorHandler))
                 .addFilterBefore(new RequestIdFilter(), UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(bearerTokenFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
