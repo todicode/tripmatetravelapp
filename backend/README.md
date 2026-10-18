@@ -28,8 +28,21 @@ MAIL_FROM=your-gmail-address@gmail.com
 These settings take precedence over `personal/gmail-smtp.env`. Use `EMAIL_MODE=log`
 for development OTPs in the terminal. SMTP mode requires all five `MAIL_*` fields;
 incomplete configuration stops startup. Restart the backend after changes.
-The helper also reads `SERVER_PORT` and `DATABASE_PASSWORD` from this file.
-It passes `DATABASE_PASSWORD` to the local PostgreSQL Compose service.
+The helper also reads `SERVER_PORT`, `DATABASE_URL`, `DATABASE_USERNAME` and
+`DATABASE_PASSWORD` from this file. It does not start a local database.
+
+## Database (shared Supabase)
+
+The team shares one Supabase PostgreSQL database. Flyway creates and upgrades the schema
+when the backend starts; never edit an applied migration, add a new `V<n>` instead.
+Use the **Session pooler** (port 5432) from the dashboard's Connect panel, not the
+transaction pooler (port 6543), which Flyway and JDBC prepared statements do not support.
+
+```dotenv
+DATABASE_URL=jdbc:postgresql://<pooler-host>:5432/postgres?sslmode=require
+DATABASE_USERNAME=postgres.<project-ref>
+DATABASE_PASSWORD=<database password, share privately>
+```
 
 ## Stack
 
