@@ -47,7 +47,7 @@ Tab **Nhóm** và mục **Tạo nhóm** dùng `/api/v1/group-conversations` trê
 
 Chạy `npm run typecheck`, `npm run test:groups` và `npm run test:messages` để kiểm tra. Test thủ công bằng hai tài khoản đã kết bạn: tạo nhóm trên máy A, mở tab Nhóm trên máy B, gửi qua lại, thử thêm/xóa thành viên và chuyển trưởng nhóm. Backend phải chạy phiên bản có migration V8/V9. Không cần cài dependency mới cho tính năng này.
 
-## UI được port từ template_gui
+## UI được port từ template_gui (đã xóa khỏi repo)
 
 - Màn hình sau đăng nhập dùng component React Native và các hook ViewModel; giữ nguyên luồng auth và cấu trúc API hiện có.
 - Khám phá có tìm kiếm địa điểm, danh sách lưu theo tài khoản trên thiết bị và định vị khi người dùng cấp quyền. “Gần bạn” sắp xếp các địa điểm đã lưu theo khoảng cách.

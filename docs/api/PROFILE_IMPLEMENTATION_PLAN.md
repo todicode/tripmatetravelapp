@@ -28,7 +28,7 @@ Mốc auth đã hoàn tất và push trong session trước: `4167defa44f1b58220
 | --- | --- |
 | `frontend/src/ProfileScreen.tsx` | Hiển thị `user.displayName` từ session; mở màn chỉnh sửa |
 | `frontend/src/EditProfileScreen.tsx` | Có layout; input tên/email chưa cho sửa; nút lưu và avatar báo chưa hỗ trợ |
-| `template_gui/src/screens/EditProfileScreen.jsx` | Giao diện tham khảo; không sao chép hành vi chỉ lưu local hoặc cho sửa email |
+| `template_gui/src/screens/EditProfileScreen.jsx` (đã xóa khỏi repo) | Giao diện tham khảo; không sao chép hành vi chỉ lưu local hoặc cho sửa email |
 | `frontend/App.tsx`, `frontend/src/ExploreHome.tsx` | Truyền user từ session xuống các màn hình |
 | `frontend/src/auth/api.ts` | Transport hiện suy ra GET/POST theo body; cần hỗ trợ PATCH rõ ràng |
 | `frontend/src/auth/session.ts` | Quản lý session, refresh single-flight, chống response cũ sau logout/đổi tài khoản |

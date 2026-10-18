@@ -1,5 +1,7 @@
 # Đối chiếu giao diện React Native với template_gui
 
+> `template_gui` đã được xóa khỏi repo; tài liệu này giữ lại như ghi chép lịch sử.
+
 Nguồn chuẩn: `template_gui/README.md`, `DESIGN.md`, `src/index.css`, toàn bộ `src/screens` và `src/components`. Không chỉnh sửa template trong đợt đối chiếu này. Chưa commit.
 
 ## Màn hình
