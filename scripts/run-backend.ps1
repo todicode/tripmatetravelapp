@@ -69,12 +69,23 @@ if (-not (Test-Path -LiteralPath $mavenWrapper)) {
 }
 
 $dbPassword = Read-EnvValue $backendEnvFile 'DATABASE_PASSWORD'
-$googleWebClientId = Read-EnvValue $frontendEnvFile 'EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID'
+$googleWebClientId = ''
+if (Test-Path -LiteralPath $backendEnvFile) {
+    $googleWebClientIdLine = Get-Content -LiteralPath $backendEnvFile |
+        Where-Object { $_ -match '^\s*GOOGLE_WEB_CLIENT_ID\s*=' } |
+        Select-Object -First 1
+    if ($googleWebClientIdLine) {
+        $googleWebClientId = ($googleWebClientIdLine -split '=', 2)[1].Trim().Trim('"').Trim("'")
+    }
+}
+if (-not $googleWebClientId) {
+    $googleWebClientId = Read-EnvValue $frontendEnvFile 'EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID'
+}
 
 $env:JAVA_HOME = $javaHome
 $env:Path = "$javaHome\bin;$env:Path"
-$env:DATABASE_URL = 'jdbc:postgresql://127.0.0.1:55432/tripmate_auth'
-$env:DATABASE_USERNAME = 'tripmate'
+$env:DATABASE_URL = Read-EnvValue $backendEnvFile 'DATABASE_URL'
+$env:DATABASE_USERNAME = Read-EnvValue $backendEnvFile 'DATABASE_USERNAME'
 $env:DATABASE_PASSWORD = $dbPassword
 $env:GOOGLE_WEB_CLIENT_ID = $googleWebClientId
 $localEmailSettings = @{}
@@ -129,15 +140,7 @@ if (Test-Path -LiteralPath $backendEnvFile) {
         }
     }
 }
-Write-Host 'Starting local PostgreSQL...' -ForegroundColor Cyan
-& docker compose `
-    --env-file $backendEnvFile `
-    -f (Join-Path $repoRoot 'backend/database/compose.auth.yml') `
-    up -d --wait
-
-if ($LASTEXITCODE -ne 0) {
-    throw "Docker Compose failed with exit code $LASTEXITCODE"
-}
+Write-Host "Using database from backend/.env: $env:DATABASE_URL" -ForegroundColor Cyan
 
 if (-not $MavenArguments -or $MavenArguments.Count -eq 0) {
     $MavenArguments = @('clean', 'spring-boot:run')
